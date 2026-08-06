@@ -3,6 +3,18 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     passWithNoTests: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html'],
+      include: ['shared/src/**/*.ts', 'backend/src/**/*.ts', 'frontend/src/**/*.{ts,tsx}'],
+      exclude: [
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/*.itest.ts',
+        'backend/src/cli/**',
+        'backend/src/testing/**',
+      ],
+    },
     projects: [
       {
         test: {
@@ -28,6 +40,7 @@ export default defineConfig({
           root: './backend',
           environment: 'node',
           include: ['src/**/*.itest.ts'],
+          setupFiles: ['./src/testing/int-setup.ts'],
           passWithNoTests: true,
           testTimeout: 60_000,
           hookTimeout: 120_000,

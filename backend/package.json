@@ -9,7 +9,7 @@
     "dev:api": "echo \"[PENDIENTE F4-T1] esqueleto del API Express 5\"",
     "dev:worker": "echo \"[PENDIENTE F4-T6] worker de backtests\"",
     "dev:ingestor": "echo \"[PENDIENTE F2-T6] proceso ingestor\"",
-    "db:migrate": "echo \"[PENDIENTE F1-T3] runner de migraciones\"",
+    "db:migrate": "tsx --env-file-if-exists=../.env src/cli/migrate.ts",
     "db:seed": "echo \"[PENDIENTE F1-T3] fixtures sinteticos de desarrollo\"",
     "backfill": "echo \"[PENDIENTE F1-T8] CLI de backfill historico\"",
     "verify": "echo \"[PENDIENTE F1-T9] CLI de integridad de velas\"",
@@ -21,9 +21,11 @@
   },
   "dependencies": {
     "@tt/shared": "*",
+    "pg": "^8.22.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.4",
     "tsx": "^4.20.6"
   }
 }
