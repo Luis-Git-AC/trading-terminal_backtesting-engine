@@ -1,17 +1,8 @@
 import { z } from 'zod';
 
-/**
- * Esquema y parser del entorno. Modulo PURO: importarlo no valida nada ni toca `process.env`.
- * El objeto del proceso vive en `./env.ts`, que si valida al cargarse.
- *
- * Fuente de verdad del cuadro de variables: docs/06-DEPLOY.md §Variables de entorno.
- * `.env.example` en la raiz debe listar exactamente estas claves; `env.test.ts` lo comprueba.
- */
-
 const TIMEFRAMES = ['1m', '15m', '1h'] as const;
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
 
-/** Lista separada por comas -> array sin vacios ni espacios sobrantes. */
 function splitCsv(raw: string): string[] {
   return raw
     .split(',')
@@ -31,17 +22,14 @@ const timeframesSchema = z
   .pipe(z.array(z.enum(TIMEFRAMES)).min(1))
   .prefault('1m,15m,1h');
 
-/** Entero acotado, tolerante a que todo llegue como string desde el entorno. */
 const intIn = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
 export const envSchema = z.object({
-  // --- Proceso ---
   NODE_ENV: z.enum(['development', 'test', 'production']).prefault('development'),
   START_MODE: z.enum(['api', 'worker', 'ingestor']).prefault('api'),
   PORT: intIn(1, 65535).prefault('4000'),
   LOG_LEVEL: z.enum(LOG_LEVELS).prefault('info'),
 
-  // --- Datos ---
   DATABASE_URL: z
     .string()
     .min(1)
@@ -52,24 +40,19 @@ export const envSchema = z.object({
     .min(1)
     .regex(/^rediss?:\/\//, 'debe ser una URL redis:// o rediss://'),
 
-  // --- API ---
   WEB_ORIGIN: z.url().prefault('http://localhost:5173'),
 
-  // --- Exchange ---
   EXCHANGE: z.literal('bitget').prefault('bitget'),
   EXCHANGE_REST_URL: z.url().prefault('https://api.bitget.com'),
   EXCHANGE_WS_URL: z.url().prefault('wss://ws.bitget.com/v2/ws/public'),
 
-  // --- Series a ingerir ---
   SYMBOLS: symbolsSchema,
   TIMEFRAMES: timeframesSchema,
 
-  // --- Backfill ---
   BACKFILL_FROM: z.iso.datetime().prefault('2026-01-01T00:00:00Z'),
   BACKFILL_PAGE_LIMIT: intIn(1, 1000).prefault('1000'),
   BACKFILL_RPS: z.coerce.number().positive().max(100).prefault('5'),
 
-  // --- Ingesta en vivo ---
   WS_RECONNECT_BASE_MS: intIn(100, 60_000).prefault('1000'),
   WS_RECONNECT_MAX_MS: intIn(1_000, 600_000).prefault('30000'),
   WS_STALE_TIMEOUT_MS: intIn(1_000, 600_000).prefault('45000'),
@@ -78,26 +61,21 @@ export const envSchema = z.object({
     .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
     .prefault('*/15 * * * *'),
 
-  // --- Motor y worker ---
   BACKTEST_CONCURRENCY: intIn(1, 32).prefault('2'),
   BACKTEST_MAX_BARS: intIn(1_000, 10_000_000).prefault('500000'),
   ENGINE_CHUNK_BARS: intIn(1_000, 1_000_000).prefault('50000'),
   EQUITY_MAX_POINTS: intIn(100, 100_000).prefault('5000'),
 
-  // --- Solo desarrollo ---
   INGEST_IN_WORKER: z.stringbool().prefault('false'),
 });
 
 export type Env = Readonly<z.infer<typeof envSchema>>;
 
-/** Claves que el esquema conoce. La usa el test que la compara con `.env.example`. */
 export const ENV_KEYS: readonly string[] = Object.freeze(Object.keys(envSchema.shape));
 
 export class EnvValidationError extends Error {
   override readonly name = 'EnvValidationError';
-  /** Variables requeridas que no estaban presentes. */
   readonly missing: readonly string[];
-  /** Variables presentes con un valor que el esquema rechaza. */
   readonly invalid: readonly string[];
 
   constructor(message: string, missing: readonly string[], invalid: readonly string[]) {
@@ -142,11 +120,6 @@ function buildError(issues: readonly z.core.$ZodIssue[], source: EnvSource): Env
   return new EnvValidationError(parts.join('\n'), missing, invalid);
 }
 
-/**
- * Valida una fuente de entorno y devuelve la configuracion congelada.
- *
- * @throws {EnvValidationError} con el listado exacto de lo que falta o esta mal.
- */
 export function parseEnv(source: EnvSource = process.env): Env {
   const result = envSchema.safeParse(source);
   if (!result.success) {

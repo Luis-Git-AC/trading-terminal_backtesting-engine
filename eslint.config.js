@@ -19,7 +19,6 @@ export default tseslint.config(
 
   js.configs.recommended,
 
-  // --- TypeScript con reglas type-aware ---
   ...tseslint.configs.recommendedTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
   {
@@ -32,7 +31,6 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
     rules: {
-      // CLAUDE.md 6: sin `any`. Si algo es desconocido -> `unknown` + Zod.
       '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/no-unsafe-assignment': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
@@ -40,12 +38,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-member-access': 'error',
       '@typescript-eslint/no-unsafe-return': 'error',
 
-      // Promesas: un await olvidado en ingesta o worker es un bug silencioso.
       '@typescript-eslint/no-floating-promises': 'error',
       '@typescript-eslint/no-misused-promises': 'error',
       '@typescript-eslint/require-await': 'error',
 
-      // verbatimModuleSyntax exige que los imports de tipo esten marcados.
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
@@ -56,7 +52,6 @@ export default tseslint.config(
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
       ],
 
-      // `as const` si; `as` para silenciar al compilador no.
       '@typescript-eslint/consistent-type-assertions': [
         'error',
         { assertionStyle: 'as', objectLiteralTypeAssertions: 'never' },
@@ -67,7 +62,6 @@ export default tseslint.config(
     },
   },
 
-  // --- Backend: logging estructurado, nunca console ---
   {
     files: ['backend/src/**/*.ts'],
     rules: {
@@ -75,7 +69,6 @@ export default tseslint.config(
     },
   },
 
-  // --- CLI del backend: la salida por stdout es el producto ---
   {
     files: ['backend/src/cli/**/*.ts'],
     rules: {
@@ -83,7 +76,6 @@ export default tseslint.config(
     },
   },
 
-  // --- Tests: algo mas de holgura, pero nada de .only ---
   {
     files: ['**/*.test.ts', '**/*.test.tsx', '**/*.itest.ts', 'e2e/**/*.spec.ts'],
     rules: {
@@ -92,7 +84,6 @@ export default tseslint.config(
     },
   },
 
-  // --- Frontend: entorno navegador ---
   {
     files: ['frontend/src/**/*.{ts,tsx}'],
     languageOptions: {
@@ -100,7 +91,6 @@ export default tseslint.config(
     },
   },
 
-  // --- Ficheros JS de configuracion: sin type-aware ---
   {
     files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     ...tseslint.configs.disableTypeChecked,

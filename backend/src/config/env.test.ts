@@ -7,12 +7,10 @@ import { ENV_KEYS, EnvValidationError, parseEnv, type EnvSource } from './env.sc
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_EXAMPLE_PATH = resolve(HERE, '../../../.env.example');
 
-/** Lo minimo que hay que dar: las variables sin default. */
 const DATABASE_URL = 'postgres://tt:tt@localhost:5432/trading_terminal';
 const REDIS_URL = 'redis://localhost:6379';
 const REQUIRED = { DATABASE_URL, REDIS_URL } as const;
 
-/** `.env.example` -> pares clave/valor, ignorando comentarios y lineas vacias. */
 function readEnvExample(): { keys: string[]; values: Record<string, string> } {
   const raw = readFileSync(ENV_EXAMPLE_PATH, 'utf8');
   const keys: string[] = [];
@@ -31,7 +29,6 @@ function readEnvExample(): { keys: string[]; values: Record<string, string> } {
   return { keys, values };
 }
 
-/** Captura el error esperado y falla el test si no se lanza ninguno. */
 function catchEnvError(source: EnvSource): EnvValidationError {
   try {
     parseEnv(source);
@@ -44,7 +41,6 @@ function catchEnvError(source: EnvSource): EnvValidationError {
 
 describe('.env.example sincronizado con el esquema', () => {
   const { keys, values } = readEnvExample();
-  // Las VITE_* las consume Vite en el frontend, no el esquema del backend (docs/06-DEPLOY.md).
   const backendKeys = keys.filter((key) => !key.startsWith('VITE_'));
 
   it('no declara la misma clave dos veces', () => {

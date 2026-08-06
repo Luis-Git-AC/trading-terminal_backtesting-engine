@@ -1,18 +1,7 @@
 import { defineConfig } from 'vitest/config';
 
-/**
- * Piramide de tests segun docs/05-TESTING.md.
- *
- *   shared / backend / frontend  -> unitarios   (*.test.ts, *.test.tsx)
- *   backend:int                  -> integracion (*.itest.ts, necesita Docker: Postgres + Redis)
- *
- * `npm run test` ejecuta todos los proyectos (unit + int).
- * `npm run test:unit` omite integracion. `npm run test:engine` filtra por ruta del motor.
- */
 export default defineConfig({
   test: {
-    // Necesario a nivel raiz ademas de por proyecto: si un filtro (`test:engine`) o un proyecto
-    // aun sin ficheros (`backend:int`) deja la ejecucion entera a cero, Vitest saldria con codigo 1.
     passWithNoTests: true,
     projects: [
       {
@@ -42,7 +31,6 @@ export default defineConfig({
           passWithNoTests: true,
           testTimeout: 60_000,
           hookTimeout: 120_000,
-          // La integracion toca una BD real: sin paralelismo entre ficheros.
           fileParallelism: false,
         },
       },
