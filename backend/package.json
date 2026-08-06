@@ -1,0 +1,29 @@
+{
+  "name": "@tt/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "API, worker de backtests e ingestor de mercado",
+  "main": "./dist/main.js",
+  "scripts": {
+    "dev:api": "echo \"[PENDIENTE F4-T1] esqueleto del API Express 5\"",
+    "dev:worker": "echo \"[PENDIENTE F4-T6] worker de backtests\"",
+    "dev:ingestor": "echo \"[PENDIENTE F2-T6] proceso ingestor\"",
+    "db:migrate": "echo \"[PENDIENTE F1-T3] runner de migraciones\"",
+    "db:seed": "echo \"[PENDIENTE F1-T3] fixtures sinteticos de desarrollo\"",
+    "backfill": "echo \"[PENDIENTE F1-T8] CLI de backfill historico\"",
+    "verify": "echo \"[PENDIENTE F1-T9] CLI de integridad de velas\"",
+    "build": "echo \"[PENDIENTE F6-T5] build de produccion (requiere decidir el empaquetado de @tt/shared)\"",
+    "typecheck": "tsc --noEmit",
+    "test": "cd .. && vitest run --project backend --project backend:int",
+    "test:unit": "cd .. && vitest run --project backend",
+    "test:int": "cd .. && vitest run --project backend:int"
+  },
+  "dependencies": {
+    "@tt/shared": "*",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
+  }
+}

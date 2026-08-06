@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+pgdata/
+redisdata/
+package-lock.json
+Documentacion/
+.claude/

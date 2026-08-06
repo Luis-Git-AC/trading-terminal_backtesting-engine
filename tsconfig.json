@@ -1,0 +1,11 @@
+{
+  "//": "Solo para las herramientas de la raiz (vitest.config.ts). El codigo vive en los workspaces.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["node"]
+  },
+  "include": ["vitest.config.ts"]
+}

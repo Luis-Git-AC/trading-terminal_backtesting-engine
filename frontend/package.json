@@ -1,0 +1,19 @@
+{
+  "name": "@tt/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SPA de la terminal (React 19 + Vite)",
+  "scripts": {
+    "dev": "echo \"[PENDIENTE F5-T1] base de la app React + Vite\"",
+    "build": "echo \"[PENDIENTE F5-T1] build de Vite\"",
+    "typecheck": "tsc --noEmit",
+    "test": "cd .. && vitest run --project frontend"
+  },
+  "dependencies": {
+    "@tt/shared": "*"
+  },
+  "devDependencies": {
+    "jsdom": "^27.0.0"
+  }
+}

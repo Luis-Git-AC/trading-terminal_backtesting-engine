@@ -1,0 +1,32 @@
+# dependencias
+node_modules/
+
+# builds
+dist/
+build/
+.vite/
+
+# entorno
+.env
+.env.local
+.env.*.local
+
+# tests y cobertura
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# datos locales
+pgdata/
+redisdata/
+
+# logs
+*.log
+npm-debug.log*
+
+# sistema / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.tsbuildinfo

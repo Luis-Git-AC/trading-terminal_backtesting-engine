@@ -1,0 +1,44 @@
+name: trading-terminal
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: tt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tt
+      POSTGRES_PASSWORD: tt
+      POSTGRES_DB: trading_terminal
+      # Timescale precarga su libreria compartida; sin esto CREATE EXTENSION falla.
+      TIMESCALEDB_TELEMETRY: 'off'
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tt -d trading_terminal']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tt-redis
+    restart: unless-stopped
+    # BullMQ exige noeviction: si Redis desaloja claves, se pierden jobs en cola.
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  pgdata:
+  redisdata:

@@ -1,0 +1,53 @@
+{
+  "name": "trading-terminal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Terminal de analisis y motor de backtesting para futuros perpetuos (read-only / paper trading)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "run-p dev:api dev:worker dev:web",
+    "dev:api": "npm run dev:api -w backend",
+    "dev:worker": "npm run dev:worker -w backend",
+    "dev:web": "npm run dev -w frontend",
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d --wait",
+    "db:migrate": "npm run db:migrate -w backend",
+    "db:seed": "npm run db:seed -w backend",
+    "backfill": "npm run backfill -w backend",
+    "verify": "npm run verify -w backend",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project shared --project backend --project frontend",
+    "test:int": "vitest run --project backend:int",
+    "test:engine": "vitest run --project backend src/engine",
+    "test:e2e": "echo \"[PENDIENTE F6-T2] suite Playwright\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@types/node": "^22.18.0",
+    "eslint": "^9.39.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^16.5.0",
+    "npm-run-all2": "^8.0.4",
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^3.2.4"
+  }
+}
