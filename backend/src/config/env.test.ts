@@ -97,7 +97,7 @@ describe('parseEnv: defaults', () => {
     expect(env.SYMBOLS).toEqual(['BTCUSDT']);
     expect(env.TIMEFRAMES).toEqual(['1m', '15m', '1h']);
     expect(env.BACKFILL_FROM).toBe('2026-01-01T00:00:00Z');
-    expect(env.BACKFILL_PAGE_LIMIT).toBe(1000);
+    expect(env.BACKFILL_PAGE_LIMIT).toBe(200);
     expect(env.BACKFILL_RPS).toBe(5);
     expect(env.WS_RECONNECT_BASE_MS).toBe(1000);
     expect(env.WS_RECONNECT_MAX_MS).toBe(30_000);
@@ -158,6 +158,13 @@ describe('parseEnv: coercion y rechazo de valores', () => {
     expect(
       catchEnvError({ ...REQUIRED, BACKFILL_FROM: '2026-01-01 00:00:00' }).invalid.join(),
     ).toContain('BACKFILL_FROM');
+  });
+
+  it('rechaza un BACKFILL_PAGE_LIMIT por encima del maximo real de Bitget', () => {
+    expect(parseEnv({ ...REQUIRED, BACKFILL_PAGE_LIMIT: '200' }).BACKFILL_PAGE_LIMIT).toBe(200);
+    expect(catchEnvError({ ...REQUIRED, BACKFILL_PAGE_LIMIT: '1000' }).invalid.join()).toContain(
+      'BACKFILL_PAGE_LIMIT',
+    );
   });
 
   it('rechaza un cron que no tiene cinco campos', () => {

@@ -50,7 +50,7 @@ export const envSchema = z.object({
   TIMEFRAMES: timeframesSchema,
 
   BACKFILL_FROM: z.iso.datetime().prefault('2026-01-01T00:00:00Z'),
-  BACKFILL_PAGE_LIMIT: intIn(1, 1000).prefault('1000'),
+  BACKFILL_PAGE_LIMIT: intIn(1, 200).prefault('200'),
   BACKFILL_RPS: z.coerce.number().positive().max(100).prefault('5'),
 
   WS_RECONNECT_BASE_MS: intIn(100, 60_000).prefault('1000'),
