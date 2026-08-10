@@ -22,7 +22,7 @@ export interface Queryable {
 }
 
 export interface SeriesRef {
-  exchange?: string;
+  exchange?: string | undefined;
   symbol: string;
   timeframe: Timeframe;
 }
