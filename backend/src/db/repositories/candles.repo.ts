@@ -55,11 +55,17 @@ export interface Gap {
   missing: number;
 }
 
+export interface DuplicateKey {
+  ts: number;
+  count: number;
+}
+
 export interface CandlesRepository {
   upsertCandles(input: UpsertCandlesInput): Promise<number>;
   getCandles(query: GetCandlesQuery): Promise<Candle[]>;
   getCoverage(series: SeriesRef): Promise<Coverage>;
   findGaps(query: FindGapsQuery): Promise<Gap[]>;
+  findDuplicates(query: FindGapsQuery): Promise<DuplicateKey[]>;
   getLastCandleTs(series: SeriesRef): Promise<number | null>;
 }
 
@@ -110,6 +116,15 @@ const GAPS_SQL = `
   ) series
   WHERE prev_ts IS NOT NULL AND ts - prev_ts > $4::interval
   ORDER BY gap_from ASC
+`;
+
+const DUPLICATES_SQL = `
+  SELECT ts, count(*)::text AS count
+  FROM candles
+  WHERE exchange = $1 AND symbol = $2 AND timeframe = $3 AND ts >= $4 AND ts < $5
+  GROUP BY ts
+  HAVING count(*) > 1
+  ORDER BY ts ASC
 `;
 
 const LAST_TS_SQL = `
@@ -216,6 +231,18 @@ export function createCandlesRepository(db: Queryable): CandlesRepository {
         const toTs = row.gap_to.getTime();
         return { fromTs, toTs, missing: expectedCandleCount(fromTs, toTs + step, query.timeframe) };
       });
+    },
+
+    async findDuplicates(query: FindGapsQuery): Promise<DuplicateKey[]> {
+      const { rows } = await db.query<{ ts: Date; count: string }>(DUPLICATES_SQL, [
+        exchangeOf(query),
+        query.symbol,
+        query.timeframe,
+        new Date(query.from),
+        new Date(query.to),
+      ]);
+
+      return rows.map((row) => ({ ts: row.ts.getTime(), count: Number(row.count) }));
     },
 
     async getLastCandleTs(series: SeriesRef): Promise<number | null> {

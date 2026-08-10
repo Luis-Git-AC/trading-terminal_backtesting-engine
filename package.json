@@ -24,7 +24,7 @@
     "db:migrate": "npm run db:migrate -w backend",
     "db:seed": "npm run db:seed -w backend",
     "backfill": "tsx --env-file-if-exists=.env backend/src/cli/backfill.ts",
-    "verify": "npm run verify -w backend",
+    "verify": "tsx --env-file-if-exists=.env backend/src/cli/verify.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
