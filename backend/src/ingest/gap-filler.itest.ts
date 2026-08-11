@@ -227,6 +227,26 @@ describe('fillGaps', () => {
       expect(open[0]).toMatchObject({ attempts: 1, lastError: '502 Bad Gateway', filledAt: null });
     });
 
+    it('un fallo que no es un Error se anota igual con su texto', async () => {
+      await deleteIndices([20, 21, 22]);
+      await scan();
+
+      const rude: CandleFeed = {
+        getHistoryCandles: (): Promise<Candle[]> =>
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+          Promise.reject('el proxy corto la conexion'),
+      };
+
+      const report = await fill(rude);
+
+      expect(report.results[0]).toMatchObject({
+        outcome: 'failed',
+        error: 'el proxy corto la conexion',
+      });
+      const open = await gaps.listOpen({ symbol: SYMBOL, timeframe: TIMEFRAME });
+      expect(open[0]?.lastError).toBe('el proxy corto la conexion');
+    });
+
     it('deja de reintentar al llegar a maxAttempts', async () => {
       await deleteIndices([20, 21, 22]);
       await scan();

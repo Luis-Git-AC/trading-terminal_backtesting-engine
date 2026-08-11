@@ -325,6 +325,96 @@ describe('createLiveIngestor', () => {
     expect(stored?.lastCandleTs).toBe(START);
   });
 
+  it('un publisher que revienta no impide persistir y sale como error de etapa publish', async () => {
+    const stream = createBitgetCandleStream({
+      url: exchange.url,
+      staleTimeoutMs: 0,
+      heartbeatIntervalMs: 0,
+      now: () => 0,
+    });
+
+    const created = createLiveIngestor({
+      stream,
+      candles,
+      state,
+      publisher: {
+        publishCandle: () => Promise.reject(new Error('redis caido')),
+        close: () => Promise.resolve(),
+      },
+      series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      flushIntervalMs: 50,
+      wsTouchIntervalMs: 60_000,
+    });
+    ingestor = created;
+
+    const errors: string[] = [];
+    created.on((event) => {
+      if (event.kind === 'error') errors.push(event.stage);
+    });
+    created.start();
+
+    await vi.waitFor(() => {
+      expect(exchange.subscriptions.length).toBeGreaterThan(0);
+    });
+
+    exchange.push(updateFrame(makeCandle(0)));
+    exchange.push(updateFrame(makeCandle(1)));
+
+    await vi.waitFor(
+      async () => {
+        expect(await storedTimestamps()).toEqual([START]);
+      },
+      { timeout: 10_000 },
+    );
+    expect(errors).toContain('publish');
+  });
+
+  it('un fallo al marcar last_ws_message_at no corta la ingesta', async () => {
+    const stream = createBitgetCandleStream({
+      url: exchange.url,
+      staleTimeoutMs: 0,
+      heartbeatIntervalMs: 0,
+      now: () => 0,
+    });
+
+    const brokenState = {
+      ...state,
+      touchWsMessage: () => Promise.reject(new Error('BD ocupada')),
+    };
+
+    const created = createLiveIngestor({
+      stream,
+      candles,
+      state: brokenState,
+      publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
+      series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      flushIntervalMs: 50,
+      wsTouchIntervalMs: 0,
+    });
+    ingestor = created;
+
+    const errors: string[] = [];
+    created.on((event) => {
+      if (event.kind === 'error') errors.push(event.stage);
+    });
+    created.start();
+
+    await vi.waitFor(() => {
+      expect(exchange.subscriptions.length).toBeGreaterThan(0);
+    });
+
+    exchange.push(updateFrame(makeCandle(0)));
+    exchange.push(updateFrame(makeCandle(1)));
+
+    await vi.waitFor(
+      async () => {
+        expect(await storedTimestamps()).toEqual([START]);
+      },
+      { timeout: 10_000 },
+    );
+    expect(errors).toContain('touch');
+  });
+
   it('un fallo de escritura devuelve las velas al buffer y se reintenta en el flush siguiente', async () => {
     const created = await launch(60_000);
     const errors: string[] = [];

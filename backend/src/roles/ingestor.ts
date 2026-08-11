@@ -6,6 +6,7 @@ import { createGapsRepository } from '../db/repositories/gaps.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import { createBitgetCandleStream, type BitgetCandleStream } from '../ingest/exchange/bitget/ws.js';
 import { fillGaps } from '../ingest/gap-filler.js';
+import { getIngestHealth, type IngestHealth } from '../ingest/health.js';
 import { scanGaps, DEFAULT_GAP_SCAN_WINDOW_MS } from '../ingest/gap-scanner.js';
 import { createLiveIngestor, type LiveIngestor } from '../ingest/live-ingestor.js';
 import { reconcileSeries } from '../ingest/reconcile.js';
@@ -14,6 +15,7 @@ import type { CandlePublisher } from '../queue/pubsub.js';
 import type { AppLogger } from '../observability/logger.js';
 
 export const DEFAULT_METRICS_INTERVAL_MS = 60_000;
+export const DEFAULT_RATE_WINDOW_MS = 5 * 60_000;
 export const DEFAULT_SHUTDOWN_TIMEOUT_MS = 15_000;
 export const DEFAULT_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
 
@@ -36,6 +38,8 @@ export interface IngestorOptions {
   reconcilePageLimit?: number | undefined;
   reconcileMaxPages?: number | undefined;
   metricsIntervalMs?: number;
+  rateWindowMs?: number;
+  wsMaxConsecutiveFailures?: number | undefined;
   shutdownTimeoutMs?: number;
   signals?: readonly NodeJS.Signals[];
   wsReconnectBaseMs?: number | undefined;
@@ -49,7 +53,10 @@ export interface IngestorMetrics {
   uptimeSec: number;
   socketState: string;
   reconnects: number;
+  consecutiveFailures: number;
+  degraded: boolean;
   openGaps: number;
+  rateWindowMin: number;
   series: { symbol: string; timeframe: Timeframe; candlesPerMin: number; lastCandleTs: number | null }[];
 }
 
@@ -57,6 +64,7 @@ export interface IngestorHandle {
   readonly stream: BitgetCandleStream;
   readonly ingestor: LiveIngestor;
   metrics(): Promise<IngestorMetrics>;
+  health(): Promise<IngestHealth>;
   runGapCycle(): Promise<void>;
   stop(reason: string): Promise<void>;
 }
@@ -64,7 +72,7 @@ export interface IngestorHandle {
 interface SeriesCounter {
   symbol: string;
   timeframe: Timeframe;
-  closed: number;
+  recent: { at: number; candles: number }[];
   lastCandleTs: number | null;
 }
 
@@ -82,6 +90,7 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     now = Date.now,
     metricsIntervalMs = DEFAULT_METRICS_INTERVAL_MS,
     shutdownTimeoutMs = DEFAULT_SHUTDOWN_TIMEOUT_MS,
+    rateWindowMs = DEFAULT_RATE_WINDOW_MS,
     gapScanWindowMs = DEFAULT_GAP_SCAN_WINDOW_MS,
     signals = DEFAULT_SIGNALS,
     exit = (code: number): void => {
@@ -105,7 +114,7 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     counters.set(keyOf(item.symbol, item.timeframe), {
       symbol: item.symbol,
       timeframe: item.timeframe,
-      closed: 0,
+      recent: [],
       lastCandleTs: null,
     });
     await state.ensure({
@@ -123,6 +132,9 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
       : { reconnectBaseMs: options.wsReconnectBaseMs }),
     ...(options.wsReconnectMaxMs === undefined ? {} : { reconnectMaxMs: options.wsReconnectMaxMs }),
     ...(options.wsStaleTimeoutMs === undefined ? {} : { staleTimeoutMs: options.wsStaleTimeoutMs }),
+    ...(options.wsMaxConsecutiveFailures === undefined
+      ? {}
+      : { maxConsecutiveFailures: options.wsMaxConsecutiveFailures }),
   });
 
   const ingestor = createLiveIngestor({
@@ -204,7 +216,7 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     if (event.kind === 'flushed') {
       const counter = counters.get(keyOf(event.symbol, event.timeframe));
       if (counter !== undefined) {
-        counter.closed += event.candles;
+        counter.recent.push({ at: now(), candles: event.candles });
         counter.lastCandleTs = event.lastTs;
       }
       logger.debug(
@@ -253,6 +265,17 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
       );
       return;
     }
+    if (event.kind === 'degraded') {
+      logger.error(
+        {
+          consecutiveFailures: event.consecutiveFailures,
+          delayMs: event.delayMs,
+          reason: event.reason,
+        },
+        'la ingesta lleva demasiados fallos seguidos: se sigue reintentando al backoff maximo',
+      );
+      return;
+    }
     if (event.kind === 'stale') {
       logger.warn({ idleMs: event.idleMs }, 'socket sin mensajes, se reinicia');
       return;
@@ -279,20 +302,41 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
       openGaps += open.length;
     }
 
-    const elapsedMin = Math.max(1, (now() - startedAt) / 60_000);
+    const at = now();
+    const since = at - rateWindowMs;
+    const windowMin = Math.min(rateWindowMs, Math.max(1, at - startedAt)) / 60_000;
 
     return {
-      uptimeSec: Math.round((now() - startedAt) / 1000),
+      uptimeSec: Math.round((at - startedAt) / 1000),
       socketState: stream.socket.state,
       reconnects,
+      consecutiveFailures: stream.socket.consecutiveFailures,
+      degraded: stream.socket.degraded,
       openGaps,
-      series: [...counters.values()].map((counter) => ({
-        symbol: counter.symbol,
-        timeframe: counter.timeframe,
-        candlesPerMin: Number((counter.closed / elapsedMin).toFixed(2)),
-        lastCandleTs: counter.lastCandleTs,
-      })),
+      rateWindowMin: Number((rateWindowMs / 60_000).toFixed(2)),
+      series: [...counters.values()].map((counter) => {
+        counter.recent = counter.recent.filter((entry) => entry.at > since);
+        const candles = counter.recent.reduce((total, entry) => total + entry.candles, 0);
+        return {
+          symbol: counter.symbol,
+          timeframe: counter.timeframe,
+          candlesPerMin: Number((candles / windowMin).toFixed(2)),
+          lastCandleTs: counter.lastCandleTs,
+        };
+      }),
     };
+  }
+
+  function health(): Promise<IngestHealth> {
+    return getIngestHealth({
+      pool,
+      series: [...series],
+      exchange: options.exchange,
+      socketState: stream.socket.state,
+      reconnects,
+      consecutiveFailures: stream.socket.consecutiveFailures,
+      now,
+    });
   }
 
   async function stop(reason: string): Promise<void> {
@@ -374,5 +418,5 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     'ingestor arrancado',
   );
 
-  return { stream, ingestor, metrics, runGapCycle, stop };
+  return { stream, ingestor, metrics, health, runGapCycle, stop };
 }

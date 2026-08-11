@@ -179,6 +179,23 @@ describe('reconcileSeries', () => {
       expect(await storedIndices()).toEqual([0]);
     });
 
+    it('un feed que no avanza el cursor corta el bucle en vez de girar sin fin', async () => {
+      await seed([0]);
+      let calls = 0;
+      const stubborn: CandleFeed = {
+        getHistoryCandles: async (): Promise<Candle[]> => {
+          calls += 1;
+          await Promise.resolve();
+          return [makeCandle(9)];
+        },
+      };
+
+      const report = await reconcile(stubborn, { to: START + 10 * STEP });
+
+      expect(report.stoppedBy).toBe('no-progress');
+      expect(calls).toBe(2);
+    });
+
     it('solo mira hacia delante desde la ultima vela: los huecos interiores son de F2-T5', async () => {
       await seed([0, 5, 9]);
       const feed = createFeed(Array.from({ length: 12 }, (_, index) => makeCandle(index)));

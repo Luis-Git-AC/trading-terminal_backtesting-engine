@@ -296,6 +296,94 @@ describe('startIngestor', () => {
     expect((await created.metrics()).reconnects).toBeGreaterThanOrEqual(1);
   });
 
+  it('expone la salud de la ingesta con el estado del socket y las series', async () => {
+    const created = await launch();
+
+    for (const candle of upstream.slice(0, 4)) {
+      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
+    }
+    await vi.waitFor(
+      async () => {
+        expect(await storedIndices()).toHaveLength(3);
+      },
+      { timeout: 10_000 },
+    );
+
+    const health = await created.health();
+
+    expect(health.socketState).toBe('open');
+    expect(health.consecutiveFailures).toBe(0);
+    expect(health.series[0]).toMatchObject({
+      symbol: SYMBOL,
+      timeframe: TIMEFRAME,
+      lastCandleTs: START + 2 * STEP,
+      stale: true,
+    });
+    expect(health.status).toBe('degraded');
+  });
+
+  it('la salud sale ok cuando la ultima vela es reciente', async () => {
+    const clock = START + 3 * STEP;
+    const created = await launch({ now: () => clock });
+
+    for (const candle of upstream.slice(0, 4)) {
+      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
+    }
+    await vi.waitFor(
+      async () => {
+        expect(await storedIndices()).toHaveLength(3);
+      },
+      { timeout: 10_000 },
+    );
+
+    const health = await created.health();
+
+    expect(health.series[0]?.stale).toBe(false);
+    expect(health.status).toBe('ok');
+    expect(health.openGaps).toBe(0);
+  });
+
+  it('tras demasiados fallos seguidos del socket lo registra a nivel error', async () => {
+    await exchange.stop();
+
+    const created = await startIngestor({
+      pool: await createScratchPool(),
+      feed: createFeed(),
+      publisher,
+      logger: logs.logger,
+      series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      backfillFrom: START,
+      wsUrl: 'ws://127.0.0.1:1',
+      wsReconnectBaseMs: 100,
+      wsReconnectMaxMs: 120,
+      wsMaxConsecutiveFailures: 2,
+      metricsIntervalMs: 0,
+      signals: [],
+      exit: () => undefined,
+    });
+    handle = created;
+
+    await vi.waitFor(
+      () => {
+        const degraded = logs
+          .records()
+          .filter(
+            (record) =>
+              record.msg ===
+              'la ingesta lleva demasiados fallos seguidos: se sigue reintentando al backoff maximo',
+          );
+        expect(degraded.length).toBeGreaterThan(0);
+        expect(degraded[0]?.level).toBe('error');
+      },
+      { timeout: 15_000 },
+    );
+
+    expect(created.stream.socket.degraded).toBe(true);
+    expect((await created.metrics()).degraded).toBe(true);
+
+    exchange = await startFakeBitgetWs();
+  });
+
   describe('degradacion de Redis', () => {
     it('un fallo de Redis no tira el proceso: sigue persistiendo, deja de publicar y se recupera', async () => {
       await launch();

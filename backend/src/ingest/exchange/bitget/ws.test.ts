@@ -411,6 +411,43 @@ describe('protocolo WS de Bitget', () => {
       expect(h.stream.socket.state).toBe('open');
     });
 
+    it('un evento de control desconocido se publica como problema de protocolo', () => {
+      const h = connected();
+      h.push(JSON.stringify({ event: 'login', arg: { instType: 'x', channel: 'y', instId: 'z' } }));
+
+      expect(h.events.filter((event) => event.kind === 'protocol')).toEqual([
+        { kind: 'protocol', detail: 'evento de control no manejado: login' },
+      ]);
+    });
+
+    it('una confirmacion de suscripcion sin canal de velas conocido no se toma por serie', () => {
+      const h = connected();
+      h.push(JSON.stringify({ event: 'subscribe' }));
+      h.push(
+        JSON.stringify({
+          event: 'subscribe',
+          arg: { instType: 'USDT-FUTURES', channel: 'ticker', instId: 'BTCUSDT' },
+        }),
+      );
+
+      expect(h.events.filter((event) => event.kind === 'subscribed')).toEqual([]);
+      expect(h.events.filter((event) => event.kind === 'protocol')).toHaveLength(2);
+    });
+
+    it('un rechazo sin code ni mensaje se publica igual, con valores por defecto', () => {
+      const h = connected();
+      h.push(JSON.stringify({ event: 'error' }));
+
+      expect(h.events.filter((event) => event.kind === 'rejected')).toEqual([
+        {
+          kind: 'rejected',
+          arg: undefined,
+          code: 'desconocido',
+          message: 'Bitget rechazo la operacion sin mensaje',
+        },
+      ]);
+    });
+
     it('el pong no llega a los oyentes del stream', () => {
       const h = connected();
       const before = h.events.length;

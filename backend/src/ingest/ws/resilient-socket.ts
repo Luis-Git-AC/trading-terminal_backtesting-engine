@@ -11,6 +11,7 @@ export const DEFAULT_STABLE_RESET_MS = 60_000;
 export const DEFAULT_CLOSE_GRACE_MS = 1000;
 export const DEFAULT_HEARTBEAT_MESSAGE = 'ping';
 export const DEFAULT_HEARTBEAT_RESPONSE = 'pong';
+export const DEFAULT_MAX_CONSECUTIVE_FAILURES = 10;
 
 export interface SocketHandlers {
   open(): void;
@@ -33,6 +34,7 @@ export type ResilientSocketEvent =
   | { kind: 'state'; from: SocketState; to: SocketState }
   | { kind: 'message'; data: string }
   | { kind: 'reconnect'; attempt: number; delayMs: number; reason: string }
+  | { kind: 'degraded'; consecutiveFailures: number; delayMs: number; reason: string }
   | { kind: 'stale'; idleMs: number }
   | { kind: 'error'; error: Error };
 
@@ -46,6 +48,7 @@ export interface ResilientSocketOptions {
   heartbeatIntervalMs?: number;
   stableResetMs?: number;
   closeGraceMs?: number;
+  maxConsecutiveFailures?: number;
   heartbeatMessage?: string;
   heartbeatResponse?: string;
   createSocket?: SocketFactory;
@@ -56,6 +59,8 @@ export interface ResilientSocket {
   readonly url: string;
   readonly state: SocketState;
   readonly reconnectAttempts: number;
+  readonly consecutiveFailures: number;
+  readonly degraded: boolean;
   readonly subscriptionIds: readonly string[];
   on(listener: ResilientSocketListener): () => void;
   connect(): void;
@@ -152,6 +157,10 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
   );
   const stableResetMs = positiveMs('stableResetMs', options.stableResetMs ?? DEFAULT_STABLE_RESET_MS);
   const closeGraceMs = positiveMs('closeGraceMs', options.closeGraceMs ?? DEFAULT_CLOSE_GRACE_MS);
+  const maxConsecutiveFailures = positiveMs(
+    'maxConsecutiveFailures',
+    options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES,
+  );
   const heartbeatMessage = options.heartbeatMessage ?? DEFAULT_HEARTBEAT_MESSAGE;
   const heartbeatResponse = options.heartbeatResponse ?? DEFAULT_HEARTBEAT_RESPONSE;
   const createSocket = options.createSocket ?? createWebSocketFactory();
@@ -219,10 +228,17 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
 
   function scheduleReconnect(reason: string): void {
     attempts += 1;
-    const ceiling = Math.min(reconnectMaxMs, reconnectBaseMs * 2 ** (attempts - 1));
-    const delayMs = Math.round(random() * ceiling);
+
+    const degraded = attempts >= maxConsecutiveFailures;
+    const ceiling = degraded
+      ? reconnectMaxMs
+      : Math.min(reconnectMaxMs, reconnectBaseMs * 2 ** (attempts - 1));
+    const delayMs = degraded ? reconnectMaxMs : Math.round(random() * ceiling);
 
     emit({ kind: 'reconnect', attempt: attempts, delayMs, reason });
+    if (degraded) {
+      emit({ kind: 'degraded', consecutiveFailures: attempts, delayMs, reason });
+    }
 
     reconnectTimer = setTimeout(() => {
       reconnectTimer = undefined;
@@ -329,6 +345,14 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
 
     get reconnectAttempts() {
       return attempts;
+    },
+
+    get consecutiveFailures() {
+      return attempts;
+    },
+
+    get degraded() {
+      return attempts >= maxConsecutiveFailures;
     },
 
     get subscriptionIds() {

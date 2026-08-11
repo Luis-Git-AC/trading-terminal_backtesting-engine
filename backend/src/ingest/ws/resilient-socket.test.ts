@@ -325,6 +325,98 @@ describe('createResilientSocket', () => {
       await socket.close();
     });
 
+    it('tras N fallos seguidos avisa de degradacion y se queda en el backoff maximo', async () => {
+      const fakes = createFakeFactory();
+      const events: ResilientSocketEvent[] = [];
+      const socket = createResilientSocket({
+        url: 'ws://local.test',
+        reconnectBaseMs: 1000,
+        reconnectMaxMs: 30_000,
+        maxConsecutiveFailures: 4,
+        staleTimeoutMs: 0,
+        heartbeatIntervalMs: 0,
+        random: () => 0.5,
+        createSocket: fakes.factory,
+      });
+      socket.on((event) => events.push(event));
+
+      socket.connect();
+      for (let cycle = 0; cycle < 6; cycle += 1) {
+        fakes.last().emitClose();
+        await vi.advanceTimersByTimeAsync(30_000);
+      }
+
+      const delays = kinds(events, 'reconnect').map((event) =>
+        event.kind === 'reconnect' ? event.delayMs : -1,
+      );
+      expect(delays).toEqual([500, 1000, 2000, 30_000, 30_000, 30_000]);
+
+      const degraded = kinds(events, 'degraded').map((event) =>
+        event.kind === 'degraded' ? event.consecutiveFailures : -1,
+      );
+      expect(degraded).toEqual([4, 5, 6]);
+      expect(socket.degraded).toBe(true);
+      expect(socket.consecutiveFailures).toBe(6);
+
+      await socket.close();
+    });
+
+    it('no abandona nunca: sigue reintentando despues de degradarse', async () => {
+      const fakes = createFakeFactory();
+      const socket = createResilientSocket({
+        url: 'ws://local.test',
+        reconnectBaseMs: 1000,
+        reconnectMaxMs: 5000,
+        maxConsecutiveFailures: 2,
+        staleTimeoutMs: 0,
+        heartbeatIntervalMs: 0,
+        createSocket: fakes.factory,
+      });
+
+      socket.connect();
+      for (let cycle = 0; cycle < 12; cycle += 1) {
+        fakes.last().emitClose();
+        await vi.advanceTimersByTimeAsync(5000);
+      }
+
+      expect(fakes.created).toHaveLength(13);
+      expect(socket.state).toBe('connecting');
+
+      fakes.last().emitOpen();
+      expect(socket.state).toBe('open');
+
+      await socket.close();
+    });
+
+    it('una conexion estable saca al socket del estado degradado', async () => {
+      const fakes = createFakeFactory();
+      const socket = createResilientSocket({
+        url: 'ws://local.test',
+        reconnectBaseMs: 1000,
+        reconnectMaxMs: 5000,
+        maxConsecutiveFailures: 2,
+        stableResetMs: 60_000,
+        staleTimeoutMs: 0,
+        heartbeatIntervalMs: 0,
+        createSocket: fakes.factory,
+      });
+
+      socket.connect();
+      for (let cycle = 0; cycle < 3; cycle += 1) {
+        fakes.last().emitClose();
+        await vi.advanceTimersByTimeAsync(5000);
+      }
+      expect(socket.degraded).toBe(true);
+
+      fakes.last().emitOpen();
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(socket.degraded).toBe(false);
+      expect(socket.consecutiveFailures).toBe(0);
+
+      await socket.close();
+    });
+
     it('close() no reconecta y deja 0 timers y 0 listeners', async () => {
       const fakes = createFakeFactory();
       const socket = createResilientSocket({
