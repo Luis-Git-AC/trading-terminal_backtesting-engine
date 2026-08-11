@@ -22,10 +22,12 @@
   "dependencies": {
     "@tt/shared": "*",
     "pg": "^8.22.0",
+    "ws": "^8.21.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/pg": "^8.20.4",
+    "@types/ws": "^8.18.1",
     "tsx": "^4.20.6"
   }
 }
