@@ -20,9 +20,29 @@ export interface RecordGapInput extends SeriesRef {
   toTs: number;
 }
 
+export const NO_DATA_UPSTREAM = 'no-data-upstream';
+
+export interface ListFillableQuery {
+  exchange?: string | undefined;
+  symbol?: string | undefined;
+  timeframe?: Timeframe | undefined;
+  maxAttempts: number;
+  limit?: number;
+}
+
+export interface MarkFilledInput {
+  id: string;
+  lastError: string | null;
+}
+
 export interface GapsRepository {
   recordGap(input: RecordGapInput): Promise<GapRecord>;
   listOpen(series: SeriesRef): Promise<GapRecord[]>;
+  listFillable(query: ListFillableQuery): Promise<GapRecord[]>;
+  listNoDataFrom(series: SeriesRef): Promise<number[]>;
+  registerAttempt(id: string): Promise<number>;
+  markFilled(input: MarkFilledInput): Promise<void>;
+  markError(input: MarkFilledInput): Promise<void>;
 }
 
 interface GapRow {
@@ -55,6 +75,37 @@ const LIST_OPEN_SQL = `
   FROM ingest_gaps
   WHERE exchange = $1 AND symbol = $2 AND timeframe = $3 AND filled_at IS NULL
   ORDER BY gap_from ASC
+`;
+
+const LIST_FILLABLE_SQL = `
+  SELECT ${RETURNING}
+  FROM ingest_gaps
+  WHERE filled_at IS NULL
+    AND attempts < $1
+    AND ($2::text IS NULL OR exchange = $2)
+    AND ($3::text IS NULL OR symbol = $3)
+    AND ($4::text IS NULL OR timeframe = $4)
+  ORDER BY gap_from ASC
+  LIMIT $5
+`;
+
+const LIST_NO_DATA_SQL = `
+  SELECT gap_from
+  FROM ingest_gaps
+  WHERE exchange = $1 AND symbol = $2 AND timeframe = $3
+    AND filled_at IS NOT NULL AND last_error = '${NO_DATA_UPSTREAM}'
+`;
+
+const REGISTER_ATTEMPT_SQL = `
+  UPDATE ingest_gaps SET attempts = attempts + 1 WHERE id = $1::bigint RETURNING attempts
+`;
+
+const MARK_FILLED_SQL = `
+  UPDATE ingest_gaps SET filled_at = now(), last_error = $2 WHERE id = $1::bigint
+`;
+
+const MARK_ERROR_SQL = `
+  UPDATE ingest_gaps SET last_error = $2 WHERE id = $1::bigint
 `;
 
 function exchangeOf(series: SeriesRef): string {
@@ -109,6 +160,41 @@ export function createGapsRepository(db: Queryable): GapsRepository {
         series.timeframe,
       ]);
       return rows.map(toGap);
+    },
+
+    async listFillable(query: ListFillableQuery): Promise<GapRecord[]> {
+      const { rows } = await db.query<GapRow>(LIST_FILLABLE_SQL, [
+        query.maxAttempts,
+        query.exchange ?? null,
+        query.symbol ?? null,
+        query.timeframe ?? null,
+        query.limit ?? 100,
+      ]);
+      return rows.map(toGap);
+    },
+
+    async listNoDataFrom(series: SeriesRef): Promise<number[]> {
+      const { rows } = await db.query<{ gap_from: Date }>(LIST_NO_DATA_SQL, [
+        exchangeOf(series),
+        series.symbol,
+        series.timeframe,
+      ]);
+      return rows.map((row) => row.gap_from.getTime());
+    },
+
+    async registerAttempt(id: string): Promise<number> {
+      const { rows } = await db.query<{ attempts: number }>(REGISTER_ATTEMPT_SQL, [id]);
+      const row = rows[0];
+      if (row === undefined) throw new Error(`No existe el hueco ${id}`);
+      return row.attempts;
+    },
+
+    async markFilled(input: MarkFilledInput): Promise<void> {
+      await db.query(MARK_FILLED_SQL, [input.id, input.lastError]);
+    },
+
+    async markError(input: MarkFilledInput): Promise<void> {
+      await db.query(MARK_ERROR_SQL, [input.id, input.lastError]);
     },
   };
 }
