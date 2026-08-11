@@ -21,10 +21,20 @@ export interface SetCursorInput extends SeriesRef {
   done: boolean;
 }
 
+export interface SetLastCandleInput extends SeriesRef {
+  lastCandleTs: number;
+}
+
+export interface TouchWsInput extends SeriesRef {
+  at: number;
+}
+
 export interface IngestStateRepository {
   ensure(input: EnsureStateInput): Promise<IngestState>;
   get(series: SeriesRef): Promise<IngestState | null>;
   setBackfillCursor(input: SetCursorInput): Promise<void>;
+  setLastCandleTs(input: SetLastCandleInput): Promise<void>;
+  touchWsMessage(input: TouchWsInput): Promise<void>;
 }
 
 interface StateRow {
@@ -61,6 +71,18 @@ const GET_SQL = `
 const SET_CURSOR_SQL = `
   UPDATE ingest_state
   SET backfill_cursor_ts = $4, backfill_done = $5, updated_at = now()
+  WHERE exchange = $1 AND symbol = $2 AND timeframe = $3
+`;
+
+const SET_LAST_CANDLE_SQL = `
+  UPDATE ingest_state
+  SET last_candle_ts = greatest($4, coalesce(last_candle_ts, $4)), updated_at = now()
+  WHERE exchange = $1 AND symbol = $2 AND timeframe = $3
+`;
+
+const TOUCH_WS_SQL = `
+  UPDATE ingest_state
+  SET last_ws_message_at = $4, updated_at = now()
   WHERE exchange = $1 AND symbol = $2 AND timeframe = $3
 `;
 
@@ -117,6 +139,24 @@ export function createIngestStateRepository(db: Queryable): IngestStateRepositor
         input.timeframe,
         input.cursorTs === null ? null : new Date(input.cursorTs),
         input.done,
+      ]);
+    },
+
+    async setLastCandleTs(input: SetLastCandleInput): Promise<void> {
+      await db.query(SET_LAST_CANDLE_SQL, [
+        exchangeOf(input),
+        input.symbol,
+        input.timeframe,
+        new Date(input.lastCandleTs),
+      ]);
+    },
+
+    async touchWsMessage(input: TouchWsInput): Promise<void> {
+      await db.query(TOUCH_WS_SQL, [
+        exchangeOf(input),
+        input.symbol,
+        input.timeframe,
+        new Date(input.at),
       ]);
     },
   };

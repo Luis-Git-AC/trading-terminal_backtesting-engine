@@ -1,0 +1,59 @@
+import { Redis } from 'ioredis';
+import type { Candle, Timeframe } from '@tt/shared';
+
+export const CANDLE_CHANNEL_PREFIX = 'ch:candles';
+
+export interface CandleTick extends Candle {
+  closed: boolean;
+}
+
+export function candleChannel(symbol: string, timeframe: Timeframe): string {
+  return `${CANDLE_CHANNEL_PREFIX}:${symbol}:${timeframe}`;
+}
+
+export interface RedisPublisher {
+  publish(channel: string, message: string): Promise<unknown>;
+  quit(): Promise<unknown>;
+}
+
+export interface CandlePublisher {
+  publishCandle(
+    symbol: string,
+    timeframe: Timeframe,
+    candle: Candle,
+    closed: boolean,
+  ): Promise<void>;
+  close(): Promise<void>;
+}
+
+export interface CandlePublisherOptions {
+  redis: RedisPublisher;
+  onError?: (error: Error) => void;
+}
+
+export function createRedisClient(url: string): Redis {
+  return new Redis(url, { maxRetriesPerRequest: null, lazyConnect: false });
+}
+
+export function toCandleTick(candle: Candle, closed: boolean): CandleTick {
+  return { ...candle, closed };
+}
+
+export function createCandlePublisher(options: CandlePublisherOptions): CandlePublisher {
+  const { redis } = options;
+  const onError = options.onError ?? ((): void => undefined);
+
+  return {
+    async publishCandle(symbol, timeframe, candle, closed) {
+      try {
+        await redis.publish(candleChannel(symbol, timeframe), JSON.stringify(toCandleTick(candle, closed)));
+      } catch (error) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+
+    async close() {
+      await redis.quit();
+    },
+  };
+}
