@@ -14,7 +14,14 @@ export interface LiveSeries {
 }
 
 export type LiveIngestorEvent =
-  | { kind: 'flushed'; symbol: string; timeframe: Timeframe; written: number; lastTs: number }
+  | {
+      kind: 'flushed';
+      symbol: string;
+      timeframe: Timeframe;
+      candles: number;
+      written: number;
+      lastTs: number;
+    }
   | { kind: 'stream'; event: BitgetStreamEvent }
   | { kind: 'error'; stage: 'flush' | 'publish' | 'touch'; error: Error };
 
@@ -116,6 +123,7 @@ export function createLiveIngestor(options: LiveIngestorOptions): LiveIngestor {
         kind: 'flushed',
         symbol: buffer.symbol,
         timeframe: buffer.timeframe,
+        candles: batch.length,
         written,
         lastTs,
       });

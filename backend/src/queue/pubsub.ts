@@ -31,8 +31,23 @@ export interface CandlePublisherOptions {
   onError?: (error: Error) => void;
 }
 
-export function createRedisClient(url: string): Redis {
-  return new Redis(url, { maxRetriesPerRequest: null, lazyConnect: false });
+export interface RedisClientOptions {
+  onError?: (error: Error) => void;
+  enableOfflineQueue?: boolean;
+}
+
+export function createRedisClient(url: string, options: RedisClientOptions = {}): Redis {
+  const client = new Redis(url, {
+    maxRetriesPerRequest: null,
+    lazyConnect: false,
+    enableOfflineQueue: options.enableOfflineQueue ?? true,
+  });
+
+  client.on('error', (error: Error) => {
+    options.onError?.(error);
+  });
+
+  return client;
 }
 
 export function toCandleTick(candle: Candle, closed: boolean): CandleTick {

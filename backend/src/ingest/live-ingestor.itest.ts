@@ -229,7 +229,7 @@ describe('createLiveIngestor', () => {
     const created = await launch(60_000);
     const flushes: number[] = [];
     created.on((event) => {
-      if (event.kind === 'flushed') flushes.push(event.written);
+      if (event.kind === 'flushed') flushes.push(event.candles);
     });
 
     for (let index = 0; index <= 10; index += 1) {

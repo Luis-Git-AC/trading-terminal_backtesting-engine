@@ -14,9 +14,11 @@
     "frontend"
   ],
   "scripts": {
+    "start": "tsx --env-file-if-exists=.env backend/src/main.ts",
     "dev": "run-p dev:api dev:worker dev:web",
     "dev:api": "npm run dev:api -w backend",
     "dev:worker": "npm run dev:worker -w backend",
+    "dev:ingestor": "npm run dev:ingestor -w backend",
     "dev:web": "npm run dev -w frontend",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
