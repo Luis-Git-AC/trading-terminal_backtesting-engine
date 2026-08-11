@@ -1,4 +1,10 @@
-import { expectedCandleCount, isAligned, type Candle, type Timeframe } from '@tt/shared';
+import {
+  expectedCandleCount,
+  isAligned,
+  timeframeToMs,
+  type Candle,
+  type Timeframe,
+} from '@tt/shared';
 import {
   MAX_CANDLES_LIMIT,
   createCandlesRepository,
@@ -15,6 +21,7 @@ export const VIOLATION_KINDS = [
   'invalid-ohlc',
   'negative-volume',
   'future',
+  'unclosed',
 ] as const;
 
 export type ViolationKind = (typeof VIOLATION_KINDS)[number];
@@ -63,6 +70,7 @@ function emptyCounts(): Record<ViolationKind, number> {
     'invalid-ohlc': 0,
     'negative-volume': 0,
     future: 0,
+    unclosed: 0,
   };
 }
 
@@ -93,6 +101,7 @@ export async function verifyIntegrity(options: VerifyIntegrityOptions): Promise<
   };
 
   const nowMs = now();
+  const step = timeframeToMs(timeframe);
   let cursor = from;
   let previous: Candle | null = null;
   let firstTs: number | null = null;
@@ -134,6 +143,12 @@ export async function verifyIntegrity(options: VerifyIntegrityOptions): Promise<
 
       if (candle.t > nowMs) {
         record('future', candle.t, `esta en el futuro (ahora: ${nowMs})`);
+      } else if (candle.t + step > nowMs) {
+        record(
+          'unclosed',
+          candle.t,
+          `sigue en formacion: cierra en ${candle.t + step} y ahora es ${nowMs}`,
+        );
       }
 
       previous = candle;

@@ -81,7 +81,9 @@ function print(report: IntegrityReport): void {
   }
 
   if (report.ok) {
-    console.log('  integridad: OK (alineacion, duplicados, orden, OHLC, volumen, futuro)');
+    console.log(
+      '  integridad: OK (alineacion, duplicados, orden, OHLC, volumen, futuro, sin velas en formacion)',
+    );
     return;
   }
 

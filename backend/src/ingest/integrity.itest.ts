@@ -262,6 +262,62 @@ describe('verifyIntegrity detecta cada tipo de violacion', () => {
     expect(report.violations[0]).toMatchObject({ kind: 'future', ts: NOW + STEP });
   });
 
+  it('6. la vela del periodo todavia abierto se marca como en formacion', async () => {
+    const forming = NOW - STEP + 1000;
+    await insertRaw(START);
+    await insertRaw(forming - (forming % STEP));
+
+    const report = await verifyIntegrity({
+      db: db.pool,
+      ...series,
+      from: START,
+      to: NOW + 10 * STEP,
+      now: () => NOW - STEP + 1000,
+    });
+
+    expect(report.violationCounts.unclosed).toBe(1);
+    expect(report.violationCounts.future).toBe(0);
+    expect(report.ok).toBe(false);
+    expect(report.violations[0]).toMatchObject({
+      kind: 'unclosed',
+      ts: NOW - STEP,
+    });
+    expect(report.violations[0]?.detail).toContain('sigue en formacion');
+  });
+
+  it('6b. la vela que cierra exactamente ahora ya no esta en formacion', async () => {
+    await insertRaw(START);
+    await insertRaw(NOW - STEP);
+
+    const report = await verifyIntegrity({
+      db: db.pool,
+      ...series,
+      from: START,
+      to: NOW + 10 * STEP,
+      now: () => NOW,
+    });
+
+    expect(report.violationCounts.unclosed).toBe(0);
+    expect(report.ok).toBe(true);
+  });
+
+  it('6c. una vela en el futuro cuenta solo como future, no tambien como en formacion', async () => {
+    await insertRaw(START);
+    await insertRaw(NOW + STEP);
+
+    const report = await verifyIntegrity({
+      db: db.pool,
+      ...series,
+      from: START,
+      to: NOW + 10 * STEP,
+      now: () => NOW,
+    });
+
+    expect(report.violationCounts.future).toBe(1);
+    expect(report.violationCounts.unclosed).toBe(0);
+    expect(report.totalViolations).toBe(1);
+  });
+
   it('acumula varias violaciones distintas en un solo informe', async () => {
     await insertRaw(START, { h: 1, l: 2 });
     await insertRaw(START + STEP + 1000);
