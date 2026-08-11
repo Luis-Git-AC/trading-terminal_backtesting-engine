@@ -91,6 +91,11 @@ const UPSERT_SQL = `
     volume      = EXCLUDED.volume,
     source      = EXCLUDED.source,
     ingested_at = EXCLUDED.ingested_at
+  WHERE candles.open   IS DISTINCT FROM EXCLUDED.open
+     OR candles.high   IS DISTINCT FROM EXCLUDED.high
+     OR candles.low    IS DISTINCT FROM EXCLUDED.low
+     OR candles.close  IS DISTINCT FROM EXCLUDED.close
+     OR candles.volume IS DISTINCT FROM EXCLUDED.volume
 `;
 
 const SELECT_RANGE_SQL = `

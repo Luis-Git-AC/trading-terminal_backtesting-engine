@@ -1,6 +1,4 @@
 import { Redis } from 'ioredis';
-import { WebSocketServer, type WebSocket as ServerSocket } from 'ws';
-import { z } from 'zod';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { timeframeToMs, type Candle, type Timeframe } from '@tt/shared';
 import { runMigrations } from '../db/migrate.js';
@@ -15,9 +13,13 @@ import {
   createRedisClient,
   type CandleTick,
 } from '../queue/pubsub.js';
+import {
+  startFakeBitgetWs,
+  updateFrame as buildUpdateFrame,
+  type FakeBitgetWs,
+} from '../testing/fake-bitget-ws.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { createBitgetCandleStream, type BitgetStreamEvent } from './exchange/bitget/ws.js';
-import { rawDataToString } from './ws/resilient-socket.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 
 const SYMBOL = 'BTCUSDT';
@@ -32,83 +34,7 @@ function makeCandle(index: number): Candle {
 }
 
 function updateFrame(candle: Candle, symbol = SYMBOL): string {
-  return JSON.stringify({
-    action: 'update',
-    arg: { instType: 'USDT-FUTURES', channel: 'candle1m', instId: symbol },
-    data: [
-      [
-        String(candle.t),
-        String(candle.o),
-        String(candle.h),
-        String(candle.l),
-        String(candle.c),
-        String(candle.v),
-        '1',
-        '1',
-      ],
-    ],
-    ts: candle.t + 1,
-  });
-}
-
-const requestSchema = z.object({
-  op: z.string(),
-  args: z.array(z.object({ instType: z.string(), channel: z.string(), instId: z.string() })),
-});
-
-interface FakeExchange {
-  url: string;
-  clients: ServerSocket[];
-  subscriptions: string[];
-  push(frame: string): void;
-  stop(): Promise<void>;
-}
-
-async function startFakeExchange(): Promise<FakeExchange> {
-  const server = new WebSocketServer({ port: 0 });
-  await new Promise<void>((resolve) => server.once('listening', resolve));
-
-  const address = server.address();
-  if (address === null || typeof address === 'string') {
-    throw new Error('se esperaba un puerto TCP');
-  }
-
-  const clients: ServerSocket[] = [];
-  const subscriptions: string[] = [];
-
-  server.on('connection', (client) => {
-    clients.push(client);
-    client.on('message', (raw) => {
-      const text = rawDataToString(raw);
-      if (text === 'ping') {
-        client.send('pong');
-        return;
-      }
-
-      const request = requestSchema.safeParse(JSON.parse(text));
-      if (!request.success) return;
-
-      for (const arg of request.data.args) {
-        subscriptions.push(JSON.stringify(arg));
-        client.send(JSON.stringify({ event: request.data.op, arg }));
-      }
-    });
-  });
-
-  return {
-    url: `ws://127.0.0.1:${address.port}`,
-    clients,
-    subscriptions,
-    push(frame) {
-      for (const client of clients) client.send(frame);
-    },
-    async stop() {
-      for (const client of clients) client.terminate();
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => (error ? reject(error) : resolve()));
-      });
-    },
-  };
+  return buildUpdateFrame(candle, symbol, TIMEFRAME);
 }
 
 interface RedisSpy {
@@ -146,7 +72,7 @@ describe('createLiveIngestor', () => {
   let db: ScratchDatabase;
   let candles: CandlesRepository;
   let state: IngestStateRepository;
-  let exchange: FakeExchange;
+  let exchange: FakeBitgetWs;
   let spy: RedisSpy;
   let ingestor: LiveIngestor | undefined;
   let emitted: BitgetStreamEvent[];
@@ -167,7 +93,7 @@ describe('createLiveIngestor', () => {
     await db.pool.query('TRUNCATE candles');
     await db.pool.query('TRUNCATE ingest_state');
     await state.ensure({ symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
-    exchange = await startFakeExchange();
+    exchange = await startFakeBitgetWs();
     spy = await subscribeRedis(redisUrl, CHANNEL);
     emitted = [];
     ingestor = undefined;
