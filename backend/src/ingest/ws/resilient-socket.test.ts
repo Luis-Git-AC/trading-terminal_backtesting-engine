@@ -1,100 +1,14 @@
 import { WebSocketServer, type WebSocket as ServerSocket } from 'ws';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  createFakeSocketFactory as createFakeFactory,
+  FAKE_ADAPTER_LISTENERS as ADAPTER_LISTENERS,
+} from '../../testing/fake-socket.js';
+import {
   createResilientSocket,
   rawDataToString,
   type ResilientSocketEvent,
-  type SocketFactory,
-  type SocketHandlers,
-  type SocketLike,
 } from './resilient-socket.js';
-
-const ADAPTER_LISTENERS = 4;
-
-interface FakeSocket extends SocketLike {
-  readonly url: string;
-  readonly sent: string[];
-  readonly terminated: boolean;
-  readonly closeCalls: number;
-  emitOpen(): void;
-  emitMessage(data: string): void;
-  emitError(error: Error): void;
-  emitClose(code?: number, reason?: string): void;
-}
-
-interface FakeFactory {
-  readonly factory: SocketFactory;
-  readonly created: FakeSocket[];
-  last(): FakeSocket;
-}
-
-function createFakeFactory(options: { closeOnRequest?: boolean } = {}): FakeFactory {
-  const closeOnRequest = options.closeOnRequest ?? true;
-  const created: FakeSocket[] = [];
-
-  const factory: SocketFactory = (url, handlers: SocketHandlers) => {
-    let live = true;
-    let listeners = ADAPTER_LISTENERS;
-    let terminated = false;
-    let closeCalls = 0;
-    const sent: string[] = [];
-
-    const fake: FakeSocket = {
-      url,
-      sent,
-      get terminated() {
-        return terminated;
-      },
-      get closeCalls() {
-        return closeCalls;
-      },
-      get listenerCount() {
-        return listeners;
-      },
-      send(message) {
-        sent.push(message);
-      },
-      close() {
-        closeCalls += 1;
-        if (closeOnRequest) fake.emitClose(1000, 'normal');
-      },
-      terminate() {
-        terminated = true;
-      },
-      dispose() {
-        live = false;
-        listeners = 0;
-      },
-      emitOpen() {
-        if (live) handlers.open();
-      },
-      emitMessage(data) {
-        if (live) handlers.message(data);
-      },
-      emitError(error) {
-        if (live) handlers.error(error);
-      },
-      emitClose(code = 1006, reason = '') {
-        if (!live) return;
-        live = false;
-        handlers.close(code, reason);
-      },
-    };
-
-    created.push(fake);
-    return fake;
-  };
-
-  return {
-    factory,
-    created,
-    last() {
-      const socket = created.at(-1);
-      if (socket === undefined) throw new Error('no se ha creado ningun socket');
-      return socket;
-    },
-  };
-}
 
 function kinds(events: readonly ResilientSocketEvent[], kind: ResilientSocketEvent['kind']) {
   return events.filter((event) => event.kind === kind);
