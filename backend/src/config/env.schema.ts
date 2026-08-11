@@ -56,10 +56,17 @@ export const envSchema = z.object({
   WS_RECONNECT_BASE_MS: intIn(100, 60_000).prefault('1000'),
   WS_RECONNECT_MAX_MS: intIn(1_000, 600_000).prefault('30000'),
   WS_STALE_TIMEOUT_MS: intIn(1_000, 600_000).prefault('45000'),
+  WS_HEARTBEAT_INTERVAL_MS: intIn(1_000, 600_000).prefault('20000'),
+  WS_STABLE_RESET_MS: intIn(1_000, 3_600_000).prefault('60000'),
+  WS_MAX_CONSECUTIVE_FAILURES: intIn(1, 1_000).prefault('10'),
+
+  RECONCILE_MAX_PAGES: intIn(1, 500).prefault('10'),
+
   GAP_SCAN_CRON: z
     .string()
     .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
     .prefault('*/15 * * * *'),
+  GAP_SCAN_WINDOW_DAYS: intIn(1, 365).prefault('7'),
 
   BACKTEST_CONCURRENCY: intIn(1, 32).prefault('2'),
   BACKTEST_MAX_BARS: intIn(1_000, 10_000_000).prefault('500000'),

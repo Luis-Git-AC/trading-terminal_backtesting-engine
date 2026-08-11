@@ -3,8 +3,10 @@ import {
   createResilientSocket,
   createWebSocketFactory,
   DEFAULT_HEARTBEAT_INTERVAL_MS,
+  DEFAULT_MAX_CONSECUTIVE_FAILURES,
   DEFAULT_RECONNECT_BASE_MS,
   DEFAULT_RECONNECT_MAX_MS,
+  DEFAULT_STABLE_RESET_MS,
   DEFAULT_STALE_TIMEOUT_MS,
   type ResilientSocket,
   type ResilientSocketEvent,
@@ -42,6 +44,8 @@ export interface BitgetCandleStreamOptions {
   reconnectMaxMs?: number;
   staleTimeoutMs?: number;
   heartbeatIntervalMs?: number;
+  stableResetMs?: number;
+  maxConsecutiveFailures?: number;
   random?: () => number;
 }
 
@@ -82,6 +86,8 @@ export function createBitgetCandleStream(
     reconnectMaxMs: options.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS,
     staleTimeoutMs: options.staleTimeoutMs ?? DEFAULT_STALE_TIMEOUT_MS,
     heartbeatIntervalMs: options.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS,
+    stableResetMs: options.stableResetMs ?? DEFAULT_STABLE_RESET_MS,
+    maxConsecutiveFailures: options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES,
     createSocket: options.createSocket ?? createWebSocketFactory(),
     random: options.random ?? Math.random,
   });

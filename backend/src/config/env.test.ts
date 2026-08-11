@@ -102,6 +102,11 @@ describe('parseEnv: defaults', () => {
     expect(env.WS_RECONNECT_BASE_MS).toBe(1000);
     expect(env.WS_RECONNECT_MAX_MS).toBe(30_000);
     expect(env.WS_STALE_TIMEOUT_MS).toBe(45_000);
+    expect(env.WS_HEARTBEAT_INTERVAL_MS).toBe(20_000);
+    expect(env.WS_STABLE_RESET_MS).toBe(60_000);
+    expect(env.WS_MAX_CONSECUTIVE_FAILURES).toBe(10);
+    expect(env.RECONCILE_MAX_PAGES).toBe(10);
+    expect(env.GAP_SCAN_WINDOW_DAYS).toBe(7);
     expect(env.GAP_SCAN_CRON).toBe('*/15 * * * *');
     expect(env.BACKTEST_CONCURRENCY).toBe(2);
     expect(env.BACKTEST_MAX_BARS).toBe(500_000);

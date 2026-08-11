@@ -57,10 +57,15 @@ async function runIngestor(logger: AppLogger): Promise<void> {
     wsUrl: env.EXCHANGE_WS_URL,
     backfillFrom: Date.parse(env.BACKFILL_FROM),
     gapScanCron: env.GAP_SCAN_CRON,
+    gapScanWindowMs: env.GAP_SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000,
     reconcilePageLimit: env.BACKFILL_PAGE_LIMIT,
+    reconcileMaxPages: env.RECONCILE_MAX_PAGES,
     wsReconnectBaseMs: env.WS_RECONNECT_BASE_MS,
     wsReconnectMaxMs: env.WS_RECONNECT_MAX_MS,
     wsStaleTimeoutMs: env.WS_STALE_TIMEOUT_MS,
+    wsHeartbeatIntervalMs: env.WS_HEARTBEAT_INTERVAL_MS,
+    wsStableResetMs: env.WS_STABLE_RESET_MS,
+    wsMaxConsecutiveFailures: env.WS_MAX_CONSECUTIVE_FAILURES,
   });
 }
 

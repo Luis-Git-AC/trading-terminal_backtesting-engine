@@ -45,6 +45,8 @@ export interface IngestorOptions {
   wsReconnectBaseMs?: number | undefined;
   wsReconnectMaxMs?: number | undefined;
   wsStaleTimeoutMs?: number | undefined;
+  wsHeartbeatIntervalMs?: number | undefined;
+  wsStableResetMs?: number | undefined;
   now?: () => number;
   exit?: (code: number) => void;
 }
@@ -135,6 +137,10 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     ...(options.wsMaxConsecutiveFailures === undefined
       ? {}
       : { maxConsecutiveFailures: options.wsMaxConsecutiveFailures }),
+    ...(options.wsHeartbeatIntervalMs === undefined
+      ? {}
+      : { heartbeatIntervalMs: options.wsHeartbeatIntervalMs }),
+    ...(options.wsStableResetMs === undefined ? {} : { stableResetMs: options.wsStableResetMs }),
   });
 
   const ingestor = createLiveIngestor({
