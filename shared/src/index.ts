@@ -13,6 +13,17 @@ export {
 export { ERROR_CODES, ERROR_STATUS, isErrorCode, type ErrorCode } from './errors.js';
 
 export {
+  STRATEGY_PARAM_TYPES,
+  strategyCatalogSchema,
+  strategyMetaSchema,
+  strategyParamSchema,
+  type StrategyCatalog,
+  type StrategyMeta,
+  type StrategyParam,
+  type StrategyParamType,
+} from './strategy-catalog.js';
+
+export {
   InvalidTimestampError,
   TIMEFRAMES,
   alignTs,

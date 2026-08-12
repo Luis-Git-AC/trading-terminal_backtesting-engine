@@ -11,12 +11,12 @@ export const ATR = 'atr';
 
 export const emaCrossParamsSchema = z
   .object({
-    fastPeriod: z.number().int().min(2).max(200).default(12),
-    slowPeriod: z.number().int().min(3).max(400).default(26),
-    atrPeriod: z.number().int().min(2).max(100).default(14),
-    atrStopMult: z.number().min(0.1).max(10).default(2),
-    takeProfitR: z.number().min(0.1).max(20).default(2),
-    allowShort: z.boolean().default(true),
+    fastPeriod: z.number().int().min(2).max(200).default(12).describe('EMA rapida'),
+    slowPeriod: z.number().int().min(3).max(400).default(26).describe('EMA lenta'),
+    atrPeriod: z.number().int().min(2).max(100).default(14).describe('Periodo del ATR'),
+    atrStopMult: z.number().min(0.1).max(10).default(2).describe('Stop en multiplos de ATR'),
+    takeProfitR: z.number().min(0.1).max(20).default(2).describe('Objetivo en multiplos de R'),
+    allowShort: z.boolean().default(true).describe('Permitir cortos'),
   })
   .refine((params) => params.slowPeriod > params.fastPeriod, {
     error: 'slowPeriod debe ser mayor que fastPeriod',

@@ -14,13 +14,13 @@ export const STOP_MODES = ['range', 'atr', 'nearest'] as const;
 export type StopMode = (typeof STOP_MODES)[number];
 
 export const rangeBreakoutParamsSchema = z.object({
-  lookback: z.number().int().min(2).max(500).default(20),
-  atrPeriod: z.number().int().min(2).max(100).default(14),
-  atrStopMult: z.number().min(0.1).max(10).default(2),
-  takeProfitR: z.number().min(0.1).max(20).default(2),
-  minAtrPct: z.number().min(0).max(100).default(0),
-  allowShort: z.boolean().default(true),
-  stopMode: z.enum(STOP_MODES).default('nearest'),
+  lookback: z.number().int().min(2).max(500).default(20).describe('Barras del rango'),
+  atrPeriod: z.number().int().min(2).max(100).default(14).describe('Periodo del ATR'),
+  atrStopMult: z.number().min(0.1).max(10).default(2).describe('Stop en multiplos de ATR'),
+  takeProfitR: z.number().min(0.1).max(20).default(2).describe('Objetivo en multiplos de R'),
+  minAtrPct: z.number().min(0).max(100).default(0).describe('Volatilidad minima (% ATR/precio)'),
+  allowShort: z.boolean().default(true).describe('Permitir cortos'),
+  stopMode: z.enum(STOP_MODES).default('nearest').describe('Modo de stop'),
 });
 
 export type RangeBreakoutParams = z.infer<typeof rangeBreakoutParamsSchema>;
