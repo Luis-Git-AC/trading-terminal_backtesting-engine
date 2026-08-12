@@ -17,10 +17,18 @@ export interface BacktestQueue {
   close(): Promise<void>;
 }
 
-export function createBacktestQueue(connection: Redis): BacktestQueue {
+export interface BacktestQueueOptions {
+  readonly prefix?: string | undefined;
+}
+
+export function createBacktestQueue(
+  connection: Redis,
+  options: BacktestQueueOptions = {},
+): BacktestQueue {
   const queue = new Queue<BacktestJob>(BACKTEST_QUEUE_NAME, {
     connection,
     defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    ...(options.prefix === undefined ? {} : { prefix: options.prefix }),
   });
 
   return {

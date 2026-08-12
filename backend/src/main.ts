@@ -8,6 +8,7 @@ import { createQueueConnection } from './queue/connection.js';
 import { createCandlePublisher, createRedisClient } from './queue/pubsub.js';
 import { startApi } from './roles/api.js';
 import { startIngestor } from './roles/ingestor.js';
+import { startWorker } from './roles/worker.js';
 
 function seriesFromEnv(): { symbol: string; timeframe: (typeof env.TIMEFRAMES)[number] }[] {
   return env.SYMBOLS.flatMap((symbol) =>
@@ -112,6 +113,37 @@ async function runApi(logger: AppLogger): Promise<void> {
   process.once('SIGINT', shutdown);
 }
 
+async function runWorker(logger: AppLogger): Promise<void> {
+  const pool = createPool();
+  const connection = createQueueConnection(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'conexion de la cola no disponible');
+    },
+  });
+  const redis = createRedisClient(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'redis no disponible');
+    },
+  });
+
+  await startWorker({
+    pool,
+    connection,
+    redis,
+    logger,
+    concurrency: env.BACKTEST_CONCURRENCY,
+    chunkBars: env.ENGINE_CHUNK_BARS,
+    equityMaxPoints: env.EQUITY_MAX_POINTS,
+    exchange: env.EXCHANGE,
+    migrate: false,
+  });
+
+  if (env.INGEST_IN_WORKER) {
+    logger.info('INGEST_IN_WORKER activo: el ingestor arranca dentro del worker');
+    await runIngestor(logger);
+  }
+}
+
 export async function main(): Promise<void> {
   const logger = createLogger({ role: env.START_MODE, level: env.LOG_LEVEL });
 
@@ -129,8 +161,7 @@ export async function main(): Promise<void> {
     return;
   }
 
-  logger.error({ startMode: env.START_MODE }, 'el rol worker todavia no esta implementado: es F4-T6');
-  process.exitCode = 1;
+  await runWorker(logger);
 }
 
 await main();

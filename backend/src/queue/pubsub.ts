@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import type { Candle, Timeframe } from '@tt/shared';
+import { runChannel, type Candle, type RunEvent, type Timeframe } from '@tt/shared';
 
 export const CANDLE_CHANNEL_PREFIX = 'ch:candles';
 
@@ -48,6 +48,29 @@ export function createRedisClient(url: string, options: RedisClientOptions = {})
   });
 
   return client;
+}
+
+export interface RunEventPublisher {
+  publish(event: RunEvent): Promise<void>;
+}
+
+export interface RunEventPublisherOptions {
+  redis: Pick<RedisPublisher, 'publish'>;
+  onError?: (error: Error) => void;
+}
+
+export function createRunEventPublisher(options: RunEventPublisherOptions): RunEventPublisher {
+  const onError = options.onError ?? ((): void => undefined);
+
+  return {
+    async publish(event: RunEvent): Promise<void> {
+      try {
+        await options.redis.publish(runChannel(event.runId), JSON.stringify(event));
+      } catch (error) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+      }
+    },
+  };
 }
 
 export function toCandleTick(candle: Candle, closed: boolean): CandleTick {

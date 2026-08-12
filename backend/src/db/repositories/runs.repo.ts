@@ -59,6 +59,7 @@ export interface RunsRepository {
   getRun(runId: string): Promise<RunRecord | null>;
   listRuns(query?: ListRunsQuery): Promise<readonly RunRecord[]>;
   markRunning(runId: string, barsTotal: number): Promise<boolean>;
+  requeueRun(runId: string): Promise<boolean>;
   updateProgress(runId: string, barsDone: number): Promise<void>;
   completeRun(input: CompleteRunInput): Promise<void>;
   failRun(runId: string, error: string): Promise<void>;
@@ -242,6 +243,16 @@ export function createRunsRepository(db: Queryable): RunsRepository {
          SET status = 'running', started_at = now(), bars_total = $2, bars_done = 0
          WHERE id = $1 AND status = 'queued'`,
         [runId, barsTotal],
+      );
+      return (rowCount ?? 0) > 0;
+    },
+
+    async requeueRun(runId: string): Promise<boolean> {
+      const { rowCount } = await db.query(
+        `UPDATE backtest_runs
+         SET status = 'queued', started_at = NULL, bars_done = 0, error = NULL
+         WHERE id = $1 AND status = 'running'`,
+        [runId],
       );
       return (rowCount ?? 0) > 0;
     },

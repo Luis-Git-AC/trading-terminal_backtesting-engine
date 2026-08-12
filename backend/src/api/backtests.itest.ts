@@ -22,6 +22,7 @@ import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-
 import { backtestsRouter } from './routes/backtests.js';
 import { createApiApp } from './server.js';
 
+const QUEUE_PREFIX = `tt-itest-api-${randomUUID().slice(0, 8)}`;
 const SYMBOL = 'BTCTEST';
 const TIMEFRAME: Timeframe = '1h';
 const STEP = 3_600_000;
@@ -131,7 +132,7 @@ describe('API de backtests', () => {
     candles = createCandlesRepository(db.pool);
     runs = createRunsRepository(db.pool);
     connection = createQueueConnection(requireRedisUrl());
-    queue = createBacktestQueue(connection);
+    queue = createBacktestQueue(connection, { prefix: QUEUE_PREFIX });
     cancelFlags = createRedisCancelFlags(connection);
     await queue.queue.obliterate({ force: true });
   });
@@ -147,6 +148,7 @@ describe('API de backtests', () => {
   });
 
   beforeEach(async () => {
+    await queue.queue.obliterate({ force: true });
     await db.pool.query('TRUNCATE backtest_runs CASCADE');
     await db.pool.query('TRUNCATE candles');
     await candles.upsertCandles({
@@ -220,6 +222,7 @@ describe('API de backtests', () => {
 
   describe('POST /api/backtests', () => {
     it('happy path: 202 con runId, seed, paramsHash y barsTotal, y el job encolado', async () => {
+      const pendingBefore = await queue.countPending();
       const response = await request(makeApp()).post('/api/backtests').send(body({ seed: 99 }));
 
       expect(response.status).toBe(202);
@@ -235,7 +238,7 @@ describe('API de backtests', () => {
 
       const job = await queue.queue.getJob(response.body.runId);
       expect(job?.data).toEqual({ runId: response.body.runId });
-      expect(await queue.countPending()).toBe(1);
+      expect(await queue.countPending()).toBe(pendingBefore + 1);
     });
 
     it('sin seed genera uno y lo devuelve persistido', async () => {
@@ -280,6 +283,7 @@ describe('API de backtests', () => {
     });
 
     it('un rango con demasiadas velas da 413', async () => {
+      const pendingBefore = await queue.countPending();
       const response = await request(makeApp())
         .post('/api/backtests')
         .send(
@@ -292,7 +296,7 @@ describe('API de backtests', () => {
 
       expect(response.status).toBe(413);
       expect(response.body.error.code).toBe('RANGE_TOO_LARGE');
-      expect(await queue.countPending()).toBe(0);
+      expect(await queue.countPending()).toBe(pendingBefore);
     });
 
     it('un rango con huecos se acepta con warnings coverage-gaps', async () => {
@@ -511,16 +515,17 @@ describe('API de backtests', () => {
 
   describe('POST /api/backtests/:id/cancel', () => {
     it('un run en cola se cancela y sale de la cola', async () => {
+      const pendingBefore = await queue.countPending();
       const created = await request(makeApp()).post('/api/backtests').send(body());
       const runId: string = created.body.runId;
-      expect(await queue.countPending()).toBe(1);
+      expect(await queue.countPending()).toBe(pendingBefore + 1);
 
       const response = await request(makeApp()).post(`/api/backtests/${runId}/cancel`);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ runId, status: 'cancelled' });
       expect(await queue.queue.getJob(runId)).toBeUndefined();
-      expect(await queue.countPending()).toBe(0);
+      expect(await queue.countPending()).toBe(pendingBefore);
       expect((await runs.getRun(runId))?.status).toBe('cancelled');
       expect(await cancelFlags.isRequested(runId)).toBe(true);
     });
@@ -573,13 +578,16 @@ describe('API de backtests', () => {
     });
 
     it('borrar un run en cola lo saca tambien de la cola', async () => {
+      const pendingBefore = await queue.countPending();
       const created = await request(makeApp()).post('/api/backtests').send(body());
       const runId: string = created.body.runId;
+      expect(await queue.countPending()).toBe(pendingBefore + 1);
 
       const response = await request(makeApp()).delete(`/api/backtests/${runId}`);
 
       expect(response.status).toBe(204);
-      expect(await queue.countPending()).toBe(0);
+      expect(await queue.countPending()).toBe(pendingBefore);
+      expect(await queue.queue.getJob(runId)).toBeUndefined();
     });
 
     it('borrar dos veces da 404 la segunda', async () => {

@@ -156,7 +156,7 @@ export interface ProgressEvent {
 export interface BacktestInput<P = Record<string, unknown>, S = unknown> {
   readonly candles: readonly Candle[];
   readonly strategy: StrategyDefinition<P, S>;
-  readonly params: Record<string, number | boolean>;
+  readonly params: Record<string, unknown>;
   readonly exec: ExecConfig;
   readonly seed: number;
   readonly onProgress?: (progress: ProgressEvent) => void;
