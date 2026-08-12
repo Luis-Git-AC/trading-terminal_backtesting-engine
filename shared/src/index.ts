@@ -95,10 +95,15 @@ export {
 
 export {
   CANDLES_MAX_LIMIT,
+  CHECK_STATES,
   candlesQuerySchema,
   candlesResponseSchema,
+  checkStateSchema,
   compactCandleSchema,
   coverageGapSchema,
+  healthResponseSchema,
+  ingestHealthSchema,
+  type HealthResponse,
   coverageParamsSchema,
   coverageQuerySchema,
   coverageResponseSchema,

@@ -8,6 +8,7 @@ import { createApiApp, type ApiDeps } from '../api/server.js';
 import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
 import { marketsRouter } from '../api/routes/markets.js';
+import { strategiesRouter } from '../api/routes/strategies.js';
 import { streamRouter } from '../api/routes/stream.js';
 import { createSseHub } from '../api/sse/hub.js';
 import { createRedisCache } from '../api/services/cache.js';
@@ -100,6 +101,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
     registerRoutes: (router) => {
       router.use(marketsRouter(marketDeps));
       router.use(candlesRouter({ ...marketDeps, symbols: options.symbols }));
+      router.use(strategiesRouter());
       router.use(
         backtestsRouter({
           runs,

@@ -30,6 +30,28 @@ export const timestampParamSchema = z.union([
     .transform((value) => Date.parse(value)),
 ]);
 
+export const CHECK_STATES = ['ok', 'error'] as const;
+
+export const checkStateSchema = z.enum(CHECK_STATES);
+
+export const ingestHealthSchema = z.object({
+  status: z.enum(['ok', 'degraded']),
+  lastCandleAgeSec: z.number().nullable(),
+});
+
+export const healthResponseSchema = z.object({
+  status: z.enum(['ok', 'degraded']),
+  uptimeSec: z.number().int().nonnegative(),
+  version: z.string(),
+  checks: z.object({
+    db: checkStateSchema,
+    redis: checkStateSchema,
+    ingest: z.union([ingestHealthSchema, checkStateSchema]).optional(),
+  }),
+});
+
+export type HealthResponse = z.infer<typeof healthResponseSchema>;
+
 export const marketSymbolSchema = z.object({
   symbol: z.string(),
   timeframes: z.array(timeframeSchema),
