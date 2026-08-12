@@ -115,9 +115,17 @@ export interface IndicatorRegistry {
   ready(key: string): boolean;
 }
 
+export interface IndicatorRegistrar {
+  register<TInput>(
+    key: string,
+    indicator: Indicator<TInput>,
+    select: (bar: Candle) => TInput,
+  ): void;
+}
+
 export interface InitContext {
   readonly prng: () => number;
-  readonly indicators: IndicatorRegistry;
+  readonly indicators: IndicatorRegistrar;
 }
 
 export interface BarContext {
@@ -152,4 +160,7 @@ export interface BacktestInput<P = Record<string, unknown>, S = unknown> {
   readonly exec: ExecConfig;
   readonly seed: number;
   readonly onProgress?: (progress: ProgressEvent) => void;
+  readonly progressEveryBars?: number;
 }
+
+export const PROGRESS_EVERY_BARS = 1000;

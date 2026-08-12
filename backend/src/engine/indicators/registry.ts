@@ -1,5 +1,5 @@
 import type { Candle } from '@tt/shared';
-import type { Indicator, IndicatorRegistry } from '../types.js';
+import type { Indicator, IndicatorRegistrar, IndicatorRegistry } from '../types.js';
 
 export class DuplicateIndicatorError extends Error {
   override readonly name = 'DuplicateIndicatorError';
@@ -32,12 +32,7 @@ interface Entry {
   readonly isReady: () => boolean;
 }
 
-export interface MutableIndicatorRegistry extends IndicatorRegistry {
-  register<TInput>(
-    key: string,
-    indicator: Indicator<TInput>,
-    select: (bar: Candle) => TInput,
-  ): void;
+export interface MutableIndicatorRegistry extends IndicatorRegistry, IndicatorRegistrar {
   updateAll(bar: Candle): void;
   readonly keys: readonly string[];
   readonly allReady: boolean;
