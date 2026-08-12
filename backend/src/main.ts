@@ -1,8 +1,11 @@
 import { env } from './config/env.js';
+
+const APP_VERSION = '0.1.0';
 import { createPool } from './db/pool.js';
 import { createBitgetRestClient } from './ingest/exchange/bitget/rest.js';
 import { createLogger, type AppLogger } from './observability/logger.js';
 import { createCandlePublisher, createRedisClient } from './queue/pubsub.js';
+import { startApi } from './roles/api.js';
 import { startIngestor } from './roles/ingestor.js';
 
 function seriesFromEnv(): { symbol: string; timeframe: (typeof env.TIMEFRAMES)[number] }[] {
@@ -69,6 +72,34 @@ async function runIngestor(logger: AppLogger): Promise<void> {
   });
 }
 
+async function runApi(logger: AppLogger): Promise<void> {
+  const pool = createPool();
+  const redis = createRedisClient(env.REDIS_URL, {
+    enableOfflineQueue: false,
+    onError: (error) => {
+      logger.warn({ err: error }, 'redis no disponible');
+    },
+  });
+
+  const handle = await startApi({
+    pool,
+    redis,
+    logger,
+    port: env.PORT,
+    webOrigin: env.WEB_ORIGIN,
+    version: APP_VERSION,
+  });
+
+  const shutdown = (signal: NodeJS.Signals): void => {
+    logger.info({ signal }, 'apagando la api');
+    void handle.stop().then(() => {
+      process.exit(0);
+    });
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+}
+
 export async function main(): Promise<void> {
   const logger = createLogger({ role: env.START_MODE, level: env.LOG_LEVEL });
 
@@ -81,12 +112,12 @@ export async function main(): Promise<void> {
     return;
   }
 
-  logger.error(
-    { startMode: env.START_MODE },
-    env.START_MODE === 'api'
-      ? 'el rol api todavia no esta implementado: es F4-T1'
-      : 'el rol worker todavia no esta implementado: es F4-T6',
-  );
+  if (env.START_MODE === 'api') {
+    await runApi(logger);
+    return;
+  }
+
+  logger.error({ startMode: env.START_MODE }, 'el rol worker todavia no esta implementado: es F4-T6');
   process.exitCode = 1;
 }
 
