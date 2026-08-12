@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const BACKTEST_QUEUE_NAME = 'backtest';
 
-export const RUN_STATUSES = ['queued', 'running', 'completed', 'failed', 'canceled'] as const;
+export const RUN_STATUSES = ['queued', 'running', 'completed', 'failed', 'cancelled'] as const;
 
 export type RunStatus = (typeof RUN_STATUSES)[number];
 
