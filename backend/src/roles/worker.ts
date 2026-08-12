@@ -14,6 +14,7 @@ import { createRunEventPublisher } from '../queue/pubsub.js';
 import {
   createAbortWatch,
   processBacktest,
+  sanitizeMessage,
   type BacktestReport,
   type BacktestProcessorDeps,
 } from '../worker/backtest.processor.js';
@@ -138,7 +139,24 @@ export async function startWorker(options: StartWorkerOptions): Promise<WorkerHa
   );
 
   worker.on('failed', (job, error) => {
-    logger.error({ runId: job?.data.runId, err: error }, 'el job de backtest fallo');
+    const runId = job?.data.runId;
+    logger.error({ runId, attemptsMade: job?.attemptsMade }, `el job de backtest fallo: ${error.message}`);
+
+    if (job === undefined || runId === undefined) {
+      return;
+    }
+    if (job.attemptsMade < (job.opts.attempts ?? 1)) {
+      return;
+    }
+
+    void deps.runs.failRun(runId, sanitizeMessage(error)).then(
+      () => {
+        logger.warn({ runId }, 'el job agoto sus intentos: el run queda failed');
+      },
+      (repoError: unknown) => {
+        logger.error({ runId, err: repoError }, 'no se pudo marcar el run como failed');
+      },
+    );
   });
 
   worker.on('error', (error) => {

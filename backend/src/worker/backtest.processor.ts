@@ -104,7 +104,7 @@ export interface BacktestReport {
   readonly error?: string;
 }
 
-function sanitize(error: unknown): string {
+export function sanitizeMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   return message.replace(/\s+/g, ' ').trim().slice(0, 500);
 }
@@ -142,8 +142,16 @@ export async function processBacktest(
   if (run === null) {
     return skip(deps, runId, 'inexistente', startedAt);
   }
-  if (run.status !== 'queued') {
+  if (run.status !== 'queued' && run.status !== 'running') {
     return skip(deps, runId, run.status, startedAt);
+  }
+
+  if (run.status === 'running') {
+    deps.logger.warn(
+      { runId, startedAt: run.startedAt },
+      'run huerfano: el worker anterior murio, lo retoma este',
+    );
+    await deps.runs.requeueRun(runId);
   }
 
   const expectedBars =
@@ -171,7 +179,7 @@ export async function processBacktest(
       return await abort(deps, run, error.abortReason, startedAt);
     }
 
-    const message = sanitize(error);
+    const message = sanitizeMessage(error);
     deps.logger.error({ runId, err: error }, 'el backtest fallo');
     await deps.runs.failRun(runId, message);
     await deps.publisher.publish({ type: 'error', runId, code: 'INTERNAL', message });

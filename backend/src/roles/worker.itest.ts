@@ -238,6 +238,26 @@ describe('rol worker', () => {
     expect(await runs.getEquity(run.id)).toEqual([]);
   });
 
+  it('si el job agota sus intentos el run queda failed, nunca colgado en running', async () => {
+    const broken: RunsRepository = {
+      ...runs,
+      getRun: (runId: string) =>
+        runId === blocked ? Promise.reject(new Error('BD caida')) : runs.getRun(runId),
+    };
+    let blocked = '';
+    await startTestWorker({ runs: broken });
+
+    const run = await runs.createRun(runInput());
+    blocked = run.id;
+    await queue.enqueue({ runId: run.id });
+
+    await waitFor(async () => (await runs.getRun(run.id))?.status === 'failed', 20_000);
+
+    const stored = await runs.getRun(run.id);
+    expect(stored?.error).toBe('BD caida');
+    expect(stored?.finishedAt).not.toBeNull();
+  });
+
   it('un apagado forzado con un job en curso devuelve el run a la cola y otro worker lo termina', async () => {
     const gate = deferred();
     const handle = await startTestWorker({ candles: slowCandles(candles, 1, gate.promise) });

@@ -377,6 +377,19 @@ describe('backtest processor', () => {
     expect(report.outcome).toBe('skipped');
   });
 
+  it('un run huerfano en running lo retoma el siguiente worker y lo completa', async () => {
+    const run = await runs.createRun(runInput());
+    await runs.markRunning(run.id, BARS);
+    await runs.updateProgress(run.id, 3_000);
+
+    const report = await processBacktest(makeDeps(), { runId: run.id });
+
+    expect(report.outcome).toBe('completed');
+    const stored = await runs.getRun(run.id);
+    expect(stored?.status).toBe('completed');
+    expect(stored?.metrics?.barsTotal).toBe(BARS);
+  });
+
   it('un run que ya no esta en cola se descarta', async () => {
     const run = await runs.createRun(runInput());
     await runs.cancelRun(run.id);
