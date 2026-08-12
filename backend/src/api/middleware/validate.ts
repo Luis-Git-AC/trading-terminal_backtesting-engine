@@ -2,62 +2,71 @@ import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import type { ZodType } from 'zod';
 import { AppError, type ErrorDetail } from '../errors.js';
 
-export interface ValidationSchemas {
-  readonly params?: ZodType;
-  readonly query?: ZodType;
-  readonly body?: ZodType;
+export interface ValidationSchemas<P, Q, B> {
+  readonly params?: ZodType<P>;
+  readonly query?: ZodType<Q>;
+  readonly body?: ZodType<B>;
 }
 
-export interface ValidatedRequest {
-  readonly params: unknown;
-  readonly query: unknown;
-  readonly body: unknown;
+export interface ValidatedInput<P, Q, B> {
+  readonly params: P;
+  readonly query: Q;
+  readonly body: B;
 }
 
-const VALIDATED = new WeakMap<Response, ValidatedRequest>();
+export type ValidatedHandler<P, Q, B> = (
+  input: ValidatedInput<P, Q, B>,
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => void;
 
-function toDetails(issues: readonly { path: PropertyKey[]; message: string }[]): ErrorDetail[] {
-  return issues.map((issue) => ({
-    path: issue.path.map((segment) => String(segment)).join('.'),
-    message: issue.message,
-  }));
+function toDetails(
+  section: string,
+  issues: readonly { path: PropertyKey[]; message: string }[],
+): ErrorDetail[] {
+  return issues.map((issue) => {
+    const path = issue.path.map((segment) => String(segment)).join('.');
+    return { path: path === '' ? section : `${section}.${path}`, message: issue.message };
+  });
 }
 
-export function validate(schemas: ValidationSchemas): RequestHandler {
+export function withValidation<P = undefined, Q = undefined, B = undefined>(
+  schemas: ValidationSchemas<P, Q, B>,
+  handler: ValidatedHandler<P, Q, B>,
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
     const raw: { params: unknown; query: unknown; body: unknown } = req;
-
-    const sections = [
-      { key: 'params', schema: schemas.params, value: raw.params },
-      { key: 'query', schema: schemas.query, value: raw.query },
-      { key: 'body', schema: schemas.body, value: raw.body },
-    ] as const;
-
     const details: ErrorDetail[] = [];
-    let params: unknown = raw.params;
-    let query: unknown = raw.query;
-    let body: unknown = raw.body;
 
-    for (const section of sections) {
-      if (section.schema === undefined) {
-        continue;
-      }
-      const result = section.schema.safeParse(section.value);
-      if (!result.success) {
-        details.push(
-          ...toDetails(result.error.issues).map((detail) => ({
-            path: detail.path === '' ? section.key : `${section.key}.${detail.path}`,
-            message: detail.message,
-          })),
-        );
-        continue;
-      }
-      if (section.key === 'params') {
+    let params: P | undefined;
+    let query: Q | undefined;
+    let body: B | undefined;
+
+    if (schemas.params !== undefined) {
+      const result = schemas.params.safeParse(raw.params);
+      if (result.success) {
         params = result.data;
-      } else if (section.key === 'query') {
+      } else {
+        details.push(...toDetails('params', result.error.issues));
+      }
+    }
+
+    if (schemas.query !== undefined) {
+      const result = schemas.query.safeParse(raw.query);
+      if (result.success) {
         query = result.data;
       } else {
+        details.push(...toDetails('query', result.error.issues));
+      }
+    }
+
+    if (schemas.body !== undefined) {
+      const result = schemas.body.safeParse(raw.body);
+      if (result.success) {
         body = result.data;
+      } else {
+        details.push(...toDetails('body', result.error.issues));
       }
     }
 
@@ -66,15 +75,11 @@ export function validate(schemas: ValidationSchemas): RequestHandler {
       return;
     }
 
-    VALIDATED.set(res, { params, query, body });
-    next();
+    handler(
+      { params: params as P, query: query as Q, body: body as B },
+      req,
+      res,
+      next,
+    );
   };
-}
-
-export function validated(res: Response): ValidatedRequest {
-  const value = VALIDATED.get(res);
-  if (value === undefined) {
-    throw new Error('validate() no se ejecuto antes de leer los datos validados');
-  }
-  return value;
 }

@@ -88,6 +88,9 @@ async function runApi(logger: AppLogger): Promise<void> {
     port: env.PORT,
     webOrigin: env.WEB_ORIGIN,
     version: APP_VERSION,
+    exchange: env.EXCHANGE,
+    symbols: env.SYMBOLS,
+    timeframes: env.TIMEFRAMES,
   });
 
   const shutdown = (signal: NodeJS.Signals): void => {

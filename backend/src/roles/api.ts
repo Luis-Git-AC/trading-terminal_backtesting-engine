@@ -4,6 +4,12 @@ import type { Redis } from 'ioredis';
 import { runMigrations } from '../db/migrate.js';
 import type { AppLogger } from '../observability/logger.js';
 import { createApiApp, type ApiDeps } from '../api/server.js';
+import { candlesRouter } from '../api/routes/candles.js';
+import { marketsRouter } from '../api/routes/markets.js';
+import { createRedisCache } from '../api/services/cache.js';
+import { createCandlesRepository } from '../db/repositories/candles.repo.js';
+import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
+import type { Timeframe } from '@tt/shared';
 
 export interface StartApiOptions {
   readonly pool: Pool;
@@ -14,6 +20,9 @@ export interface StartApiOptions {
   readonly version: string;
   readonly migrate?: boolean;
   readonly ingestHealth?: ApiDeps['ingestHealth'];
+  readonly exchange: string;
+  readonly symbols: readonly string[];
+  readonly timeframes: readonly Timeframe[];
 }
 
 export interface ApiHandle {
@@ -48,6 +57,20 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
 
   const startedAt = Date.now();
 
+  const candles = createCandlesRepository(pool);
+  const ingestState = createIngestStateRepository(pool);
+  const cache = createRedisCache(redis);
+  const marketDeps = {
+    candles,
+    ingestState,
+    cache,
+    logger,
+    exchange: options.exchange,
+    symbols: options.symbols,
+    timeframes: options.timeframes,
+    now: () => Date.now(),
+  };
+
   const app = createApiApp({
     logger,
     webOrigin: options.webOrigin,
@@ -60,6 +83,10 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
       await redis.ping();
     },
     ...(options.ingestHealth === undefined ? {} : { ingestHealth: options.ingestHealth }),
+    registerRoutes: (router) => {
+      router.use(marketsRouter(marketDeps));
+      router.use(candlesRouter({ ...marketDeps, symbols: options.symbols }));
+    },
   });
 
   const server = await new Promise<Server>((resolve, reject) => {

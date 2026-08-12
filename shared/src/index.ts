@@ -13,6 +13,26 @@ export {
 export { ERROR_CODES, ERROR_STATUS, isErrorCode, type ErrorCode } from './errors.js';
 
 export {
+  CANDLES_MAX_LIMIT,
+  candlesQuerySchema,
+  candlesResponseSchema,
+  compactCandleSchema,
+  coverageGapSchema,
+  coverageParamsSchema,
+  coverageQuerySchema,
+  coverageResponseSchema,
+  marketSymbolSchema,
+  marketsResponseSchema,
+  symbolSchema,
+  timestampParamSchema,
+  type CandlesQuery,
+  type CandlesResponse,
+  type CoverageResponse,
+  type MarketSymbol,
+  type MarketsResponse,
+} from './api-schemas.js';
+
+export {
   STRATEGY_PARAM_TYPES,
   strategyCatalogSchema,
   strategyMetaSchema,
