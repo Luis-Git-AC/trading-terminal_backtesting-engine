@@ -60,3 +60,9 @@ export type RunProgressEvent = z.infer<typeof runProgressEventSchema>;
 export function runChannel(runId: string): string {
   return `ch:run:${runId}`;
 }
+
+export const RUN_CANCEL_TTL_SEC = 3_600;
+
+export function runCancelKey(runId: string): string {
+  return `run:cancel:${runId}`;
+}

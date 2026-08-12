@@ -1,19 +1,19 @@
-import type { Candle } from '@tt/shared';
+import {
+  EXIT_REASONS,
+  FILL_MODELS,
+  SIDES,
+  type Candle,
+  type ExitReason,
+  type FillModel,
+  type Side,
+} from '@tt/shared';
 import type { ZodType } from 'zod';
 
 export const ENGINE_VERSION = '1.0.0' as const;
 
-export const FILL_MODELS = ['next-open'] as const;
+export { EXIT_REASONS, FILL_MODELS, SIDES };
 
-export type FillModel = (typeof FILL_MODELS)[number];
-
-export const SIDES = ['long', 'short'] as const;
-
-export type Side = (typeof SIDES)[number];
-
-export const EXIT_REASONS = ['stop', 'take-profit', 'signal', 'end-of-data'] as const;
-
-export type ExitReason = (typeof EXIT_REASONS)[number];
+export type { ExitReason, FillModel, Side };
 
 export interface ExecConfig {
   readonly initialCapital: number;

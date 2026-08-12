@@ -12,6 +12,7 @@ export const DEFAULT_JOB_OPTIONS: JobsOptions = {
 export interface BacktestQueue {
   readonly queue: Queue<BacktestJob>;
   enqueue(job: BacktestJob): Promise<string>;
+  remove(runId: string): Promise<boolean>;
   countPending(): Promise<number>;
   close(): Promise<void>;
 }
@@ -28,6 +29,10 @@ export function createBacktestQueue(connection: Redis): BacktestQueue {
       const payload = backtestJobSchema.parse(job);
       const added = await queue.add(BACKTEST_QUEUE_NAME, payload, { jobId: payload.runId });
       return added.id ?? payload.runId;
+    },
+    async remove(runId: string): Promise<boolean> {
+      const removed = await queue.remove(runId);
+      return removed > 0;
     },
     async countPending(): Promise<number> {
       const counts = await queue.getJobCounts('waiting', 'active', 'delayed');

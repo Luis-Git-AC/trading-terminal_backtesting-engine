@@ -1,19 +1,25 @@
+import { randomInt } from 'node:crypto';
 import type { Server } from 'node:http';
 import type { Pool } from 'pg';
 import type { Redis } from 'ioredis';
 import { runMigrations } from '../db/migrate.js';
 import type { AppLogger } from '../observability/logger.js';
 import { createApiApp, type ApiDeps } from '../api/server.js';
+import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
 import { marketsRouter } from '../api/routes/markets.js';
 import { createRedisCache } from '../api/services/cache.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
-import type { Timeframe } from '@tt/shared';
+import { createRunsRepository } from '../db/repositories/runs.repo.js';
+import { createBacktestQueue } from '../queue/backtest.queue.js';
+import { createRedisCancelFlags } from '../queue/cancel-flags.js';
+import { SEED_MAX, type Timeframe } from '@tt/shared';
 
 export interface StartApiOptions {
   readonly pool: Pool;
   readonly redis: Redis;
+  readonly queueConnection: Redis;
   readonly logger: AppLogger;
   readonly port: number;
   readonly webOrigin: string;
@@ -23,6 +29,7 @@ export interface StartApiOptions {
   readonly exchange: string;
   readonly symbols: readonly string[];
   readonly timeframes: readonly Timeframe[];
+  readonly maxBars: number;
 }
 
 export interface ApiHandle {
@@ -59,7 +66,10 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
 
   const candles = createCandlesRepository(pool);
   const ingestState = createIngestStateRepository(pool);
+  const runs = createRunsRepository(pool);
   const cache = createRedisCache(redis);
+  const backtests = createBacktestQueue(options.queueConnection);
+  const cancelFlags = createRedisCancelFlags(redis);
   const marketDeps = {
     candles,
     ingestState,
@@ -86,6 +96,20 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
     registerRoutes: (router) => {
       router.use(marketsRouter(marketDeps));
       router.use(candlesRouter({ ...marketDeps, symbols: options.symbols }));
+      router.use(
+        backtestsRouter({
+          runs,
+          candles,
+          queue: backtests,
+          cancelFlags,
+          logger,
+          exchange: options.exchange,
+          symbols: options.symbols,
+          timeframes: options.timeframes,
+          maxBars: options.maxBars,
+          generateSeed: () => randomInt(0, SEED_MAX + 1),
+        }),
+      );
     },
   });
 
@@ -110,6 +134,8 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
             resolve();
           });
         });
+        await backtests.close();
+        options.queueConnection.disconnect();
         redis.disconnect();
         await pool.end();
         logger.info('api detenida');

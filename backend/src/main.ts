@@ -4,6 +4,7 @@ const APP_VERSION = '0.1.0';
 import { createPool } from './db/pool.js';
 import { createBitgetRestClient } from './ingest/exchange/bitget/rest.js';
 import { createLogger, type AppLogger } from './observability/logger.js';
+import { createQueueConnection } from './queue/connection.js';
 import { createCandlePublisher, createRedisClient } from './queue/pubsub.js';
 import { startApi } from './roles/api.js';
 import { startIngestor } from './roles/ingestor.js';
@@ -81,9 +82,16 @@ async function runApi(logger: AppLogger): Promise<void> {
     },
   });
 
+  const queueConnection = createQueueConnection(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'conexion de la cola no disponible');
+    },
+  });
+
   const handle = await startApi({
     pool,
     redis,
+    queueConnection,
     logger,
     port: env.PORT,
     webOrigin: env.WEB_ORIGIN,
@@ -91,6 +99,7 @@ async function runApi(logger: AppLogger): Promise<void> {
     exchange: env.EXCHANGE,
     symbols: env.SYMBOLS,
     timeframes: env.TIMEFRAMES,
+    maxBars: env.BACKTEST_MAX_BARS,
   });
 
   const shutdown = (signal: NodeJS.Signals): void => {
