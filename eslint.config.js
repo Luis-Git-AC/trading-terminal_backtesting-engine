@@ -70,7 +70,7 @@ export default tseslint.config(
   },
 
   {
-    files: ['backend/src/cli/**/*.ts'],
+    files: ['backend/src/cli/**/*.ts', 'backend/src/engine/__bench__/**/*.ts'],
     rules: {
       'no-console': 'off',
     },
