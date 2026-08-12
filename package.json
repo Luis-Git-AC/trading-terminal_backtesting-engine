@@ -32,7 +32,7 @@
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run --project shared --project backend --project frontend",
     "test:int": "vitest run --project backend:int",
-    "test:engine": "vitest run --project backend src/engine",
+    "test:engine": "vitest run --project backend src/engine src/strategies",
     "bench:engine": "tsx backend/src/engine/__bench__/engine.bench.ts",
     "test:e2e": "echo \"[PENDIENTE F6-T2] suite Playwright\"",
     "lint": "eslint .",

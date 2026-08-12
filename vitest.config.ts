@@ -13,6 +13,7 @@ export default defineConfig({
         '**/*.itest.ts',
         'backend/src/cli/**',
         'backend/src/testing/**',
+        'backend/src/engine/__bench__/**',
       ],
     },
     projects: [
