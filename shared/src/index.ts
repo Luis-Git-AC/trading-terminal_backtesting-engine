@@ -13,6 +13,24 @@ export {
 export { ERROR_CODES, ERROR_STATUS, isErrorCode, type ErrorCode } from './errors.js';
 
 export {
+  BACKTEST_QUEUE_NAME,
+  RUN_STATUSES,
+  backtestJobSchema,
+  runChannel,
+  runDoneEventSchema,
+  runErrorEventSchema,
+  runEventSchema,
+  runProgressEventSchema,
+  runStatusEventSchema,
+  runStatusSchema,
+  type BacktestJob,
+  type RunEvent,
+  type RunProgressEvent,
+  type RunStatus,
+  type RunStatusEvent,
+} from './jobs.js';
+
+export {
   CANDLES_MAX_LIMIT,
   candlesQuerySchema,
   candlesResponseSchema,
