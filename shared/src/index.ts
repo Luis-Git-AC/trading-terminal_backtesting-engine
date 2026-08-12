@@ -5,9 +5,11 @@ export {
   candleRowToCandle,
   candleSchema,
   candleSourceSchema,
+  candleTickSchema,
   type Candle,
   type CandleRow,
   type CandleSource,
+  type CandleTick,
 } from './candle.js';
 
 export { ERROR_CODES, ERROR_STATUS, isErrorCode, type ErrorCode } from './errors.js';

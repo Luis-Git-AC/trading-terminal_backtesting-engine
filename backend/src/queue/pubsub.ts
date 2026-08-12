@@ -1,11 +1,15 @@
 import { Redis } from 'ioredis';
-import { runChannel, type Candle, type RunEvent, type Timeframe } from '@tt/shared';
+import {
+  runChannel,
+  type Candle,
+  type CandleTick,
+  type RunEvent,
+  type Timeframe,
+} from '@tt/shared';
 
 export const CANDLE_CHANNEL_PREFIX = 'ch:candles';
 
-export interface CandleTick extends Candle {
-  closed: boolean;
-}
+export type { CandleTick };
 
 export function candleChannel(symbol: string, timeframe: Timeframe): string {
   return `${CANDLE_CHANNEL_PREFIX}:${symbol}:${timeframe}`;

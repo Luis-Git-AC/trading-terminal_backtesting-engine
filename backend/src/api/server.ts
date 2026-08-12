@@ -57,7 +57,17 @@ export function createApiApp(deps: ApiDeps): Express {
       },
     }),
   );
-  app.use(compression());
+  app.use(
+    compression({
+      filter: (req: Request, res: Response) => {
+        const contentType = res.getHeader('Content-Type');
+        if (typeof contentType === 'string' && contentType.includes('text/event-stream')) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    }),
+  );
   app.use(express.json({ limit: BODY_LIMIT }));
   app.use(
     deps.generateRequestId === undefined ? requestId() : requestId(deps.generateRequestId),

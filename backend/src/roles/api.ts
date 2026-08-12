@@ -8,6 +8,8 @@ import { createApiApp, type ApiDeps } from '../api/server.js';
 import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
 import { marketsRouter } from '../api/routes/markets.js';
+import { streamRouter } from '../api/routes/stream.js';
+import { createSseHub } from '../api/sse/hub.js';
 import { createRedisCache } from '../api/services/cache.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
@@ -20,6 +22,7 @@ export interface StartApiOptions {
   readonly pool: Pool;
   readonly redis: Redis;
   readonly queueConnection: Redis;
+  readonly subscriber: Redis;
   readonly logger: AppLogger;
   readonly port: number;
   readonly webOrigin: string;
@@ -70,6 +73,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
   const cache = createRedisCache(redis);
   const backtests = createBacktestQueue(options.queueConnection);
   const cancelFlags = createRedisCancelFlags(redis);
+  const hub = createSseHub({ subscriber: options.subscriber, logger });
   const marketDeps = {
     candles,
     ingestState,
@@ -110,6 +114,15 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
           generateSeed: () => randomInt(0, SEED_MAX + 1),
         }),
       );
+      router.use(
+        streamRouter({
+          runs,
+          hub,
+          logger,
+          symbols: options.symbols,
+          timeframes: options.timeframes,
+        }),
+      );
     },
   });
 
@@ -136,6 +149,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
         });
         await backtests.close();
         options.queueConnection.disconnect();
+        options.subscriber.disconnect();
         redis.disconnect();
         await pool.end();
         logger.info('api detenida');

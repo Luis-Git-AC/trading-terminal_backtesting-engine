@@ -89,10 +89,17 @@ async function runApi(logger: AppLogger): Promise<void> {
     },
   });
 
+  const subscriber = createRedisClient(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'conexion de suscripcion no disponible');
+    },
+  });
+
   const handle = await startApi({
     pool,
     redis,
     queueConnection,
+    subscriber,
     logger,
     port: env.PORT,
     webOrigin: env.WEB_ORIGIN,

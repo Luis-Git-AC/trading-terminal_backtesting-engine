@@ -55,6 +55,13 @@ export const candleSchema = z
     path: ['l'],
   });
 
+export const candleTickSchema = z.intersection(
+  candleSchema,
+  z.object({ closed: z.boolean() }),
+);
+
+export type CandleTick = z.infer<typeof candleTickSchema>;
+
 export function candleRowToCandle(row: CandleRow): Candle {
   return {
     t: row.ts.getTime(),
