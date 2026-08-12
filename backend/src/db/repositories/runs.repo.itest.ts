@@ -248,6 +248,31 @@ describe('runs.repo', () => {
       expect(equity[2]?.drawdown).toBe(0.009804);
     });
 
+    it('dos puntos de curva con el mismo ts no rompen el insert y gana el ultimo', async () => {
+      const run = await runs.createRun(runInput());
+      await runs.markRunning(run.id, 100);
+
+      await runs.completeRun({
+        runId: run.id,
+        metrics: METRICS,
+        trades: [],
+        equity: [
+          { t: RANGE_FROM, equity: 10_000, drawdown: 0 },
+          { t: RANGE_FROM + 900_000, equity: 10_300, drawdown: 0 },
+          { t: RANGE_FROM + 900_000, equity: 10_150, drawdown: 0.014563 },
+          { t: RANGE_FROM + 1_800_000, equity: 10_400, drawdown: 0 },
+        ],
+      });
+
+      const equity = await runs.getEquity(run.id);
+      expect(equity).toHaveLength(3);
+      expect(equity[1]).toEqual({
+        t: RANGE_FROM + 900_000,
+        equity: 10_150,
+        drawdown: 0.014563,
+      });
+    });
+
     it('es atomico: si falla a mitad no deja trades sin el run completado', async () => {
       const run = await runs.createRun(runInput());
       await runs.markRunning(run.id, 100);

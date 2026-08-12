@@ -73,6 +73,14 @@ export const DEFAULT_LIST_LIMIT = 50;
 
 export const DEFAULT_TRADES_LIMIT = 500;
 
+export function lastPointPerTs(equity: readonly EquityPoint[]): EquityPoint[] {
+  const byTs = new Map<number, EquityPoint>();
+  for (const point of equity) {
+    byTs.set(point.t, point);
+  }
+  return [...byTs.values()];
+}
+
 export function paramsHash(input: RunParamsHashInput): string {
   return sha256(
     serializeCanonical({
@@ -321,7 +329,9 @@ export function createRunsRepository(db: Queryable): RunsRepository {
           );
         }
 
-        if (input.equity.length > 0) {
+        const equity = lastPointPerTs(input.equity);
+
+        if (equity.length > 0) {
           await client.query(
             `INSERT INTO backtest_equity (run_id, ts, equity, drawdown)
              SELECT $1, to_timestamp(e.ts/1000.0), e.equity, e.drawdown
@@ -330,9 +340,9 @@ export function createRunsRepository(db: Queryable): RunsRepository {
                SET equity = excluded.equity, drawdown = excluded.drawdown`,
             [
               input.runId,
-              input.equity.map((point) => point.t),
-              input.equity.map((point) => String(point.equity)),
-              input.equity.map((point) => String(point.drawdown)),
+              equity.map((point) => point.t),
+              equity.map((point) => String(point.equity)),
+              equity.map((point) => String(point.drawdown)),
             ],
           );
         }
