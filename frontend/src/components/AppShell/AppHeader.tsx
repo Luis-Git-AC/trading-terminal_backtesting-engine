@@ -1,9 +1,8 @@
 import { NavLink } from 'react-router';
+import type { ConnectionState } from '@/hooks/useEventSource';
 import { cx } from '@/lib/cx';
 import { useMarketSelection } from '@/state/market-selection';
 import styles from './AppHeader.module.css';
-
-export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 
 const CONNECTION_LABEL: Record<ConnectionState, string> = {
   connected: 'En vivo',
