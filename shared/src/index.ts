@@ -12,7 +12,17 @@ export {
   type CandleTick,
 } from './candle.js';
 
-export { ERROR_CODES, ERROR_STATUS, isErrorCode, type ErrorCode } from './errors.js';
+export {
+  ERROR_CODES,
+  ERROR_STATUS,
+  errorCodeSchema,
+  errorDetailSchema,
+  errorEnvelopeSchema,
+  isErrorCode,
+  type ErrorCode,
+  type ErrorDetail,
+  type ErrorEnvelope,
+} from './errors.js';
 
 export {
   EXIT_REASONS,

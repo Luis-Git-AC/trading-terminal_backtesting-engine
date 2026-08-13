@@ -1,17 +1,6 @@
-import { ERROR_STATUS, type ErrorCode } from '@tt/shared';
+import { ERROR_STATUS, type ErrorCode, type ErrorDetail, type ErrorEnvelope } from '@tt/shared';
 
-export interface ErrorDetail {
-  readonly path: string;
-  readonly message: string;
-}
-
-export interface ErrorEnvelope {
-  readonly error: {
-    readonly code: ErrorCode;
-    readonly message: string;
-    readonly details?: readonly ErrorDetail[];
-  };
-}
+export type { ErrorDetail, ErrorEnvelope };
 
 export class AppError extends Error {
   override readonly name = 'AppError';

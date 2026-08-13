@@ -13,6 +13,7 @@
     "test": "cd .. && vitest run --project frontend"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.4",
     "@tt/shared": "*",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^5.2.0",
     "jsdom": "^27.0.0",
+    "msw": "^2.15.0",
     "vite": "^7.3.6"
   }
 }
