@@ -1,10 +1,11 @@
 import { skipToken, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import type { CoverageResponse, MarketsResponse, Timeframe } from '@tt/shared';
+import type { ApiError } from '@/api/errors';
 import { STALE_TIME } from '@/api/query-client';
 import { queryKeys } from '@/api/query-keys';
 import { getCoverage, getMarkets } from '@/api/resources';
 
-export function useMarkets(): UseQueryResult<MarketsResponse> {
+export function useMarkets(): UseQueryResult<MarketsResponse, ApiError> {
   return useQuery({
     queryKey: queryKeys.markets(),
     queryFn: ({ signal }) => getMarkets(undefined, signal),
@@ -15,7 +16,7 @@ export function useMarkets(): UseQueryResult<MarketsResponse> {
 export function useCoverage(
   symbol: string | undefined,
   timeframe: Timeframe | undefined,
-): UseQueryResult<CoverageResponse> {
+): UseQueryResult<CoverageResponse, ApiError> {
   return useQuery({
     queryKey: queryKeys.coverage(symbol, timeframe),
     queryFn:

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { waitFor } from '@testing-library/react';
-import type { ApiError } from '@/api/errors';
 import { useRun, useRunEquity, useRunTrades, useRuns } from '@/hooks/useRuns';
 import * as fixtures from '@/test/msw/fixtures';
 import { API_BASE } from '@/test/msw/handlers';
@@ -67,7 +66,7 @@ describe('useRun', () => {
       expect(result.current.isError).toBe(true);
     });
 
-    expect((result.current.error as ApiError).code).toBe('NOT_FOUND');
+    expect(result.current.error!.code).toBe('NOT_FOUND');
   });
 });
 

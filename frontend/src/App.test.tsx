@@ -1,18 +1,22 @@
 import { StrictMode } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
 import { DEFAULT_SYMBOL, DEFAULT_TIMEFRAME, FALLBACK_SYMBOLS } from '@/state/market-selection';
+import { silentQueryClient } from '@/test/query-wrapper';
 
 const consoleCalls: unknown[][] = [];
 
 function renderAt(path: string) {
   return render(
     <StrictMode>
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
+      <QueryClientProvider client={silentQueryClient()}>
+        <MemoryRouter initialEntries={[path]}>
+          <App />
+        </MemoryRouter>
+      </QueryClientProvider>
     </StrictMode>,
   );
 }

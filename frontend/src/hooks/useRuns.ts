@@ -1,5 +1,6 @@
 import { skipToken, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import type { EquityResponse, ListBacktestsResponse, RunDetail, TradesResponse } from '@tt/shared';
+import type { ApiError } from '@/api/errors';
 import { STALE_TIME } from '@/api/query-client';
 import { queryKeys } from '@/api/query-keys';
 import {
@@ -11,7 +12,9 @@ import {
   type TradesRequest,
 } from '@/api/resources';
 
-export function useRuns(request: RunsRequest = {}): UseQueryResult<ListBacktestsResponse> {
+export function useRuns(
+  request: RunsRequest = {},
+): UseQueryResult<ListBacktestsResponse, ApiError> {
   return useQuery({
     queryKey: queryKeys.runList(request),
     queryFn: ({ signal }) => listRuns(request, undefined, signal),
@@ -19,7 +22,7 @@ export function useRuns(request: RunsRequest = {}): UseQueryResult<ListBacktests
   });
 }
 
-export function useRun(runId: string | undefined): UseQueryResult<RunDetail> {
+export function useRun(runId: string | undefined): UseQueryResult<RunDetail, ApiError> {
   return useQuery({
     queryKey: queryKeys.run(runId),
     queryFn: runId === undefined ? skipToken : ({ signal }) => getRun(runId, undefined, signal),
@@ -27,7 +30,9 @@ export function useRun(runId: string | undefined): UseQueryResult<RunDetail> {
   });
 }
 
-export function useRunTrades(request: TradesRequest | undefined): UseQueryResult<TradesResponse> {
+export function useRunTrades(
+  request: TradesRequest | undefined,
+): UseQueryResult<TradesResponse, ApiError> {
   return useQuery({
     queryKey: queryKeys.runTrades(request),
     queryFn:
@@ -36,7 +41,7 @@ export function useRunTrades(request: TradesRequest | undefined): UseQueryResult
   });
 }
 
-export function useRunEquity(runId: string | undefined): UseQueryResult<EquityResponse> {
+export function useRunEquity(runId: string | undefined): UseQueryResult<EquityResponse, ApiError> {
   return useQuery({
     queryKey: queryKeys.runEquity(runId),
     queryFn:

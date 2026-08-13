@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { waitFor } from '@testing-library/react';
-import type { ApiError } from '@/api/errors';
 import { useCandles } from '@/hooks/useCandles';
 import { useStrategies } from '@/hooks/useStrategies';
 import * as fixtures from '@/test/msw/fixtures';
@@ -66,7 +65,7 @@ describe('useCandles', () => {
       expect(result.current.isError).toBe(true);
     });
 
-    const error = result.current.error as ApiError;
+    const error = result.current.error!;
     expect(error.code).toBe('RANGE_TOO_LARGE');
     expect(error.status).toBe(413);
   });
@@ -94,6 +93,6 @@ describe('useStrategies', () => {
     });
 
     expect(result.current.data).toBeUndefined();
-    expect((result.current.error as ApiError).code).toBe('INTERNAL');
+    expect(result.current.error!.code).toBe('INTERNAL');
   });
 });

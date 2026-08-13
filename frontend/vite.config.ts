@@ -16,6 +16,13 @@ export default defineConfig({
   build: {
     target: 'es2023',
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          charts: ['lightweight-charts'],
+        },
+      },
+    },
   },
   test: {
     name: 'frontend',

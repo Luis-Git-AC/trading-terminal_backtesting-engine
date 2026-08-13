@@ -1,10 +1,13 @@
 import { skipToken, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import type { CandlesResponse } from '@tt/shared';
+import type { ApiError } from '@/api/errors';
 import { STALE_TIME } from '@/api/query-client';
 import { queryKeys } from '@/api/query-keys';
 import { getCandles, type CandlesRequest } from '@/api/resources';
 
-export function useCandles(request: CandlesRequest | undefined): UseQueryResult<CandlesResponse> {
+export function useCandles(
+  request: CandlesRequest | undefined,
+): UseQueryResult<CandlesResponse, ApiError> {
   return useQuery({
     queryKey: queryKeys.candles(request),
     queryFn:

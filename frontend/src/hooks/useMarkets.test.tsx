@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { waitFor } from '@testing-library/react';
-import type { ApiError } from '@/api/errors';
 import { useCoverage, useMarkets } from '@/hooks/useMarkets';
 import * as fixtures from '@/test/msw/fixtures';
 import { API_BASE, errorResponse } from '@/test/msw/handlers';
@@ -33,7 +32,7 @@ describe('useMarkets', () => {
       expect(result.current.isError).toBe(true);
     });
 
-    const error = result.current.error as ApiError;
+    const error = result.current.error!;
     expect(error.code).toBe('UPSTREAM_UNAVAILABLE');
     expect(error.message).toBe('El exchange no responde');
   });
