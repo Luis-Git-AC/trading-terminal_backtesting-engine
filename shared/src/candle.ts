@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Timeframe } from './timeframe.js';
 
-export const CANDLE_SOURCES = ['rest', 'ws'] as const;
+export const CANDLE_SOURCES = ['rest', 'ws', 'synthetic'] as const;
 
 export type CandleSource = (typeof CANDLE_SOURCES)[number];
 
@@ -55,10 +55,7 @@ export const candleSchema = z
     path: ['l'],
   });
 
-export const candleTickSchema = z.intersection(
-  candleSchema,
-  z.object({ closed: z.boolean() }),
-);
+export const candleTickSchema = z.intersection(candleSchema, z.object({ closed: z.boolean() }));
 
 export type CandleTick = z.infer<typeof candleTickSchema>;
 

@@ -18,7 +18,7 @@ describe('superficie publica de @tt/shared', () => {
   });
 
   it('reexporta el dominio de velas', () => {
-    expect(shared.CANDLE_SOURCES).toEqual(['rest', 'ws']);
+    expect(shared.CANDLE_SOURCES).toEqual(['rest', 'ws', 'synthetic']);
     expect(shared.candleSourceSchema.safeParse('ws').success).toBe(true);
     expect(shared.candleSchema.safeParse({ t: 0, o: 1, h: 2, l: 0.5, c: 1.5, v: 3 }).success).toBe(
       true,

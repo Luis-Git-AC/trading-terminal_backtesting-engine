@@ -22,10 +22,11 @@ function reasons(input: unknown): string {
 }
 
 describe('candleSourceSchema', () => {
-  it('solo admite rest y ws', () => {
-    expect(CANDLE_SOURCES).toEqual(['rest', 'ws']);
+  it('admite rest, ws y synthetic', () => {
+    expect(CANDLE_SOURCES).toEqual(['rest', 'ws', 'synthetic']);
     expect(candleSourceSchema.safeParse('rest').success).toBe(true);
     expect(candleSourceSchema.safeParse('ws').success).toBe(true);
+    expect(candleSourceSchema.safeParse('synthetic').success).toBe(true);
     expect(candleSourceSchema.safeParse('backfill').success).toBe(false);
   });
 });

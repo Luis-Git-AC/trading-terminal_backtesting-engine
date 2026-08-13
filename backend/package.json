@@ -10,7 +10,7 @@
     "dev:worker": "tsx --env-file-if-exists=../.env src/main.ts worker",
     "dev:ingestor": "tsx --env-file-if-exists=../.env src/main.ts ingestor",
     "db:migrate": "tsx --env-file-if-exists=../.env src/cli/migrate.ts",
-    "db:seed": "echo \"[PENDIENTE F1-T3] fixtures sinteticos de desarrollo\"",
+    "db:seed": "tsx --env-file-if-exists=../.env src/cli/seed.ts",
     "backfill": "tsx --env-file-if-exists=../.env src/cli/backfill.ts",
     "verify": "tsx --env-file-if-exists=../.env src/cli/verify.ts",
     "build": "echo \"[PENDIENTE F6-T5] build de produccion (requiere decidir el empaquetado de @tt/shared)\"",
