@@ -1,0 +1,16 @@
+.page {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  padding: var(--space-12);
+}
+
+.history {
+  min-height: 0;
+}
+
+.pending {
+  max-width: 52ch;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}

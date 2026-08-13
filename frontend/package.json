@@ -5,15 +5,25 @@
   "type": "module",
   "description": "SPA de la terminal (React 19 + Vite)",
   "scripts": {
-    "dev": "echo \"[PENDIENTE F5-T1] base de la app React + Vite\"",
-    "build": "echo \"[PENDIENTE F5-T1] build de Vite\"",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src vite.config.ts",
     "typecheck": "tsc --noEmit",
     "test": "cd .. && vitest run --project frontend"
   },
   "dependencies": {
-    "@tt/shared": "*"
+    "@tt/shared": "*",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^7.18.2"
   },
   "devDependencies": {
-    "jsdom": "^27.0.0"
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^5.2.0",
+    "jsdom": "^27.0.0",
+    "vite": "^7.3.6"
   }
 }

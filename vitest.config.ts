@@ -48,15 +48,7 @@ export default defineConfig({
           fileParallelism: false,
         },
       },
-      {
-        test: {
-          name: 'frontend',
-          root: './frontend',
-          environment: 'jsdom',
-          include: ['src/**/*.test.{ts,tsx}'],
-          passWithNoTests: true,
-        },
-      },
+      './frontend/vite.config.ts',
     ],
   },
 });

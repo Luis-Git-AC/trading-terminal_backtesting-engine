@@ -1,0 +1,37 @@
+.workspace {
+  display: grid;
+  grid-template-columns: var(--layout-sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--layout-results-height);
+  grid-template-areas:
+    'params chart'
+    'params results';
+  gap: var(--space-12);
+  height: 100%;
+  padding: var(--space-12);
+}
+
+.params {
+  grid-area: params;
+}
+
+.chart {
+  grid-area: chart;
+}
+
+.results {
+  grid-area: results;
+}
+
+.chartSurface {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+}
+
+.pending {
+  max-width: 52ch;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
