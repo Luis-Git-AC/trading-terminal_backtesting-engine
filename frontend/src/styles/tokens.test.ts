@@ -22,8 +22,14 @@ function listFiles(dir: string): string[] {
 
 describe('tokens.css es la unica fuente de color', () => {
   it('ningun otro fichero de src declara un literal de color', () => {
+    const auditsColorItself = new Set([
+      TOKENS_FILE,
+      fileURLToPath(import.meta.url),
+      join(SRC_DIR, 'styles', 'contrast.test.ts'),
+    ]);
+
     const offenders = listFiles(SRC_DIR)
-      .filter((file) => file !== TOKENS_FILE && file !== fileURLToPath(import.meta.url))
+      .filter((file) => !auditsColorItself.has(file))
       .flatMap((file) => {
         const matches = readFileSync(file, 'utf8').match(COLOR_LITERAL) ?? [];
         return matches.map((match) => `${relative(SRC_DIR, file).split(sep).join('/')}: ${match}`);
