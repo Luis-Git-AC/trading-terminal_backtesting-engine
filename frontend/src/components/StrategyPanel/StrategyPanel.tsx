@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CreateBacktestBody, StrategyMeta, Timeframe } from '@tt/shared';
+import type { CreateBacktestBody, RunDetail, StrategyMeta, Timeframe } from '@tt/shared';
 import { describeApiError, type ApiError } from '@/api/errors';
 import { ParamField } from '@/components/StrategyPanel/ParamField';
 import {
@@ -25,6 +25,7 @@ export interface StrategyPanelProps {
   readonly onSubmit: (body: CreateBacktestBody) => void;
   readonly submitting?: boolean | undefined;
   readonly submitError?: ApiError | null | undefined;
+  readonly preset?: RunDetail | undefined;
 }
 
 const EMPTY_FORM: FormState = {
@@ -36,6 +37,46 @@ const EMPTY_FORM: FormState = {
   to: '',
   label: '',
 };
+
+export function presetForm(
+  current: FormState,
+  strategy: StrategyMeta,
+  preset: RunDetail | undefined,
+  coverage: { from: string | null; to: string | null } | undefined,
+): FormState {
+  if (preset?.strategyId === strategy.id) {
+    const params: Record<string, ParamValue> = defaultParams(strategy);
+    for (const param of strategy.params) {
+      const value = preset.params[param.key];
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        params[param.key] = value;
+      }
+    }
+
+    return {
+      strategyId: strategy.id,
+      params,
+      exec: {
+        initialCapital: String(preset.exec.initialCapital),
+        riskPerTradePct: String(preset.exec.riskPerTradePct),
+        feeBps: String(preset.exec.feeBps),
+        slippageBps: String(preset.exec.slippageBps),
+      },
+      seed: String(preset.seed),
+      from: isoDay(preset.range.from),
+      to: isoDay(preset.range.to),
+      label: preset.label ?? '',
+    };
+  }
+
+  return {
+    ...current,
+    strategyId: strategy.id,
+    params: defaultParams(strategy),
+    from: current.from === '' ? isoDay(coverage?.from ?? null) : current.from,
+    to: current.to === '' ? isoDay(coverage?.to ?? null) : current.to,
+  };
+}
 
 function serverFieldErrors(error: ApiError | null | undefined): Record<string, string> {
   const mapped: Record<string, string> = {};
@@ -51,29 +92,28 @@ export function StrategyPanel({
   onSubmit,
   submitting = false,
   submitError = null,
+  preset,
 }: StrategyPanelProps) {
   const catalog = useStrategies();
   const coverage = useCoverage(symbol, timeframe);
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const strategies = catalog.data?.strategies ?? [];
-  const selected: StrategyMeta | undefined =
-    strategies.find((strategy) => strategy.id === form.strategyId) ?? strategies[0];
-
   const [syncedFor, setSyncedFor] = useState<string | null>(null);
+
+  const strategies = catalog.data?.strategies ?? [];
+  const pendingPreset = preset !== undefined && !(syncedFor ?? '').endsWith(`|${preset.id}`);
+  const wantedId = pendingPreset && preset !== undefined ? preset.strategyId : form.strategyId;
+
+  const selected: StrategyMeta | undefined =
+    strategies.find((strategy) => strategy.id === wantedId) ?? strategies[0];
+
   const coverageKey = `${symbol}:${timeframe}:${coverage.data?.from ?? ''}:${coverage.data?.to ?? ''}`;
-  const syncKey = `${selected?.id ?? ''}|${coverageKey}`;
+  const syncKey = `${selected?.id ?? ''}|${coverageKey}|${preset?.id ?? ''}`;
 
   if (selected !== undefined && syncedFor !== syncKey) {
     setSyncedFor(syncKey);
-    setForm((current) => ({
-      ...current,
-      strategyId: selected.id,
-      params: defaultParams(selected),
-      from: current.from === '' ? isoDay(coverage.data?.from ?? null) : current.from,
-      to: current.to === '' ? isoDay(coverage.data?.to ?? null) : current.to,
-    }));
+    setForm((current) => presetForm(current, selected, preset, coverage.data));
   }
 
   const result = validateForm(form, selected, coverage.data, symbol, timeframe);

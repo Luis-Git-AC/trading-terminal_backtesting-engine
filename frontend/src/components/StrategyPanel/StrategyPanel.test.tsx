@@ -255,6 +255,69 @@ describe('StrategyPanel', () => {
     expect(screen.queryByRole('button', { name: /ejecutar/i })).toBeNull();
   });
 
+  it('duplicar precarga params, exec, seed y rango del run original', async () => {
+    const onSubmit = vi.fn();
+
+    server.use(
+      http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
+      http.get(`${API_BASE}/api/markets/:symbol/coverage`, () =>
+        HttpResponse.json({
+          ...fixtures.coverage,
+          from: '2026-01-01T00:00:00.000Z',
+          to: '2026-06-30T23:45:00.000Z',
+          gaps: [],
+        }),
+      ),
+    );
+
+    const preset = {
+      ...fixtures.run,
+      strategyId: 'ema-cross',
+      seed: 4242,
+      label: 'el original',
+      params: { fastPeriod: 55, atrPeriod: 21, allowShort: false },
+      range: { from: '2026-02-01T00:00:00.000Z', to: '2026-03-15T23:45:00.000Z' },
+      exec: {
+        initialCapital: 25_000,
+        riskPerTradePct: 2.5,
+        feeBps: 4,
+        slippageBps: 1,
+        fillModel: 'next-open' as const,
+      },
+    };
+
+    render(
+      <QueryClientProvider client={silentQueryClient()}>
+        <StrategyPanel symbol="BTCUSDT" timeframe="15m" onSubmit={onSubmit} preset={preset} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('EMA rapida')).toHaveProperty('value', '55');
+    });
+
+    expect(screen.getByLabelText('Periodo del ATR')).toHaveProperty('value', '21');
+    expect(screen.getByLabelText('Permitir cortos')).toHaveProperty('checked', false);
+    expect(screen.getByLabelText('Semilla')).toHaveProperty('value', '4242');
+    expect(screen.getByLabelText('Capital inicial')).toHaveProperty('value', '25000');
+    expect(screen.getByLabelText(/Riesgo por trade/)).toHaveProperty('value', '2.5');
+    expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-02-01');
+    expect(screen.getByLabelText('Hasta')).toHaveProperty('value', '2026-03-15');
+
+    fireEvent.click(screen.getByRole('button', { name: /ejecutar/i }));
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
+      strategyId: 'ema-cross',
+      seed: 4242,
+      params: { fastPeriod: 55, atrPeriod: 21, allowShort: false },
+      exec: { initialCapital: 25_000, riskPerTradePct: 2.5, feeBps: 4, slippageBps: 1 },
+    });
+  });
+
   it('los errores de validacion del servidor se pintan junto a su campo', async () => {
     const submitError = Object.assign(new Error('La peticion no cumple el contrato'), {
       code: 'VALIDATION_ERROR' as const,

@@ -15,6 +15,7 @@ import { useMarketSelection } from '@/state/market-selection';
 import styles from './Terminal.module.css';
 
 export const RUN_PARAM = 'run';
+export const DUPLICATE_PARAM = 'duplicate';
 
 export const FOCUS_PAD_MS = 30 * 60 * 1000;
 
@@ -23,6 +24,7 @@ export function Terminal() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const runId = searchParams.get(RUN_PARAM) ?? undefined;
+  const duplicateId = searchParams.get(DUPLICATE_PARAM) ?? undefined;
 
   const { candles, isPending, error, bars, canLoadOlder, loadOlder } = useCandleWindow(
     symbol,
@@ -33,6 +35,7 @@ export function Terminal() {
 
   const createBacktest = useCreateBacktest();
   const run = useRun(runId);
+  const duplicated = useRun(duplicateId);
   const completed = run.data?.status === 'completed';
   const trades = useRunTrades(completed && runId !== undefined ? { runId } : undefined);
 
@@ -64,6 +67,7 @@ export function Terminal() {
           timeframe={timeframe}
           submitting={createBacktest.isPending}
           submitError={createBacktest.error}
+          preset={duplicated.data}
           onSubmit={(body) => {
             createBacktest.mutate(body, {
               onSuccess: (created) => {

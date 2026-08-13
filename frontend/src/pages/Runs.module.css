@@ -1,16 +1,130 @@
 .page {
   display: grid;
-  grid-template-rows: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-12);
   height: 100%;
   padding: var(--space-12);
 }
 
-.history {
+.history,
+.compare {
   min-height: 0;
 }
 
-.pending {
-  max-width: 52ch;
+.filters {
+  display: flex;
+  gap: var(--space-12);
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.filterLabel {
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
   color: var(--color-text-tertiary);
+}
+
+.select {
+  height: 24px;
+  padding-inline: var(--space-8);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+}
+
+.table {
+  width: 100%;
   font-size: var(--font-size-sm);
+}
+
+.table th,
+.table td {
+  padding: var(--space-4) var(--space-8);
+  border-bottom: var(--border-width) solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--color-surface-raised);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.rowSelected {
+  background-color: var(--color-accent-muted);
+}
+
+.actions,
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.confirmText {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+.action,
+.danger {
+  height: 22px;
+  padding-inline: var(--space-8);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  transition:
+    color var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
+}
+
+.action:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
+}
+
+.danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.note {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.error {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
