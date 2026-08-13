@@ -1,14 +1,22 @@
+import { useSearchParams } from 'react-router';
 import { describeApiError } from '@/api/errors';
 import { CandleChart } from '@/components/Chart/CandleChart';
 import { Panel } from '@/components/Panel/Panel';
+import { RunProgress } from '@/components/RunProgress/RunProgress';
 import { StrategyPanel } from '@/components/StrategyPanel/StrategyPanel';
 import { useCandleWindow } from '@/hooks/useCandleWindow';
 import { useCreateBacktest } from '@/hooks/useBacktest';
+import { useRun, useRunTrades } from '@/hooks/useRuns';
 import { useMarketSelection } from '@/state/market-selection';
 import styles from './Terminal.module.css';
 
+export const RUN_PARAM = 'run';
+
 export function Terminal() {
   const { symbol, timeframe } = useMarketSelection();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const runId = searchParams.get(RUN_PARAM) ?? undefined;
 
   const { candles, isPending, error, bars, canLoadOlder, loadOlder } = useCandleWindow(
     symbol,
@@ -16,6 +24,29 @@ export function Terminal() {
   );
 
   const createBacktest = useCreateBacktest();
+  const run = useRun(runId);
+  const completed = run.data?.status === 'completed';
+  const trades = useRunTrades(completed && runId !== undefined ? { runId } : undefined);
+
+  const showsThisSeries =
+    run.data?.symbol === symbol && run.data.timeframe === timeframe
+      ? trades.data?.trades
+      : undefined;
+
+  const selectRun = (next: string | undefined): void => {
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current);
+        if (next === undefined) {
+          params.delete(RUN_PARAM);
+        } else {
+          params.set(RUN_PARAM, next);
+        }
+        return params;
+      },
+      { replace: true },
+    );
+  };
 
   return (
     <div className={styles.workspace}>
@@ -26,7 +57,11 @@ export function Terminal() {
           submitting={createBacktest.isPending}
           submitError={createBacktest.error}
           onSubmit={(body) => {
-            createBacktest.mutate(body);
+            createBacktest.mutate(body, {
+              onSuccess: (created) => {
+                selectRun(created.runId);
+              },
+            });
           }}
         />
       </Panel>
@@ -51,6 +86,7 @@ export function Terminal() {
               symbol={symbol}
               timeframe={timeframe}
               candles={candles}
+              trades={showsThisSeries}
               live
               onLoadOlder={canLoadOlder ? loadOlder : undefined}
             />
@@ -59,18 +95,14 @@ export function Terminal() {
       </Panel>
 
       <Panel title="Resultados" className={styles.results}>
-        {createBacktest.data !== undefined && (
-          <p className={styles.launched}>
-            Run <code>{createBacktest.data.runId}</code> en cola · semilla{' '}
-            <strong>{createBacktest.data.seed}</strong> · {createBacktest.data.barsTotal} velas
-            {createBacktest.data.warnings.length > 0
-              ? ` · avisos: ${createBacktest.data.warnings.join(', ')}`
-              : ''}
-          </p>
-        )}
+        <RunProgress
+          runId={runId}
+          onDismiss={() => {
+            selectRun(undefined);
+          }}
+        />
         <p className={styles.pending}>
-          Progreso en vivo y cancelacion llegan en F5-T6; metricas, curva de equity y tabla de
-          trades en F5-T7.
+          Metricas, curva de equity y tabla de trades llegan en F5-T7.
         </p>
       </Panel>
     </div>
