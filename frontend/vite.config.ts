@@ -28,6 +28,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           charts: ['lightweight-charts'],
+          plots: ['recharts'],
         },
       },
     },

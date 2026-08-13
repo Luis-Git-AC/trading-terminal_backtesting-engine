@@ -14,6 +14,8 @@ export interface FakeMarkersPlugin {
 
 export interface FakeTimeScale {
   visibleLogicalRange: { from: number; to: number } | null;
+  readonly setVisibleRangeCalls: { from: number; to: number }[];
+  setVisibleRange(range: { from: number; to: number }): void;
   readonly setVisibleLogicalRangeCalls: { from: number; to: number }[];
   readonly rangeListeners: ((range: { from: number; to: number } | null) => void)[];
   getVisibleLogicalRange(): { from: number; to: number } | null;
@@ -93,10 +95,15 @@ function makeSeries(kind: string, paneIndex: number | undefined): FakeSeries {
 
 function makeTimeScale(): FakeTimeScale {
   const setVisibleLogicalRangeCalls: { from: number; to: number }[] = [];
+  const setVisibleRangeCalls: { from: number; to: number }[] = [];
   const rangeListeners: ((range: { from: number; to: number } | null) => void)[] = [];
 
   return {
     visibleLogicalRange: null,
+    setVisibleRangeCalls,
+    setVisibleRange(range) {
+      setVisibleRangeCalls.push(range);
+    },
     setVisibleLogicalRangeCalls,
     rangeListeners,
     getVisibleLogicalRange() {

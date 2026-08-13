@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('lightweight-charts', () => import('@/test/fake-lightweight-charts'));
 
-const { Terminal, RUN_PARAM } = await import('@/pages/Terminal');
+const { Terminal, RUN_PARAM, FOCUS_PAD_MS } = await import('@/pages/Terminal');
 const { MarketSelectionProvider } = await import('@/state/market-selection');
 const fake = await import('@/test/fake-lightweight-charts');
 const { FakeEventSource } = await import('@/test/fake-event-source');
@@ -94,6 +94,34 @@ describe('Terminal', () => {
     await waitFor(() => {
       const markers = fake.lastMarkers().setMarkersCalls.at(-1) ?? [];
       expect(markers).toHaveLength(fixtures.trades.trades.length * 2);
+    });
+  });
+
+  it('click en un trade centra el chart en su rango', async () => {
+    server.use(
+      http.get(`${API_BASE}/api/backtests/:id`, () =>
+        HttpResponse.json({ ...fixtures.run, symbol: 'BTCUSDT', timeframe: '15m' }),
+      ),
+    );
+
+    renderTerminal(`/?${RUN_PARAM}=${fixtures.RUN_ID}`);
+
+    const row = await screen.findByLabelText(/Centrar el grafico en la operacion 1/i);
+
+    expect(fake.lastChart().timeScale().setVisibleRangeCalls).toEqual([]);
+
+    act(() => {
+      row.click();
+    });
+
+    const first = fixtures.trades.trades[0]!;
+    await waitFor(() => {
+      expect(fake.lastChart().timeScale().setVisibleRangeCalls).toEqual([
+        {
+          from: Math.floor((first.entryTs - FOCUS_PAD_MS) / 1000),
+          to: Math.floor((first.exitTs + FOCUS_PAD_MS) / 1000),
+        },
+      ]);
     });
   });
 

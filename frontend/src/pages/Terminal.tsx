@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { useSearchParams } from 'react-router';
+import type { BacktestTrade } from '@tt/shared';
 import { describeApiError } from '@/api/errors';
 import { CandleChart } from '@/components/Chart/CandleChart';
 import { Panel } from '@/components/Panel/Panel';
 import { RunProgress } from '@/components/RunProgress/RunProgress';
+import { RunResults } from '@/components/Results/RunResults';
+import { tradeRange } from '@/components/Results/trades';
 import { StrategyPanel } from '@/components/StrategyPanel/StrategyPanel';
 import { useCandleWindow } from '@/hooks/useCandleWindow';
 import { useCreateBacktest } from '@/hooks/useBacktest';
@@ -11,6 +15,8 @@ import { useMarketSelection } from '@/state/market-selection';
 import styles from './Terminal.module.css';
 
 export const RUN_PARAM = 'run';
+
+export const FOCUS_PAD_MS = 30 * 60 * 1000;
 
 export function Terminal() {
   const { symbol, timeframe } = useMarketSelection();
@@ -22,6 +28,8 @@ export function Terminal() {
     symbol,
     timeframe,
   );
+
+  const [focused, setFocused] = useState<BacktestTrade | null>(null);
 
   const createBacktest = useCreateBacktest();
   const run = useRun(runId);
@@ -89,6 +97,7 @@ export function Terminal() {
               trades={showsThisSeries}
               live
               onLoadOlder={canLoadOlder ? loadOlder : undefined}
+              focus={focused === null ? undefined : tradeRange(focused, FOCUS_PAD_MS)}
             />
           )}
         </div>
@@ -101,9 +110,13 @@ export function Terminal() {
             selectRun(undefined);
           }}
         />
-        <p className={styles.pending}>
-          Metricas, curva de equity y tabla de trades llegan en F5-T7.
-        </p>
+        <RunResults
+          runId={runId}
+          selectedSeq={focused?.seq}
+          onSelectTrade={(trade) => {
+            setFocused(trade);
+          }}
+        />
       </Panel>
     </div>
   );

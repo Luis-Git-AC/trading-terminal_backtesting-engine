@@ -29,6 +29,7 @@ export interface CandleChartProps {
   readonly trades?: readonly BacktestTrade[] | undefined;
   readonly live?: boolean | undefined;
   readonly onLoadOlder?: (() => void) | undefined;
+  readonly focus?: { readonly from: number; readonly to: number } | undefined;
   readonly sseCtor?: SseConnectionCtor | undefined;
 }
 
@@ -64,6 +65,7 @@ export function CandleChart({
   trades,
   live = false,
   onLoadOlder,
+  focus,
   sseCtor,
 }: CandleChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -198,6 +200,19 @@ export function CandleChart({
 
     refs.markers.setMarkers(tradeMarkers(trades ?? [], theme));
   }, [trades, theme]);
+
+  useEffect(() => {
+    const refs = refsRef.current;
+
+    if (refs === null || focus === undefined) {
+      return;
+    }
+
+    refs.chart.timeScale().setVisibleRange({
+      from: toChartTime(focus.from),
+      to: toChartTime(focus.to),
+    });
+  }, [focus]);
 
   useLiveCandles(live ? symbol : undefined, live ? timeframe : undefined, {
     ctor: sseCtor,

@@ -1,0 +1,180 @@
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: var(--space-8);
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.metricLabel {
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.metricValue {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  text-align: right;
+  color: var(--color-text);
+}
+
+.positive {
+  color: var(--color-up);
+}
+
+.negative {
+  color: var(--color-down);
+}
+
+.muted {
+  color: var(--color-text-tertiary);
+  cursor: help;
+}
+
+.openAtEnd {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
+.empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.equity {
+  width: 100%;
+  height: 180px;
+}
+
+.tradesWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.trades {
+  width: 100%;
+  font-size: var(--font-size-sm);
+}
+
+.trades th {
+  position: sticky;
+  top: 0;
+  padding: var(--space-4) var(--space-8);
+  background-color: var(--color-surface-raised);
+  border-bottom: var(--border-width) solid var(--color-border);
+  text-align: left;
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.trades td {
+  padding: var(--space-4) var(--space-8);
+  border-bottom: var(--border-width) solid var(--color-border);
+  white-space: nowrap;
+}
+
+.numeric {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.sortButton {
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  transition: color var(--duration-micro) var(--ease-out);
+}
+
+.sortButton:hover {
+  color: var(--color-text);
+}
+
+.sortActive {
+  color: var(--color-text);
+}
+
+.tradeRow {
+  transition: background-color var(--duration-micro) var(--ease-out);
+}
+
+.tradeRowClickable {
+  cursor: pointer;
+}
+
+.tradeRowClickable:hover {
+  background-color: var(--color-surface-hover);
+}
+
+.tradeRowSelected,
+.tradeRowSelected:hover {
+  background-color: var(--color-accent-muted);
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.pagerButton {
+  height: 24px;
+  padding-inline: var(--space-12);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.pagerButton:hover:not(:disabled) {
+  color: var(--color-text);
+}
+
+.pagerButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagerLabel {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.sectionTitle {
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-8);
+}
+
+.truncated {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
