@@ -29,7 +29,7 @@ function themeBlock(pattern: RegExp): Record<string, string> {
 
 const THEMES = {
   oscuro: themeBlock(/^:root \{([\s\S]*?)\n\}/m),
-  claro: themeBlock(/prefers-color-scheme: light\)\s*\{\s*:root \{([\s\S]*?)\n {2}\}/),
+  claro: themeBlock(/:root\[data-theme='light'\] \{([\s\S]*?)\n\}/),
 };
 
 function relativeLuminance(hex: string): number {

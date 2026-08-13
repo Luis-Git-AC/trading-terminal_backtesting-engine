@@ -2,6 +2,7 @@ import { NavLink } from 'react-router';
 import type { ConnectionState } from '@/hooks/useEventSource';
 import { cx } from '@/lib/cx';
 import { useMarketSelection } from '@/state/market-selection';
+import { THEME_PREFERENCES, useTheme, type ThemePreference } from '@/state/theme';
 import styles from './AppHeader.module.css';
 
 const CONNECTION_LABEL: Record<ConnectionState, string> = {
@@ -9,6 +10,47 @@ const CONNECTION_LABEL: Record<ConnectionState, string> = {
   connecting: 'Conectando',
   disconnected: 'Sin conexion',
 };
+
+const THEME_LABEL: Record<ThemePreference, string> = {
+  system: 'Sistema',
+  light: 'Claro',
+  dark: 'Oscuro',
+};
+
+const THEME_GLYPH: Record<ThemePreference, string> = {
+  system: '◐',
+  light: '☀',
+  dark: '☾',
+};
+
+function ThemeToggle() {
+  const { preference, setPreference } = useTheme();
+
+  return (
+    <div className={styles.field}>
+      <span className={styles.fieldLabel} id="theme-label">
+        Tema
+      </span>
+      <div className={styles.segmented} role="group" aria-labelledby="theme-label">
+        {THEME_PREFERENCES.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={cx(styles.segment, option === preference && styles.segmentActive)}
+            aria-pressed={option === preference}
+            title={THEME_LABEL[option]}
+            aria-label={THEME_LABEL[option]}
+            onClick={() => {
+              setPreference(option);
+            }}
+          >
+            {THEME_GLYPH[option]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function AppHeader({
   connection = 'disconnected',
@@ -80,6 +122,8 @@ export function AppHeader({
             ))}
           </div>
         </div>
+
+        <ThemeToggle />
       </div>
 
       <p className={styles.connection}>

@@ -1,10 +1,14 @@
 import { StrictMode } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { App } from '@/App';
-import { DEFAULT_SYMBOL, DEFAULT_TIMEFRAME, FALLBACK_SYMBOLS } from '@/state/market-selection';
+import { DEFAULT_SYMBOL, DEFAULT_TIMEFRAME } from '@/state/market-selection';
+import * as fixtures from '@/test/msw/fixtures';
+import { API_BASE } from '@/test/msw/handlers';
+import { server } from '@/test/msw/server';
 import { silentQueryClient } from '@/test/query-wrapper';
 
 const consoleCalls: unknown[][] = [];
@@ -46,15 +50,44 @@ describe('App', () => {
     expect(within(header).getByText('Sin conexion')).toBeDefined();
   });
 
-  it('ofrece el selector de simbolo y el de timeframe con los valores por defecto', () => {
+  it('el selector solo ofrece los simbolos que sirve el API', async () => {
     renderAt('/');
 
     const symbol = screen.getByRole('combobox', { name: /simbolo/i });
+
+    await waitFor(() => {
+      expect(
+        within(symbol)
+          .getAllByRole('option')
+          .map((option) => option.textContent),
+      ).toEqual(fixtures.markets.symbols.map((market) => market.symbol));
+    });
     expect(symbol).toHaveProperty('value', DEFAULT_SYMBOL);
-    expect(within(symbol).getAllByRole('option')).toHaveLength(FALLBACK_SYMBOLS.length);
 
     const active = screen.getByRole('button', { name: DEFAULT_TIMEFRAME });
     expect(active.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('si el API no sirve el simbolo por defecto, selecciona el primero que si sirve', async () => {
+    server.use(
+      http.get(`${API_BASE}/api/markets`, () =>
+        HttpResponse.json({
+          exchange: 'bitget',
+          symbols: [
+            { symbol: 'SOLUSDT', timeframes: ['1m', '1h'], pricePrecision: 2, qtyPrecision: 2 },
+          ],
+        }),
+      ),
+    );
+
+    renderAt('/');
+
+    const symbol = screen.getByRole('combobox', { name: /simbolo/i });
+    await waitFor(() => {
+      expect(symbol).toHaveProperty('value', 'SOLUSDT');
+    });
+    expect(within(symbol).getAllByRole('option')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: '15m' })).toBeNull();
   });
 
   it('la ruta raiz muestra las tres zonas de la terminal', () => {

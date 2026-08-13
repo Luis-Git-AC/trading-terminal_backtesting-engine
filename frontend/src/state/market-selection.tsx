@@ -1,9 +1,8 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { TIMEFRAMES, type Timeframe } from '@tt/shared';
+import { useMarkets } from '@/hooks/useMarkets';
 
-export const FALLBACK_SYMBOLS = ['BTCUSDT', 'ETHUSDT'] as const;
-
-export const DEFAULT_SYMBOL: string = FALLBACK_SYMBOLS[0];
+export const DEFAULT_SYMBOL = 'BTCUSDT';
 export const DEFAULT_TIMEFRAME: Timeframe = '15m';
 
 export interface MarketSelection {
@@ -11,27 +10,52 @@ export interface MarketSelection {
   timeframe: Timeframe;
   symbols: readonly string[];
   timeframes: readonly Timeframe[];
+  isLoading: boolean;
   setSymbol: (symbol: string) => void;
   setTimeframe: (timeframe: Timeframe) => void;
 }
 
 const MarketSelectionContext = createContext<MarketSelection | null>(null);
 
-export function MarketSelectionProvider({ children }: { children: ReactNode }) {
-  const [symbol, setSymbol] = useState<string>(DEFAULT_SYMBOL);
-  const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
+export function pickSymbol(requested: string | null, available: readonly string[]): string {
+  if (requested !== null && available.includes(requested)) {
+    return requested;
+  }
+  return available[0] ?? DEFAULT_SYMBOL;
+}
 
-  const value = useMemo<MarketSelection>(
-    () => ({
+export function pickTimeframe(
+  requested: Timeframe | null,
+  available: readonly Timeframe[],
+): Timeframe {
+  if (requested !== null && available.includes(requested)) {
+    return requested;
+  }
+  return available.includes(DEFAULT_TIMEFRAME) ? DEFAULT_TIMEFRAME : (available[0] ?? '1m');
+}
+
+export function MarketSelectionProvider({ children }: { children: ReactNode }) {
+  const markets = useMarkets();
+
+  const [requestedSymbol, setSymbol] = useState<string | null>(null);
+  const [requestedTimeframe, setTimeframe] = useState<Timeframe | null>(null);
+
+  const value = useMemo<MarketSelection>(() => {
+    const served = markets.data?.symbols ?? [];
+    const symbols = served.map((market) => market.symbol);
+    const symbol = pickSymbol(requestedSymbol, symbols);
+    const timeframes = served.find((market) => market.symbol === symbol)?.timeframes ?? TIMEFRAMES;
+
+    return {
       symbol,
-      timeframe,
-      symbols: FALLBACK_SYMBOLS,
-      timeframes: TIMEFRAMES,
+      timeframe: pickTimeframe(requestedTimeframe, timeframes),
+      symbols,
+      timeframes,
+      isLoading: markets.isPending,
       setSymbol,
       setTimeframe,
-    }),
-    [symbol, timeframe],
-  );
+    };
+  }, [markets.data, markets.isPending, requestedSymbol, requestedTimeframe]);
 
   return <MarketSelectionContext value={value}>{children}</MarketSelectionContext>;
 }
