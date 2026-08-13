@@ -24,9 +24,13 @@ const timeframesSchema = z
 
 const intIn = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
+export const startModeSchema = z.enum(['api', 'worker', 'ingestor']);
+
+export type StartMode = z.infer<typeof startModeSchema>;
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).prefault('development'),
-  START_MODE: z.enum(['api', 'worker', 'ingestor']).prefault('api'),
+  START_MODE: startModeSchema.prefault('api'),
   PORT: intIn(1, 65535).prefault('4000'),
   LOG_LEVEL: z.enum(LOG_LEVELS).prefault('info'),
 

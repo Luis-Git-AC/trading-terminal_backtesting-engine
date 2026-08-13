@@ -1,4 +1,5 @@
 import { env } from './config/env.js';
+import { resolveStartMode } from './config/start-mode.js';
 
 const APP_VERSION = '0.1.0';
 import { createPool } from './db/pool.js';
@@ -152,18 +153,19 @@ async function runWorker(logger: AppLogger): Promise<void> {
 }
 
 export async function main(): Promise<void> {
-  const logger = createLogger({ role: env.START_MODE, level: env.LOG_LEVEL });
+  const role = resolveStartMode(process.argv, env.START_MODE);
+  const logger = createLogger({ role, level: env.LOG_LEVEL });
 
   process.on('unhandledRejection', (reason) => {
     logger.error({ err: reason }, 'promesa rechazada sin manejar');
   });
 
-  if (env.START_MODE === 'ingestor') {
+  if (role === 'ingestor') {
     await runIngestor(logger);
     return;
   }
 
-  if (env.START_MODE === 'api') {
+  if (role === 'api') {
     await runApi(logger);
     return;
   }

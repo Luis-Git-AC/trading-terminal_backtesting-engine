@@ -6,9 +6,9 @@
   "description": "API, worker de backtests e ingestor de mercado",
   "main": "./dist/main.js",
   "scripts": {
-    "dev:api": "echo \"[PENDIENTE F4-T1] esqueleto del API Express 5\"",
-    "dev:worker": "echo \"[PENDIENTE F4-T6] worker de backtests\"",
-    "dev:ingestor": "tsx --env-file-if-exists=../.env src/main.ts",
+    "dev:api": "tsx --env-file-if-exists=../.env src/main.ts api",
+    "dev:worker": "tsx --env-file-if-exists=../.env src/main.ts worker",
+    "dev:ingestor": "tsx --env-file-if-exists=../.env src/main.ts ingestor",
     "db:migrate": "tsx --env-file-if-exists=../.env src/cli/migrate.ts",
     "db:seed": "echo \"[PENDIENTE F1-T3] fixtures sinteticos de desarrollo\"",
     "backfill": "tsx --env-file-if-exists=../.env src/cli/backfill.ts",
