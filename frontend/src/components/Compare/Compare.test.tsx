@@ -201,7 +201,7 @@ describe('CompareView', () => {
   it('con menos de 2 runs pide seleccionar mas', () => {
     renderCompare([ID_A]);
 
-    expect(screen.getByText(/Selecciona entre 2 y 4 runs/i)).toBeDefined();
+    expect(screen.getByText(/entre 2 y 4 runs/i)).toBeDefined();
   });
 
   it('compara 2 runs: tabla, curvas y cabeceras', async () => {
@@ -245,7 +245,7 @@ describe('CompareView', () => {
     renderCompare([ID_A, ID_B, ID_C, ID_D, ID_E]);
 
     await waitFor(() => {
-      expect(screen.getByText(/Cargando comparativa/i)).toBeDefined();
+      expect(screen.getByRole('status', { name: /Cargando comparativa/i })).toBeDefined();
     });
     expect(requests).toBe(0);
   });

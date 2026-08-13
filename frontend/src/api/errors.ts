@@ -23,6 +23,21 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   MALFORMED_RESPONSE: 'El API ha respondido algo que no cumple el contrato.',
 };
 
+const RECOVERY: Record<ApiErrorCode, string | null> = {
+  VALIDATION_ERROR: 'Corrige los campos marcados y vuelve a enviarlo.',
+  NOT_FOUND: 'Puede que se haya borrado. Vuelve al historial y elige otro.',
+  CONFLICT: 'Recarga para ver el estado real antes de repetir la operacion.',
+  RANGE_TOO_LARGE: 'Acorta el rango de fechas o sube de timeframe.',
+  UPSTREAM_UNAVAILABLE: 'Es un fallo del exchange. Reintenta en unos segundos.',
+  INTERNAL: 'Mira el log del API; el detalle no viaja al navegador.',
+  NETWORK_ERROR: 'Comprueba que el API esta levantado: npm run dev:api',
+  MALFORMED_RESPONSE: 'API y frontend han quedado desalineados. Reconstruye y recarga.',
+};
+
+export function recoveryHintFor(error: unknown): string | null {
+  return isApiError(error) ? RECOVERY[error.code] : null;
+}
+
 export class ApiError extends Error {
   override readonly name = 'ApiError';
   readonly code: ApiErrorCode;

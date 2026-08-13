@@ -217,7 +217,7 @@ describe('Runs', () => {
     renderRuns([]);
 
     await waitFor(() => {
-      expect(screen.getByText(/No hay runs con estos filtros/i)).toBeDefined();
+      expect(screen.getByText('Todavia no hay ningun run')).toBeDefined();
     });
   });
 });

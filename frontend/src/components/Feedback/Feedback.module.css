@@ -1,0 +1,119 @@
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+  max-width: 56ch;
+  padding: var(--space-12);
+}
+
+.centered {
+  align-items: center;
+  text-align: center;
+  margin-inline: auto;
+}
+
+.title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.alarming {
+  color: var(--color-danger);
+}
+
+.hint {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.command {
+  display: inline-block;
+  padding: var(--space-4) var(--space-8);
+  background-color: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  letter-spacing: var(--letter-spacing-caps);
+  color: var(--color-text-tertiary);
+}
+
+.retry {
+  height: 26px;
+  padding-inline: var(--space-12);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  transition:
+    color var(--duration-micro) var(--ease-out),
+    background-color var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
+}
+
+.retry:hover:not(:disabled) {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-text-tertiary);
+}
+
+.retry:disabled {
+  color: var(--color-text-tertiary);
+}
+
+.skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.bar {
+  flex: 0 0 auto;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background-image: linear-gradient(
+    90deg,
+    var(--color-surface-raised),
+    var(--color-surface-hover),
+    var(--color-surface-raised)
+  );
+  background-size: 300% 100%;
+  animation: sweep var(--duration-layout) var(--ease-in-out) infinite alternate;
+}
+
+.bar:last-child {
+  width: 60%;
+}
+
+.block {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 64px;
+}
+
+.block:last-child {
+  width: 100%;
+}
+
+@keyframes sweep {
+  from {
+    background-position: 0% 0%;
+  }
+
+  to {
+    background-position: 100% 0%;
+  }
+}

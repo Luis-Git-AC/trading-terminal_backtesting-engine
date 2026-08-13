@@ -38,6 +38,75 @@ describe('tokens.css es la unica fuente de color', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('ningun modulo declara espaciado, tipografia ni radios a mano', () => {
+    const scaled = new Set([
+      'padding',
+      'padding-top',
+      'padding-right',
+      'padding-bottom',
+      'padding-left',
+      'padding-inline',
+      'padding-block',
+      'margin',
+      'margin-top',
+      'margin-right',
+      'margin-bottom',
+      'margin-left',
+      'margin-inline',
+      'margin-inline-start',
+      'margin-inline-end',
+      'margin-block',
+      'gap',
+      'row-gap',
+      'column-gap',
+      'font-size',
+      'border-radius',
+    ]);
+
+    const literals = new Set(['0', 'auto', 'inherit', 'initial', 'unset']);
+
+    const offenders = listFiles(SRC_DIR)
+      .filter((file) => file.endsWith('.module.css'))
+      .flatMap((file) => {
+        const source = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+        const found: string[] = [];
+
+        for (const match of source.matchAll(/([a-z-]+)\s*:\s*([^;{}]+);/g)) {
+          const property = match[1];
+          const value = match[2];
+          if (property === undefined || value === undefined || !scaled.has(property)) {
+            continue;
+          }
+
+          const hardcoded = value
+            .split(/\s+/)
+            .filter((part) => part !== '')
+            .filter((part) => !part.startsWith('var(--'))
+            .filter((part) => !literals.has(part));
+
+          for (const part of hardcoded) {
+            found.push(`${relative(SRC_DIR, file).split(sep).join('/')}: ${property}: ${part}`);
+          }
+        }
+
+        return found;
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('el anillo de foco vive solo en global.css: ningun modulo lo apaga', () => {
+    const offenders = listFiles(SRC_DIR)
+      .filter((file) => file.endsWith('.module.css'))
+      .filter((file) => /:focus\b|:focus-visible\b|outline\s*:/.test(readFileSync(file, 'utf8')))
+      .map((file) => relative(SRC_DIR, file).split(sep).join('/'));
+
+    expect(offenders).toEqual([]);
+    expect(readFileSync(join(SRC_DIR, 'styles', 'global.css'), 'utf8')).toContain(
+      'box-shadow: var(--shadow-focus);',
+    );
+  });
+
   it('tokens.css define los roles de color que exige el ticket', () => {
     const tokens = readFileSync(TOKENS_FILE, 'utf8');
 

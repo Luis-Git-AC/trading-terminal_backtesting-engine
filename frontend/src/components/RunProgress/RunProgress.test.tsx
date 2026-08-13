@@ -39,7 +39,8 @@ describe('RunProgress', () => {
   it('sin run pide que se lance uno, sin barra ni spinner', () => {
     renderProgress(undefined);
 
-    expect(screen.getByText(/para lanzar un run/i)).toBeDefined();
+    expect(screen.getByText('Ningun run seleccionado')).toBeDefined();
+    expect(screen.getByText(/pulsa «Ejecutar backtest»/i)).toBeDefined();
     expect(screen.queryByRole('progressbar')).toBeNull();
     expect(FakeEventSource.openCount).toBe(0);
   });

@@ -1,0 +1,69 @@
+.boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-12);
+  height: 100%;
+  padding: var(--space-32);
+  background-color: var(--color-bg);
+}
+
+.title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-danger);
+}
+
+.text {
+  max-width: 60ch;
+  color: var(--color-text-secondary);
+}
+
+.detail {
+  max-width: 80ch;
+  padding: var(--space-8) var(--space-12);
+  background-color: var(--color-surface-sunken);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-8);
+}
+
+.primary {
+  height: 30px;
+  padding-inline: var(--space-16);
+  background-color: var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-on-accent);
+  font-weight: var(--font-weight-medium);
+  transition: background-color var(--duration-micro) var(--ease-out);
+}
+
+.primary:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.secondary {
+  height: 30px;
+  padding-inline: var(--space-16);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  transition:
+    background-color var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
+}
+
+.secondary:hover {
+  background-color: var(--color-surface-hover);
+  border-color: var(--color-text-tertiary);
+}

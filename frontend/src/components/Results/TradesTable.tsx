@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { BacktestTrade } from '@tt/shared';
+import { EmptyState } from '@/components/Feedback/EmptyState';
 import {
   SORT_KEYS,
   SORT_LABEL,
@@ -46,7 +47,12 @@ export function TradesTable({
   const visible = useMemo(() => pageOf(sorted, current, pageSize), [sorted, current, pageSize]);
 
   if (trades.length === 0) {
-    return <p className={styles.empty}>El run no cerro ninguna operacion.</p>;
+    return (
+      <EmptyState
+        title="El run no cerro ninguna operacion"
+        hint="La estrategia no disparo ninguna entrada en ese rango. Prueba con un rango mas largo, otro timeframe o parametros menos restrictivos."
+      />
+    );
   }
 
   const truncated = totalTrades !== undefined && totalTrades > trades.length;
@@ -64,17 +70,20 @@ export function TradesTable({
         <thead>
           <tr>
             {SORT_KEYS.map((key) => (
-              <th key={key} scope="col">
+              <th
+                key={key}
+                scope="col"
+                aria-sort={
+                  sort.key === key
+                    ? sort.direction === 'asc'
+                      ? 'ascending'
+                      : 'descending'
+                    : 'none'
+                }
+              >
                 <button
                   type="button"
                   className={cx(styles.sortButton, sort.key === key && styles.sortActive)}
-                  aria-sort={
-                    sort.key === key
-                      ? sort.direction === 'asc'
-                        ? 'ascending'
-                        : 'descending'
-                      : 'none'
-                  }
                   onClick={() => {
                     setSort((currentSort) => nextSort(currentSort, key));
                     setPage(0);

@@ -15,6 +15,7 @@ import {
 } from 'lightweight-charts';
 import type { BacktestTrade, Candle, Timeframe } from '@tt/shared';
 import type { SseConnectionCtor } from '@/api/event-source';
+import type { ConnectionState } from '@/hooks/useEventSource';
 import { useLiveCandles } from '@/hooks/useLiveCandles';
 import { toChartTime, tradeMarkers } from '@/components/Chart/markers';
 import { readChartTheme, type ChartTheme } from '@/components/Chart/theme';
@@ -31,6 +32,7 @@ export interface CandleChartProps {
   readonly onLoadOlder?: (() => void) | undefined;
   readonly focus?: { readonly from: number; readonly to: number } | undefined;
   readonly sseCtor?: SseConnectionCtor | undefined;
+  readonly onConnectionChange?: ((state: ConnectionState) => void) | undefined;
 }
 
 export function toCandlestickData(candle: Candle): CandlestickData<UTCTimestamp> {
@@ -67,6 +69,7 @@ export function CandleChart({
   onLoadOlder,
   focus,
   sseCtor,
+  onConnectionChange,
 }: CandleChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const refsRef = useRef<ChartRefs | null>(null);
@@ -214,17 +217,25 @@ export function CandleChart({
     });
   }, [focus]);
 
-  useLiveCandles(live ? symbol : undefined, live ? timeframe : undefined, {
-    ctor: sseCtor,
-    onTick: (candle) => {
-      const refs = refsRef.current;
-      if (refs === null || theme === null) {
-        return;
-      }
-      refs.candles.update(toCandlestickData(candle));
-      refs.volume.update(toVolumeData(candle, theme));
+  const { connectionState } = useLiveCandles(
+    live ? symbol : undefined,
+    live ? timeframe : undefined,
+    {
+      ctor: sseCtor,
+      onTick: (candle) => {
+        const refs = refsRef.current;
+        if (refs === null || theme === null) {
+          return;
+        }
+        refs.candles.update(toCandlestickData(candle));
+        refs.volume.update(toVolumeData(candle, theme));
+      },
     },
-  });
+  );
+
+  useEffect(() => {
+    onConnectionChange?.(connectionState);
+  }, [connectionState, onConnectionChange]);
 
   return <div className={styles.chart} ref={containerRef} data-testid="candle-chart" />;
 }

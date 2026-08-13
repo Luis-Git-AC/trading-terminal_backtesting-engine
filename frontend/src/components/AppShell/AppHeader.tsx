@@ -1,15 +1,9 @@
 import { NavLink } from 'react-router';
-import type { ConnectionState } from '@/hooks/useEventSource';
+import { ConnectionBadge } from '@/components/ConnectionBadge/ConnectionBadge';
 import { cx } from '@/lib/cx';
 import { useMarketSelection } from '@/state/market-selection';
 import { THEME_PREFERENCES, useTheme, type ThemePreference } from '@/state/theme';
 import styles from './AppHeader.module.css';
-
-const CONNECTION_LABEL: Record<ConnectionState, string> = {
-  connected: 'En vivo',
-  connecting: 'Conectando',
-  disconnected: 'Sin conexion',
-};
 
 const THEME_LABEL: Record<ThemePreference, string> = {
   system: 'Sistema',
@@ -52,11 +46,7 @@ function ThemeToggle() {
   );
 }
 
-export function AppHeader({
-  connection = 'disconnected',
-}: {
-  connection?: ConnectionState | undefined;
-}) {
+export function AppHeader() {
   const { symbol, symbols, timeframe, timeframes, setSymbol, setTimeframe } = useMarketSelection();
 
   return (
@@ -126,10 +116,7 @@ export function AppHeader({
         <ThemeToggle />
       </div>
 
-      <p className={styles.connection}>
-        <span className={cx(styles.dot, styles[connection])} aria-hidden="true" />
-        {CONNECTION_LABEL[connection]}
-      </p>
+      <ConnectionBadge />
     </header>
   );
 }

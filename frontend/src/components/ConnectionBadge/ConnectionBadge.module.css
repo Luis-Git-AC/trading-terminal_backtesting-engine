@@ -1,0 +1,43 @@
+.badge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-neutral);
+  transition: background-color var(--duration-component) var(--ease-out);
+}
+
+.live {
+  background-color: var(--color-success);
+}
+
+.connecting {
+  background-color: var(--color-warning);
+}
+
+.stale {
+  background-color: var(--color-danger);
+}
+
+.offline {
+  background-color: var(--color-danger);
+}
+
+.age {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.alarming {
+  color: var(--color-danger);
+}

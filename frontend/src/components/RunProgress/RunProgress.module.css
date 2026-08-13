@@ -9,11 +9,6 @@
   margin-bottom: var(--space-16);
 }
 
-.idle {
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-}
-
 .head {
   display: flex;
   align-items: center;

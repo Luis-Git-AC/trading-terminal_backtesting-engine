@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { RUN_STATUSES, type RunStatus, type RunSummary } from '@tt/shared';
-import { describeApiError } from '@/api/errors';
 import { CompareView } from '@/components/Compare/CompareView';
 import { MAX_COMPARE, canCompare, toggleSelection } from '@/components/Compare/compare';
+import { EmptyState } from '@/components/Feedback/EmptyState';
+import { ErrorState } from '@/components/Feedback/ErrorState';
+import { Skeleton } from '@/components/Feedback/Skeleton';
 import { Panel } from '@/components/Panel/Panel';
 import { RUN_STATUS_LABEL } from '@/components/RunProgress/format';
 import { useDeleteBacktest } from '@/hooks/useBacktest';
@@ -37,6 +39,7 @@ export function Runs() {
   const all = runs.data?.runs ?? [];
   const strategies = [...new Set(all.map((run) => run.strategyId))].sort();
   const visible = strategy === ALL ? all : all.filter((run) => run.strategyId === strategy);
+  const filtering = status !== ALL || strategy !== ALL;
 
   return (
     <div className={styles.page}>
@@ -86,13 +89,51 @@ export function Runs() {
         }
       >
         {runs.error !== null ? (
-          <p className={styles.error}>{describeApiError(runs.error)}</p>
+          <ErrorState
+            error={runs.error}
+            title="No se ha podido cargar el historial"
+            retrying={runs.isRefetching}
+            onRetry={() => {
+              void runs.refetch();
+            }}
+          />
         ) : runs.isPending ? (
-          <p className={styles.note}>Cargando runs…</p>
+          <Skeleton label="Cargando runs…" lines={6} />
         ) : visible.length === 0 ? (
-          <p className={styles.note}>
-            No hay runs con estos filtros. Lanza un backtest desde la terminal.
-          </p>
+          filtering ? (
+            <EmptyState
+              title="Ningun run coincide con los filtros"
+              hint="Ninguno de los runs guardados cumple el filtro actual de estado y estrategia."
+              action={
+                <button
+                  type="button"
+                  className={styles.action}
+                  onClick={() => {
+                    setStatus(ALL);
+                    setStrategy(ALL);
+                  }}
+                >
+                  Quitar los filtros
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="Todavia no hay ningun run"
+              hint="Configura una estrategia en la terminal y pulsa «Ejecutar backtest»; el run aparecera aqui en cuanto lo recoja el worker."
+              action={
+                <button
+                  type="button"
+                  className={styles.action}
+                  onClick={() => {
+                    void navigate('/');
+                  }}
+                >
+                  Ir a la terminal
+                </button>
+              }
+            />
+          )
         ) : (
           <table className={styles.table}>
             <thead>

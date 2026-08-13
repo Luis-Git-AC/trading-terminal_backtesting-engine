@@ -4,16 +4,6 @@
   gap: var(--space-16);
 }
 
-.note {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
-}
-
-.error {
-  font-size: var(--font-size-sm);
-  color: var(--color-danger);
-}
-
 .warnings {
   display: flex;
   flex-direction: column;

@@ -102,8 +102,8 @@
 
 .segmented {
   display: flex;
-  gap: 1px;
-  padding: 1px;
+  gap: var(--border-width);
+  padding: var(--border-width);
   background-color: var(--color-surface-sunken);
   border: var(--border-width) solid var(--color-border-strong);
   border-radius: var(--radius-md);
@@ -130,32 +130,4 @@
 .segmentActive:hover {
   color: var(--color-on-accent);
   background-color: var(--color-accent);
-}
-
-.connection {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full);
-  background-color: var(--color-neutral);
-}
-
-.connected {
-  background-color: var(--color-success);
-}
-
-.connecting {
-  background-color: var(--color-warning);
-}
-
-.disconnected {
-  background-color: var(--color-danger);
 }

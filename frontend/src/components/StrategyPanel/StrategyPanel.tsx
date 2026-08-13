@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { CreateBacktestBody, RunDetail, StrategyMeta, Timeframe } from '@tt/shared';
-import { describeApiError, type ApiError } from '@/api/errors';
+import type { ApiError } from '@/api/errors';
+import { EmptyState } from '@/components/Feedback/EmptyState';
+import { ErrorState } from '@/components/Feedback/ErrorState';
+import { Skeleton } from '@/components/Feedback/Skeleton';
 import { ParamField } from '@/components/StrategyPanel/ParamField';
 import {
   EXEC_DEFAULTS,
@@ -130,11 +133,30 @@ export function StrategyPanel({
   };
 
   if (catalog.isPending) {
-    return <p className={styles.note}>Cargando estrategias…</p>;
+    return <Skeleton label="Cargando estrategias…" lines={6} />;
   }
 
   if (catalog.error !== null) {
-    return <p className={styles.error}>{describeApiError(catalog.error)}</p>;
+    return (
+      <ErrorState
+        error={catalog.error}
+        title="No se ha podido cargar el catalogo de estrategias"
+        retrying={catalog.isRefetching}
+        onRetry={() => {
+          void catalog.refetch();
+        }}
+      />
+    );
+  }
+
+  if (selected === undefined) {
+    return (
+      <EmptyState
+        title="El API no expone ninguna estrategia"
+        hint="El catalogo ha respondido vacio. Comprueba que el registro de estrategias del backend esta cargado."
+        command="npm run dev:api"
+      />
+    );
   }
 
   return (
@@ -206,11 +228,16 @@ export function StrategyPanel({
                 max={limits.max}
                 step={limits.step}
                 aria-invalid={error !== undefined}
+                aria-describedby={error === undefined ? undefined : `exec-${field}-error`}
                 onChange={(event) => {
                   setExec(field, event.target.value);
                 }}
               />
-              {error !== undefined && <p className={styles.error}>{error}</p>}
+              {error !== undefined && (
+                <p className={styles.error} id={`exec-${field}-error`}>
+                  {error}
+                </p>
+              )}
             </div>
           );
         })}
@@ -231,6 +258,7 @@ export function StrategyPanel({
               inputMode="numeric"
               placeholder="la genera el servidor"
               aria-invalid={errors.seed !== undefined}
+              aria-describedby={errors.seed === undefined ? undefined : 'seed-error'}
               onChange={(event) => {
                 setForm((current) => ({ ...current, seed: event.target.value }));
               }}
@@ -245,7 +273,11 @@ export function StrategyPanel({
               Aleatoria
             </button>
           </div>
-          {errors.seed !== undefined && <p className={styles.error}>{errors.seed}</p>}
+          {errors.seed !== undefined && (
+            <p className={styles.error} id="seed-error">
+              {errors.seed}
+            </p>
+          )}
         </div>
       </section>
 
@@ -264,6 +296,8 @@ export function StrategyPanel({
               value={form.from}
               min={isoDay(coverage.data?.from ?? null)}
               max={isoDay(coverage.data?.to ?? null)}
+              aria-invalid={errors.range !== undefined}
+              aria-describedby={errors.range === undefined ? undefined : 'range-error'}
               onChange={(event) => {
                 setForm((current) => ({ ...current, from: event.target.value }));
               }}
@@ -280,6 +314,8 @@ export function StrategyPanel({
               value={form.to}
               min={isoDay(coverage.data?.from ?? null)}
               max={isoDay(coverage.data?.to ?? null)}
+              aria-invalid={errors.range !== undefined}
+              aria-describedby={errors.range === undefined ? undefined : 'range-error'}
               onChange={(event) => {
                 setForm((current) => ({ ...current, to: event.target.value }));
               }}
@@ -293,7 +329,11 @@ export function StrategyPanel({
             {coverage.data.candles.toLocaleString('es-ES')} velas
           </p>
         )}
-        {errors.range !== undefined && <p className={styles.error}>{errors.range}</p>}
+        {errors.range !== undefined && (
+          <p className={styles.error} id="range-error">
+            {errors.range}
+          </p>
+        )}
         {result.warnings.map((warning) => (
           <p className={styles.warning} key={warning}>
             {warning}
@@ -309,11 +349,17 @@ export function StrategyPanel({
             className={cx(styles.control, errors.label !== undefined && styles.controlInvalid)}
             value={form.label}
             placeholder="opcional"
+            aria-invalid={errors.label !== undefined}
+            aria-describedby={errors.label === undefined ? undefined : 'label-error'}
             onChange={(event) => {
               setForm((current) => ({ ...current, label: event.target.value }));
             }}
           />
-          {errors.label !== undefined && <p className={styles.error}>{errors.label}</p>}
+          {errors.label !== undefined && (
+            <p className={styles.error} id="label-error">
+              {errors.label}
+            </p>
+          )}
         </div>
       </section>
 
@@ -327,7 +373,7 @@ export function StrategyPanel({
           </p>
         )}
         {submitError !== null && submitError.details === undefined && (
-          <p className={styles.error}>{describeApiError(submitError)}</p>
+          <ErrorState error={submitError} title="No se ha podido lanzar el backtest" />
         )}
       </div>
     </form>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { RunStatus } from '@tt/shared';
 import type { SseConnectionCtor } from '@/api/event-source';
 import { describeApiError } from '@/api/errors';
+import { EmptyState } from '@/components/Feedback/EmptyState';
 import {
   RUN_STATUS_LABEL,
   barsLabel,
@@ -58,9 +59,10 @@ export function RunProgress({
 
   if (runId === undefined) {
     return (
-      <p className={styles.idle}>
-        Configura la estrategia y pulsa «Ejecutar backtest» para lanzar un run.
-      </p>
+      <EmptyState
+        title="Ningun run seleccionado"
+        hint="Configura la estrategia en el panel de la izquierda y pulsa «Ejecutar backtest»; el progreso y las metricas apareceran aqui."
+      />
     );
   }
 

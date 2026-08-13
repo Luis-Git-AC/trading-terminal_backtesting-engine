@@ -26,6 +26,8 @@ export interface UseCandleWindowResult {
   readonly bars: number;
   readonly canLoadOlder: boolean;
   readonly loadOlder: () => void;
+  readonly isRefetching: boolean;
+  readonly refetch: () => void;
 }
 
 export function useCandleWindow(
@@ -61,6 +63,11 @@ export function useCandleWindow(
     canLoadOlder: bars < CANDLES_MAX_LIMIT,
     loadOlder: () => {
       setBars((current) => Math.min(CANDLES_MAX_LIMIT, current + PAGE_BARS));
+    },
+    isRefetching: coverage.isRefetching || candlesQuery.isRefetching,
+    refetch: () => {
+      void coverage.refetch();
+      void candlesQuery.refetch();
     },
   };
 }

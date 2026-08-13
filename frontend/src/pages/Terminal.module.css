@@ -30,22 +30,11 @@
   border-radius: var(--radius-md);
 }
 
-.pending {
-  max-width: 52ch;
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
+.chartSurfacePadded {
+  padding: var(--space-12);
 }
 
-.launched {
-  padding: var(--space-8) var(--space-12);
-  background-color: var(--color-accent-muted);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text);
-  margin-bottom: var(--space-12);
-}
-
-.launched code {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
+.chartSurfaceStretch {
+  place-items: stretch;
+  padding: var(--space-12);
 }

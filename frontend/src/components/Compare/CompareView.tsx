@@ -10,7 +10,9 @@ import {
   YAxis,
 } from 'recharts';
 import type { CompareResponse, RunSummary } from '@tt/shared';
-import { describeApiError } from '@/api/errors';
+import { EmptyState } from '@/components/Feedback/EmptyState';
+import { ErrorState } from '@/components/Feedback/ErrorState';
+import { Skeleton } from '@/components/Feedback/Skeleton';
 import {
   COMPARE_METRICS,
   MAX_COMPARE,
@@ -84,18 +86,28 @@ export function CompareView({ ids }: CompareViewProps) {
 
   if (ids.length < MIN_COMPARE) {
     return (
-      <p className={styles.note}>
-        Selecciona entre {MIN_COMPARE} y {MAX_COMPARE} runs para compararlos.
-      </p>
+      <EmptyState
+        title="Nada que comparar todavia"
+        hint={`Marca la casilla de entre ${String(MIN_COMPARE)} y ${String(MAX_COMPARE)} runs del historial y sus metricas y curvas apareceran aqui lado a lado.`}
+      />
     );
   }
 
   if (compare.isPending) {
-    return <p className={styles.note}>Cargando comparativa…</p>;
+    return <Skeleton label="Cargando comparativa…" lines={5} />;
   }
 
   if (compare.error !== null) {
-    return <p className={styles.error}>{describeApiError(compare.error)}</p>;
+    return (
+      <ErrorState
+        error={compare.error}
+        title="No se ha podido cargar la comparativa"
+        retrying={compare.isRefetching}
+        onRetry={() => {
+          void compare.refetch();
+        }}
+      />
+    );
   }
 
   const warnings = [...mismatchWarnings(runs), ...(compare.data?.warnings ?? [])];

@@ -1,5 +1,7 @@
 import type { BacktestTrade } from '@tt/shared';
-import { describeApiError } from '@/api/errors';
+import { EmptyState } from '@/components/Feedback/EmptyState';
+import { ErrorState } from '@/components/Feedback/ErrorState';
+import { Skeleton } from '@/components/Feedback/Skeleton';
 import { EquityChart } from '@/components/Results/EquityChart';
 import { MetricsGrid } from '@/components/Results/MetricsGrid';
 import { TradesTable } from '@/components/Results/TradesTable';
@@ -25,7 +27,16 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
   }
 
   if (run.error !== null) {
-    return <p className={styles.empty}>{describeApiError(run.error)}</p>;
+    return (
+      <ErrorState
+        error={run.error}
+        title="No se ha podido cargar el run"
+        retrying={run.isRefetching}
+        onRetry={() => {
+          void run.refetch();
+        }}
+      />
+    );
   }
 
   if (!completed) {
@@ -46,7 +57,21 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
       <section>
         <h3 className={styles.sectionTitle}>Equity y drawdown</h3>
         {equity.isPending ? (
-          <p className={styles.empty}>Cargando la curva…</p>
+          <Skeleton label="Cargando la curva de equity…" lines={3} />
+        ) : equity.error !== null ? (
+          <ErrorState
+            error={equity.error}
+            title="No se ha podido cargar la curva"
+            retrying={equity.isRefetching}
+            onRetry={() => {
+              void equity.refetch();
+            }}
+          />
+        ) : (equity.data?.points.length ?? 0) === 0 ? (
+          <EmptyState
+            title="Sin curva de equity"
+            hint="El run termino sin producir puntos de equity: no llego a abrir ninguna posicion."
+          />
         ) : (
           <EquityChart points={equity.data?.points ?? []} />
         )}
@@ -55,7 +80,16 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
       <section>
         <h3 className={styles.sectionTitle}>Operaciones</h3>
         {trades.isPending ? (
-          <p className={styles.empty}>Cargando operaciones…</p>
+          <Skeleton label="Cargando operaciones…" lines={4} />
+        ) : trades.error !== null ? (
+          <ErrorState
+            error={trades.error}
+            title="No se han podido cargar las operaciones"
+            retrying={trades.isRefetching}
+            onRetry={() => {
+              void trades.refetch();
+            }}
+          />
         ) : (
           <TradesTable
             trades={trades.data?.trades ?? []}

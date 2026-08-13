@@ -38,7 +38,7 @@ describe('Terminal', () => {
     renderTerminal();
 
     await waitFor(() => {
-      expect(screen.getByText(/para lanzar un run/i)).toBeDefined();
+      expect(screen.getByText('Ningun run seleccionado')).toBeDefined();
     });
     expect(
       FakeEventSource.instances.filter((source) => source.url.includes('/stream')).length,
