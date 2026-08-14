@@ -1,42 +1,20 @@
-import { z } from 'zod';
 import { runMigrations } from '../backend/src/db/migrate.js';
 import { closePool, getPool } from '../backend/src/db/pool.js';
 import { createCandlesRepository } from '../backend/src/db/repositories/candles.repo.js';
 import { loadCandleFixture, seedFixture, type SeedSeriesResult } from '../e2e/fixtures/seed.js';
+import { apiUrlFrom, probeHealth } from '../e2e/health.js';
 import { waitFor } from '../e2e/wait.js';
 
 export const HEALTH_TIMEOUT_MS = 60_000;
 export const DB_TIMEOUT_MS = 60_000;
 
-export const healthBodySchema = z.object({
-  status: z.enum(['ok', 'degraded']),
-  uptimeSec: z.number(),
-  version: z.string(),
-  checks: z.object({
-    db: z.enum(['ok', 'error']),
-    redis: z.enum(['ok', 'error']),
-  }),
-});
-
-export type HealthBody = z.infer<typeof healthBodySchema>;
-
-export function isHealthy(body: unknown): boolean {
-  const parsed = healthBodySchema.safeParse(body);
-  if (!parsed.success) return false;
-  return parsed.data.checks.db === 'ok' && parsed.data.checks.redis === 'ok';
-}
-
-export interface ProbeHealthOptions {
-  readonly url: string;
-  readonly fetchImpl?: typeof fetch;
-}
-
-export async function probeHealth(options: ProbeHealthOptions): Promise<HealthBody | undefined> {
-  const call = options.fetchImpl ?? fetch;
-  const response = await call(options.url);
-  const body: unknown = await response.json();
-  return isHealthy(body) ? healthBodySchema.parse(body) : undefined;
-}
+export {
+  apiUrlFrom,
+  healthBodySchema,
+  isHealthy,
+  probeHealth,
+  type HealthBody,
+} from '../e2e/health.js';
 
 export function summarizeSeed(results: readonly SeedSeriesResult[]): string {
   return results
@@ -46,10 +24,6 @@ export function summarizeSeed(results: readonly SeedSeriesResult[]): string {
         `${new Date(result.fromTs).toISOString()} -> ${new Date(result.toTs).toISOString()}`,
     )
     .join('\n');
-}
-
-export function apiUrlFrom(source: NodeJS.ProcessEnv): string {
-  return source.E2E_API_URL ?? `http://localhost:${source.E2E_API_PORT ?? '4000'}`;
 }
 
 export async function main(): Promise<void> {

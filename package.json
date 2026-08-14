@@ -34,7 +34,9 @@
     "test:int": "vitest run --project backend:int",
     "test:engine": "vitest run --project backend src/engine src/strategies",
     "bench:engine": "tsx backend/src/engine/__bench__/engine.bench.ts",
-    "test:e2e": "echo \"[PENDIENTE F6-T2] suite Playwright\"",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
     "e2e:up": "docker compose -f docker-compose.e2e.yml up -d --build --wait && npm run e2e:setup",
     "e2e:setup": "tsx --env-file=.env.e2e --env-file=.env.e2e.host scripts/e2e-setup.main.ts",
     "e2e:down": "docker compose -f docker-compose.e2e.yml down -v --remove-orphans",
@@ -48,6 +50,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
+    "@playwright/test": "1.56.1",
     "@types/node": "^22.18.0",
     "@vitest/coverage-v8": "^3.2.7",
     "eslint": "^9.39.0",

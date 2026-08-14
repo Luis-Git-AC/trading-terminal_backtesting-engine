@@ -7,5 +7,5 @@
     "declarationMap": false,
     "types": ["node"]
   },
-  "include": ["vitest.config.ts", "e2e/**/*.ts", "scripts/**/*.ts"]
+  "include": ["vitest.config.ts", "playwright.config.ts", "e2e/**/*.ts", "scripts/**/*.ts"]
 }
