@@ -282,7 +282,7 @@ describe('createLiveIngestor', () => {
   });
 
   it('avanza ingest_state.last_candle_ts y marca last_ws_message_at', async () => {
-    await launch();
+    const created = await launch();
 
     for (let index = 0; index <= 3; index += 1) {
       exchange.push(updateFrame(makeCandle(index)));
@@ -294,6 +294,7 @@ describe('createLiveIngestor', () => {
       },
       { timeout: 10_000 },
     );
+    await created.flush();
 
     const stored = await state.get({ symbol: SYMBOL, timeframe: TIMEFRAME });
     expect(stored?.lastCandleTs).toBe(START + 2 * STEP);

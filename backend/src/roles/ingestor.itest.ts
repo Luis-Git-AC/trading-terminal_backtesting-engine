@@ -221,6 +221,7 @@ describe('startIngestor', () => {
       },
       { timeout: 10_000 },
     );
+    await created.ingestor.flush();
 
     const snapshot = await created.metrics();
 
@@ -308,6 +309,7 @@ describe('startIngestor', () => {
       },
       { timeout: 10_000 },
     );
+    await created.ingestor.flush();
 
     const health = await created.health();
 
@@ -335,6 +337,7 @@ describe('startIngestor', () => {
       },
       { timeout: 10_000 },
     );
+    await created.ingestor.flush();
 
     const health = await created.health();
 
