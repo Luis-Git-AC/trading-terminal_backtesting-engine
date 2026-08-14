@@ -47,6 +47,23 @@ function openChannel(deps: StreamRouterDeps, res: Response): SseChannel {
   return sseChannel(res, deps.sse ?? {});
 }
 
+function handleRunMessage(
+  deps: StreamRouterDeps,
+  channel: SseChannel,
+  runId: string,
+  message: string,
+): void {
+  const parsed = runEventSchema.safeParse(safeJson(message));
+  if (!parsed.success) {
+    deps.logger.warn({ runId }, 'evento de run ilegible, se descarta');
+    return;
+  }
+  emit(channel, parsed.data);
+  if (parsed.data.type === 'done') {
+    channel.close();
+  }
+}
+
 function attach(
   deps: StreamRouterDeps,
   channel: SseChannel,
@@ -87,30 +104,57 @@ export function streamRouter(deps: StreamRouterDeps): Router {
 
           const channel = openChannel(deps, res);
 
-          emit(channel, {
-            type: 'status',
-            runId: run.id,
-            status: run.status,
-            barsTotal: run.barsTotal ?? 0,
-          });
-
           if (isTerminal(run.status)) {
+            emit(channel, {
+              type: 'status',
+              runId: run.id,
+              status: run.status,
+              barsTotal: run.barsTotal ?? 0,
+            });
             emit(channel, { type: 'done', runId: run.id, status: run.status });
             channel.close();
             return;
           }
 
+          // El run no era terminal en esta lectura, pero puede terminar y publicar
+          // "done" mientras nos suscribimos (Redis pub/sub no reproduce mensajes
+          // pasados). Nos suscribimos ANTES de confiar en el estado y bufferizamos
+          // lo que llegue hasta releer el run despues de estar ya suscritos: eso
+          // cierra la ventana de carrera.
+          let live = false;
+          const buffered: string[] = [];
+
           await attach(deps, channel, runChannel(run.id), (message) => {
-            const parsed = runEventSchema.safeParse(safeJson(message));
-            if (!parsed.success) {
-              deps.logger.warn({ runId: run.id }, 'evento de run ilegible, se descarta');
-              return;
-            }
-            emit(channel, parsed.data);
-            if (parsed.data.type === 'done') {
-              channel.close();
+            if (live) {
+              handleRunMessage(deps, channel, run.id, message);
+            } else {
+              buffered.push(message);
             }
           });
+
+          if (channel.closed) {
+            return;
+          }
+
+          const current = await deps.runs.getRun(run.id);
+          const status = current?.status ?? run.status;
+          const barsTotal = current?.barsTotal ?? run.barsTotal ?? 0;
+
+          emit(channel, { type: 'status', runId: run.id, status, barsTotal });
+
+          if (isTerminal(status)) {
+            emit(channel, { type: 'done', runId: run.id, status });
+            channel.close();
+            return;
+          }
+
+          live = true;
+          for (const message of buffered) {
+            handleRunMessage(deps, channel, run.id, message);
+            if (channel.closed) {
+              break;
+            }
+          }
         })
         .catch(next);
     }),

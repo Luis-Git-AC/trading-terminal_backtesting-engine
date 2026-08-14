@@ -455,6 +455,70 @@ describe('sse', () => {
       expect(unsubscribes).toEqual([]);
     });
 
+    it('REPRO: el run termina y publica done justo mientras el stream se suscribe', async () => {
+      const run = await runs.createRun(runInput());
+
+      const delayedSubscriber: SubscriberLike = {
+        subscribe: async (channel: string) => {
+          // simula un subscribe() lento (Redis bajo carga, runner de CI con poca CPU):
+          // el worker puede terminar y publicar "done" en esta ventana.
+          await runs.markRunning(run.id, 100);
+          await runs.completeRun({ runId: run.id, metrics: METRICS, trades: [], equity: [] });
+          await publish(runChannel(run.id), { type: 'done', runId: run.id, status: 'completed' });
+          await new Promise((resolve) => setTimeout(resolve, 50));
+          return subscriber.subscribe(channel);
+        },
+        unsubscribe: (channel: string) => subscriber.unsubscribe(channel),
+        on: (event: 'message', listener: (channel: string, message: string) => void) =>
+          subscriber.on(event, listener),
+      };
+      const raceHub = createSseHub({ subscriber: delayedSubscriber, logger });
+
+      const app = createApiApp({
+        logger,
+        webOrigin: 'https://terminal.example',
+        version: '0.1.0',
+        uptimeSec: () => 1,
+        checkDb: () => Promise.resolve(),
+        checkRedis: () => Promise.resolve(),
+        registerRoutes: (router) => {
+          router.use(
+            streamRouter({
+              runs,
+              hub: raceHub,
+              logger,
+              symbols: [SYMBOL],
+              timeframes: ['1m', '15m', '1h'],
+              sse: { heartbeatMs: 0 },
+            }),
+          );
+        },
+      });
+
+      const raceServer = await new Promise<Server>((resolve, reject) => {
+        const listening = app.listen(0, () => resolve(listening));
+        listening.once('error', reject);
+      });
+      const address = raceServer.address();
+      if (address === null || typeof address === 'string') {
+        throw new Error('el servidor no expuso un puerto');
+      }
+      const raceBaseUrl = `http://127.0.0.1:${address.port}/api`;
+
+      try {
+        const client = await connect(`${raceBaseUrl}/backtests/${run.id}/stream`);
+        try {
+          await client.waitForFrame('done', 5_000);
+          expect(client.frames.map((frame) => frame.event)).toEqual(['status', 'done']);
+          expect(client.frames[1]?.data).toEqual({ runId: run.id, status: 'completed' });
+        } finally {
+          await client.close();
+        }
+      } finally {
+        await new Promise<void>((resolve) => raceServer.close(() => resolve()));
+      }
+    });
+
     it('un run inexistente responde 404 con el sobre de error, no un stream', async () => {
       const response = await fetch(
         `${baseUrl}/backtests/1c8f2a4e-0000-4000-8000-000000000000/stream`,
