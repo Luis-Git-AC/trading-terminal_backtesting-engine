@@ -23,7 +23,6 @@ export default defineConfig({
           root: './shared',
           environment: 'node',
           include: ['src/**/*.test.ts'],
-          passWithNoTests: true,
         },
       },
       {
@@ -32,7 +31,6 @@ export default defineConfig({
           root: './backend',
           environment: 'node',
           include: ['src/**/*.test.ts'],
-          passWithNoTests: true,
         },
       },
       {
@@ -42,10 +40,17 @@ export default defineConfig({
           environment: 'node',
           include: ['src/**/*.itest.ts'],
           setupFiles: ['./src/testing/int-setup.ts'],
-          passWithNoTests: true,
           testTimeout: 60_000,
           hookTimeout: 120_000,
-          fileParallelism: false,
+        },
+      },
+      {
+        test: {
+          name: 'e2e:setup',
+          root: '.',
+          environment: 'node',
+          include: ['e2e/**/*.test.ts', 'scripts/**/*.test.ts'],
+          setupFiles: ['./e2e/test-setup.ts'],
         },
       },
       './frontend/vite.config.ts',

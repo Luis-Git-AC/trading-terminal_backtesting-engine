@@ -9,3 +9,4 @@ redisdata/
 package-lock.json
 Documentacion/
 .claude/
+e2e/fixtures/candles.json

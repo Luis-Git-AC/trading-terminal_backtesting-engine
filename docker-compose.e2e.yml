@@ -1,0 +1,84 @@
+name: trading-terminal-e2e
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile.e2e
+  image: trading-terminal-e2e:latest
+  restart: 'no'
+  env_file: .env.e2e
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  extra_hosts:
+    - 'api.bitget.com:127.0.0.1'
+    - 'ws.bitget.com:127.0.0.1'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    container_name: tt-e2e-postgres
+    restart: 'no'
+    environment:
+      POSTGRES_USER: tt
+      POSTGRES_PASSWORD: tt
+      POSTGRES_DB: trading_terminal_e2e
+      TIMESCALEDB_TELEMETRY: 'off'
+    ports:
+      - '55432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U tt -d trading_terminal_e2e']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    container_name: tt-e2e-redis
+    restart: 'no'
+    command:
+      ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '56379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 2s
+
+  api:
+    <<: *app
+    container_name: tt-e2e-api
+    command: ['npx', 'tsx', 'backend/src/main.ts', 'api']
+    environment:
+      START_MODE: api
+    ports:
+      - '${E2E_API_PORT:-4000}:4000'
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- http://127.0.0.1:4000/api/health | grep -q ''"db":"ok"'' || exit 1',
+        ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  worker:
+    <<: *app
+    container_name: tt-e2e-worker
+    command: ['npx', 'tsx', 'backend/src/main.ts', 'worker']
+    environment:
+      START_MODE: worker
+
+  emitter:
+    <<: *app
+    container_name: tt-e2e-emitter
+    command: ['npx', 'tsx', 'e2e/emitter.main.ts']
+    environment:
+      START_MODE: worker

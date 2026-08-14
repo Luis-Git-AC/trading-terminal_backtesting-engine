@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/build
+**/coverage
+**/playwright-report
+**/test-results
+.git
+.github
+.env
+.env.*
+Documentacion
+.claude
+frontend/src
+frontend/public
+frontend/index.html
