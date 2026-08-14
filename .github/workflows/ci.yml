@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg16
+        env:
+          POSTGRES_USER: tt
+          POSTGRES_PASSWORD: tt
+          POSTGRES_DB: trading_terminal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tt -d trading_terminal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      DATABASE_URL: postgres://tt:tt@localhost:5432/trading_terminal
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Motor de backtest — tests, determinismo y pureza
+        run: npm run test:engine:coverage
+
+      - name: Publicar cobertura del motor
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-coverage
+          path: coverage/
+          retention-days: 14
+
+      - name: Tests unitarios (shared + backend + frontend)
+        run: npm run test:unit
+
+      - name: Tests de integracion (postgres + redis reales)
+        run: npm run test:int
+
+      - name: Build
+        run: npm run build
