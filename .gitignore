@@ -31,3 +31,6 @@ Thumbs.db
 .idea/
 *.tsbuildinfo
 
+
+# claude code: ajustes y permisos locales de la maquina
+.claude/settings.local.json
