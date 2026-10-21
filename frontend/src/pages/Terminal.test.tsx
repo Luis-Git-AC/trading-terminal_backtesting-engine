@@ -106,6 +106,11 @@ describe('Terminal', () => {
 
     renderTerminal(`/?${RUN_PARAM}=${fixtures.RUN_ID}`);
 
+    const tradesTab = await screen.findByRole('tab', { name: 'Operaciones' });
+    act(() => {
+      tradesTab.click();
+    });
+
     const row = await screen.findByLabelText(/Centrar el grafico en la operacion 1/i);
 
     expect(fake.lastChart().timeScale().setVisibleRangeCalls).toEqual([]);

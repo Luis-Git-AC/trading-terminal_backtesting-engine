@@ -1,5 +1,6 @@
 import type { StrategyParam } from '@tt/shared';
 import { cx } from '@/lib/cx';
+import { NumberStepper } from '@/components/StrategyPanel/NumberStepper';
 import { paramStep, type ParamValue } from '@/components/StrategyPanel/validation';
 import styles from './StrategyPanel.module.css';
 
@@ -18,71 +19,71 @@ export function ParamField({ param, value, error, onChange }: ParamFieldProps) {
 
   if (param.type === 'bool') {
     return (
-      <div className={styles.field}>
-        <label className={styles.checkboxRow} htmlFor={id}>
-          <input
-            id={id}
-            type="checkbox"
-            checked={value === true}
-            onChange={(event) => {
-              onChange(event.target.checked);
-            }}
-          />
-          <span className={styles.label}>{label}</span>
-        </label>
-      </div>
+      <label className={styles.toggleRow} htmlFor={id}>
+        <input
+          id={id}
+          type="checkbox"
+          role="switch"
+          className={styles.toggle}
+          checked={value === true}
+          onChange={(event) => {
+            onChange(event.target.checked);
+          }}
+        />
+        <span className={styles.label}>{label}</span>
+      </label>
     );
   }
 
   if (param.type === 'enum') {
     return (
-      <div className={styles.field}>
-        <label className={styles.label} htmlFor={id}>
-          {label}
-        </label>
-        <select
-          id={id}
-          className={cx(styles.control, error !== undefined && styles.controlInvalid)}
-          value={String(value)}
-          aria-invalid={error !== undefined}
-          aria-describedby={describedBy}
-          onChange={(event) => {
-            onChange(event.target.value);
-          }}
-        >
-          {(param.options ?? []).map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
+      <fieldset className={cx(styles.choice, styles.fieldWide)}>
+        <legend className={cx(styles.label, styles.legend)}>{label}</legend>
+        <div className={styles.segments}>
+          {(param.options ?? []).map((option) => {
+            const active = String(value) === option;
+            return (
+              <label key={option} className={cx(styles.segment, active && styles.segmentActive)}>
+                <input
+                  type="radio"
+                  name={id}
+                  value={option}
+                  checked={active}
+                  className={styles.segmentRadio}
+                  aria-describedby={describedBy}
+                  onChange={() => {
+                    onChange(option);
+                  }}
+                />
+                <span>{option}</span>
+              </label>
+            );
+          })}
+        </div>
         {error !== undefined && (
           <p className={styles.error} id={errorId}>
             {error}
           </p>
         )}
-      </div>
+      </fieldset>
     );
   }
 
   return (
     <div className={styles.field}>
-      <label className={styles.label} htmlFor={id}>
+      <label className={styles.label} htmlFor={id} title={label}>
         {label}
       </label>
-      <input
+      <NumberStepper
         id={id}
-        type="number"
-        className={cx(styles.control, styles.number, error !== undefined && styles.controlInvalid)}
+        name={label}
         value={String(value)}
+        step={paramStep(param)}
         min={param.min}
         max={param.max}
-        step={paramStep(param)}
-        aria-invalid={error !== undefined}
-        aria-describedby={describedBy}
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
+        invalid={error !== undefined}
+        describedBy={describedBy}
+        onChange={onChange}
       />
       {error !== undefined && (
         <p className={styles.error} id={errorId}>

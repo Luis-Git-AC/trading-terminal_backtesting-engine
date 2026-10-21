@@ -1,4 +1,5 @@
 import type { BacktestMetricsResponse } from '@tt/shared';
+import { formatCount, formatNumber, formatPercent, formatUsd } from '@/lib/format';
 
 export const EMPTY_VALUE = '—';
 
@@ -18,27 +19,19 @@ function quote(raw: string): string {
   if (!Number.isFinite(parsed)) {
     return raw;
   }
-  return parsed.toLocaleString('es-ES', {
-    useGrouping: 'always',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatUsd(parsed);
 }
 
 function ratio(value: number, digits = 2): string {
-  return value.toLocaleString('es-ES', {
-    useGrouping: 'always',
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
+  return formatNumber(value, digits);
 }
 
 function percent(value: number, digits = 2): string {
-  return `${ratio(value, digits)}%`;
+  return formatPercent(value, digits);
 }
 
 function count(value: number): string {
-  return value.toLocaleString('es-ES', { useGrouping: 'always' });
+  return formatCount(value);
 }
 
 export function signOf(raw: string | number | null): number {

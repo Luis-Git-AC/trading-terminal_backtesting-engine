@@ -30,7 +30,7 @@
 }
 
 .select {
-  height: 24px;
+  height: var(--control-height-sm);
   padding-inline: var(--space-8);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);
@@ -86,7 +86,7 @@
 
 .action,
 .danger {
-  height: 22px;
+  height: var(--control-height-sm);
   padding-inline: var(--space-8);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);

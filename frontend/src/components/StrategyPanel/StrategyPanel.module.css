@@ -1,41 +1,157 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-12);
 }
 
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
+  gap: var(--space-8);
 }
 
 .section + .section {
-  padding-top: var(--space-16);
+  padding-top: var(--space-12);
   border-top: var(--border-width) solid var(--color-border);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
 }
 
 .sectionTitle {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: var(--letter-spacing-caps);
   text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-4);
+}
+
+.legendRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.legendRow .legend {
+  margin-bottom: 0;
+}
+
+/*
+ * La descripcion de la estrategia se consulta aqui en hover en vez de ocupar dos
+ * lineas fijas del panel: con rsi-reversion esas dos lineas eran exactamente el
+ * desbordamiento que obligaba a hacer scroll.
+ */
+.help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
   color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  cursor: help;
+}
+
+/* Opciones cortas de un parametro enum: caben en una fila. */
+.segments {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--space-4);
+}
+
+.segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-width: 0;
+  height: var(--control-height-md);
+  padding-inline: var(--space-8);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out),
+    background-color var(--duration-micro) var(--ease-out);
+}
+
+.segment:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
+}
+
+.segmentActive,
+.segmentActive:hover {
+  background-color: var(--color-accent-muted);
+  border-color: var(--color-accent);
+  color: var(--color-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.segmentRadio {
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  min-width: 0;
+}
+
+.fieldWide {
+  grid-column: 1 / -1;
 }
 
 .label {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .control {
-  height: 28px;
+  min-width: 0;
+  height: var(--control-height-md);
   padding-inline: var(--space-8);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);
@@ -59,27 +175,182 @@
   text-align: right;
 }
 
-.checkboxRow {
+.date {
+  padding-inline: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.stepper {
   display: flex;
+  min-width: 0;
+  height: var(--control-height-md);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--duration-micro) var(--ease-out);
+}
+
+.stepper:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.stepperInvalid,
+.stepperInvalid:hover {
+  border-color: var(--color-danger);
+}
+
+.stepButton {
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--control-height-sm);
+  background-color: var(--color-surface-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--color-text-tertiary);
+  transition:
+    color var(--duration-micro) var(--ease-out),
+    background-color var(--duration-micro) var(--ease-out);
+}
+
+.stepButton:hover {
+  color: var(--color-accent);
+  background-color: var(--color-surface-hover);
+}
+
+.stepButton:active {
+  background-color: var(--color-accent-muted);
+}
+
+.stepInput {
+  flex: 1;
+  min-width: 0;
+  padding-inline: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  text-align: right;
+  color: var(--color-text);
+  appearance: textfield;
+}
+
+.stepInput::-webkit-inner-spin-button,
+.stepInput::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.stepUnit {
+  display: grid;
+  place-items: center;
+  padding-inline-end: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.toggleRow {
+  display: flex;
+  grid-column: 1 / -1;
   align-items: center;
   gap: var(--space-8);
+  min-height: var(--control-height-sm);
   cursor: pointer;
+}
+
+.toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--control-height-md);
+  height: var(--space-16);
+  margin: 0;
+  background-color: var(--color-border-strong);
+  border-radius: var(--radius-full);
+  appearance: none;
+  cursor: pointer;
+  transition: background-color var(--duration-component) var(--ease-out);
+}
+
+.toggle::after {
+  content: '';
+  position: absolute;
+  inset-block-start: calc(var(--space-4) / 2);
+  inset-inline-start: calc(var(--space-4) / 2);
+  width: var(--space-12);
+  height: var(--space-12);
+  background-color: var(--color-text);
+  border-radius: var(--radius-full);
+  transition: transform var(--duration-component) var(--ease-out);
+}
+
+.toggle:checked {
+  background-color: var(--color-accent);
+}
+
+.toggle:checked::after {
+  background-color: var(--color-on-accent);
+  transform: translateX(var(--space-12));
 }
 
 .seedRow {
   display: flex;
-  gap: var(--space-8);
+  gap: var(--space-4);
+  min-width: 0;
 }
 
 .seedRow .control {
   flex: 1;
-  min-width: 0;
 }
 
-.rangeRow {
+.iconButton {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-8);
+  place-items: center;
+  flex: 0 0 var(--control-height-md);
+  height: var(--control-height-md);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition:
+    color var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out);
+}
+
+.iconButton:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.quickRange {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.chip {
+  height: var(--control-height-sm);
+  padding-inline: var(--space-8);
+  background-color: var(--color-surface-raised);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  transition:
+    color var(--duration-micro) var(--ease-out),
+    border-color var(--duration-micro) var(--ease-out),
+    background-color var(--duration-micro) var(--ease-out);
+}
+
+.chip:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-tertiary);
+}
+
+.chipActive,
+.chipActive:hover {
+  background-color: var(--color-accent-muted);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 .error {
@@ -94,52 +365,64 @@
 
 .note {
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-tight);
   color: var(--color-text-tertiary);
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .actions {
+  position: sticky;
+  bottom: calc(-1 * var(--space-16));
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  padding-top: var(--space-16);
+  padding-block: var(--space-12) var(--space-16);
+  background-color: var(--color-surface);
   border-top: var(--border-width) solid var(--color-border);
+  box-shadow: var(--shadow-sticky);
+}
+
+.shortcut {
+  padding-inline: var(--space-4);
+  border: var(--border-width) solid currentcolor;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  opacity: 0.6;
 }
 
 .submit {
-  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  height: var(--control-height-lg);
   background-color: var(--color-accent);
   color: var(--color-on-accent);
   border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
   transition:
     background-color var(--duration-micro) var(--ease-out),
+    box-shadow var(--duration-micro) var(--ease-out),
     opacity var(--duration-micro) var(--ease-out);
 }
 
 .submit:hover:not(:disabled) {
   background-color: var(--color-accent-hover);
+  box-shadow: var(--glow-accent);
 }
 
 .submit:disabled {
   opacity: 0.5;
-}
-
-.ghostButton {
-  height: 28px;
-  padding-inline: var(--space-12);
-  background-color: var(--color-surface-raised);
-  border: var(--border-width) solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-  transition:
-    color var(--duration-micro) var(--ease-out),
-    border-color var(--duration-micro) var(--ease-out);
-}
-
-.ghostButton:hover {
-  color: var(--color-text);
-  border-color: var(--color-text-tertiary);
 }

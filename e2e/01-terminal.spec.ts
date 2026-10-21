@@ -20,7 +20,7 @@ test.describe('flujo 1: cargar la app y ver el grafico con velas', () => {
     await page.goto('/');
 
     await expect(panel(page, 'Parametros').getByText(/^Cobertura:/)).toContainText(
-      'Cobertura: 2026-07-01 a 2026-07-21 · 2000 velas',
+      'Cobertura: 2026-07-01 a 2026-07-21 · 2,000 velas',
     );
   });
 

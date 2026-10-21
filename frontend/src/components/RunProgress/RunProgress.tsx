@@ -14,7 +14,7 @@ import {
 } from '@/components/RunProgress/format';
 import { useCancelBacktest } from '@/hooks/useBacktest';
 import { useRun } from '@/hooks/useRuns';
-import { useRunProgress } from '@/hooks/useRunProgress';
+import { isTerminalStatus, useRunProgress } from '@/hooks/useRunProgress';
 import { cx } from '@/lib/cx';
 import styles from './RunProgress.module.css';
 
@@ -66,24 +66,79 @@ export function RunProgress({
     );
   }
 
-  const barsTotal = live.barsTotal ?? run.data?.progress.barsTotal ?? null;
-  const barsDone = live.progress?.barsDone ?? run.data?.progress.barsDone ?? 0;
+  const settled =
+    isTerminalStatus(run.data?.status) && (live.status === undefined || isTerminalStatus(live.status));
+
+  const persisted = run.data?.progress;
+  const metrics = run.data?.metrics ?? null;
+
+  const barsTotal = settled
+    ? (persisted?.barsTotal ?? null)
+    : (live.barsTotal ?? persisted?.barsTotal ?? null);
+  const barsDone = settled
+    ? (persisted?.barsDone ?? 0)
+    : (live.progress?.barsDone ?? persisted?.barsDone ?? 0);
   const pct =
-    live.progress?.pct ?? (barsTotal !== null && barsTotal > 0 ? (barsDone / barsTotal) * 100 : 0);
+    !settled && live.progress !== undefined
+      ? live.progress.pct
+      : barsTotal !== null && barsTotal > 0
+        ? (barsDone / barsTotal) * 100
+        : 0;
+
+  const trades = settled
+    ? (metrics?.trades ?? live.progress?.trades ?? 0)
+    : (live.progress?.trades ?? metrics?.trades ?? 0);
+
+  const finalEquity =
+    metrics === null || run.data === undefined
+      ? undefined
+      : String(run.data.exec.initialCapital + Number(metrics.netProfit));
+  const equity = settled
+    ? (finalEquity ?? live.progress?.equity)
+    : (live.progress?.equity ?? finalEquity);
 
   const serverError = live.error?.message ?? run.data?.error ?? null;
-  const finished = status === 'completed' || status === 'failed' || status === 'cancelled';
+  const finished = isTerminalStatus(status);
 
   return (
     <section className={styles.wrapper} aria-label="Progreso del backtest">
-      <header className={styles.head}>
+      <div className={styles.row}>
         <span className={cx(styles.badge, status !== undefined && styles[status])}>
           {status === undefined ? 'Conectando' : RUN_STATUS_LABEL[status]}
         </span>
-        <code className={styles.runId}>{runId}</code>
-        {run.data?.label !== null && run.data?.label !== undefined && (
-          <span className={styles.label}>{run.data.label}</span>
-        )}
+
+        <dl className={styles.stats}>
+          <div className={styles.stat}>
+            <dt>Progreso</dt>
+            <dd>{formatPct(pct)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>Barras</dt>
+            <dd>{barsLabel(barsDone, barsTotal)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>Trades</dt>
+            <dd>{formatCount(trades)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>Equity</dt>
+            <dd>{formatQuote(equity)}</dd>
+          </div>
+          <div className={styles.stat}>
+            <dt>ETA</dt>
+            <dd>{finished ? '—' : formatEta(live.progress?.etaMs ?? null)}</dd>
+          </div>
+        </dl>
+
+        <div className={styles.identity}>
+          {run.data?.label !== null && run.data?.label !== undefined && (
+            <span className={styles.label}>{run.data.label}</span>
+          )}
+          <code className={styles.runId} title={runId}>
+            {runId}
+          </code>
+        </div>
+
         <div className={styles.actions}>
           {isCancellable(status) && (
             <button
@@ -103,7 +158,7 @@ export function RunProgress({
             </button>
           )}
         </div>
-      </header>
+      </div>
 
       {!finished && (
         <div
@@ -119,29 +174,6 @@ export function RunProgress({
           />
         </div>
       )}
-
-      <dl className={styles.stats}>
-        <div className={styles.stat}>
-          <dt>Progreso</dt>
-          <dd>{formatPct(pct)}</dd>
-        </div>
-        <div className={styles.stat}>
-          <dt>Barras</dt>
-          <dd>{barsLabel(barsDone, barsTotal)}</dd>
-        </div>
-        <div className={styles.stat}>
-          <dt>Trades</dt>
-          <dd>{formatCount(live.progress?.trades ?? run.data?.metrics?.trades ?? 0)}</dd>
-        </div>
-        <div className={styles.stat}>
-          <dt>Equity</dt>
-          <dd>{formatQuote(live.progress?.equity ?? run.data?.metrics?.netProfit)}</dd>
-        </div>
-        <div className={styles.stat}>
-          <dt>ETA</dt>
-          <dd>{finished ? '—' : formatEta(live.progress?.etaMs ?? null)}</dd>
-        </div>
-      </dl>
 
       {status === 'queued' && (
         <p className={cx(styles.hint, queueStalled && styles.hintWarning)}>

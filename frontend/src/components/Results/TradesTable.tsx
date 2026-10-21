@@ -26,6 +26,12 @@ function formatInstant(ts: number): string {
   return new Date(ts).toISOString().slice(0, 16).replace('T', ' ');
 }
 
+export const END_OF_DATA = 'end-of-data';
+
+export function exitReasonLabel(reason: string): string {
+  return reason === END_OF_DATA ? 'fin de datos' : reason;
+}
+
 function formatR(value: number): string {
   const sign = value > 0 ? '+' : '';
   return `${sign}${value.toFixed(2)}`;
@@ -133,9 +139,24 @@ export function TradesTable({
                 {formatR(trade.pnlR)}
               </td>
               <td className={styles.numeric}>{formatInstant(trade.entryTs)}</td>
-              <td>{trade.side === 'long' ? 'Largo' : 'Corto'}</td>
+              <td>
+                <span
+                  className={cx(
+                    styles.side,
+                    trade.side === 'long' ? styles.sideLong : styles.sideShort,
+                  )}
+                >
+                  {trade.side === 'long' ? 'Largo' : 'Corto'}
+                </span>
+              </td>
               <td className={styles.numeric}>{formatInstant(trade.exitTs)}</td>
-              <td>{trade.exitReason}</td>
+              <td
+                {...(trade.exitReason === END_OF_DATA
+                  ? { title: 'Seguia abierta al final del rango: se valora al cierre de la ultima vela' }
+                  : {})}
+              >
+                {exitReasonLabel(trade.exitReason)}
+              </td>
             </tr>
           ))}
         </tbody>

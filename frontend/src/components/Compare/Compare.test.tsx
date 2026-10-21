@@ -265,10 +265,10 @@ describe('CompareView', () => {
     renderCompare([ID_A, ID_B]);
 
     await waitFor(() => {
-      expect(screen.getByText('900,00')).toBeDefined();
+      expect(screen.getByText('$900.00')).toBeDefined();
     });
-    expect(screen.getByText('900,00').getAttribute('data-best')).toBe('true');
-    expect(screen.getByText('100,00').getAttribute('data-best')).toBeNull();
+    expect(screen.getByText('$900.00').getAttribute('data-best')).toBe('true');
+    expect(screen.getByText('$100.00').getAttribute('data-best')).toBeNull();
   });
 
   it('en drawdown gana el menor, no el mayor', async () => {
@@ -286,10 +286,10 @@ describe('CompareView', () => {
     renderCompare([ID_A, ID_B]);
 
     await waitFor(() => {
-      expect(screen.getByText('10,00%')).toBeDefined();
+      expect(screen.getByText('10.00%')).toBeDefined();
     });
-    expect(screen.getByText('10,00%').getAttribute('data-best')).toBe('true');
-    expect(screen.getByText('40,00%').getAttribute('data-best')).toBeNull();
+    expect(screen.getByText('10.00%').getAttribute('data-best')).toBe('true');
+    expect(screen.getByText('40.00%').getAttribute('data-best')).toBeNull();
   });
 
   it('muestra los avisos de incompatibilidad', async () => {

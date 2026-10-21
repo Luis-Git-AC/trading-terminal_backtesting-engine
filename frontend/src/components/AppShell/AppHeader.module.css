@@ -13,28 +13,6 @@
   gap: var(--space-8);
 }
 
-.mark {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  background-color: var(--color-accent);
-  color: var(--color-on-accent);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-}
-
-.wordmark {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-caps);
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
-}
-
 .nav {
   display: flex;
   align-items: center;
@@ -59,8 +37,8 @@
 .navLinkActive,
 .navLinkActive:hover {
   color: var(--color-text);
-  background-color: var(--color-surface-hover);
-  box-shadow: inset 0 -2px 0 var(--color-accent);
+  background-color: transparent;
+  box-shadow: inset 0 calc(-1 * var(--accent-bar-width)) 0 var(--color-accent);
 }
 
 .market {
@@ -85,7 +63,7 @@
 }
 
 .select {
-  height: 26px;
+  height: var(--control-height-md);
   padding-inline: var(--space-8);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);
@@ -101,23 +79,42 @@
 }
 
 .segmented {
-  display: flex;
-  gap: var(--border-width);
+  position: relative;
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   padding: var(--border-width);
   background-color: var(--color-surface-sunken);
   border: var(--border-width) solid var(--color-border-strong);
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.segmented::before {
+  content: '';
+  position: absolute;
+  inset-block: var(--border-width);
+  inset-inline-start: var(--border-width);
+  width: calc((100% - 2 * var(--border-width)) / var(--segment-count, 1));
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent);
+  box-shadow: var(--glow-accent);
+  transform: translateX(calc(var(--segment-index, 0) * 100%));
+  transition: transform var(--duration-component) var(--ease-out);
 }
 
 .segment {
-  height: 22px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: var(--control-height-sm);
   padding-inline: var(--space-8);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   transition:
-    color var(--duration-micro) var(--ease-out),
+    color var(--duration-component) var(--ease-out),
     background-color var(--duration-micro) var(--ease-out);
 }
 
@@ -129,5 +126,6 @@
 .segmentActive,
 .segmentActive:hover {
   color: var(--color-on-accent);
-  background-color: var(--color-accent);
+  background-color: transparent;
+  font-weight: var(--font-weight-semibold);
 }

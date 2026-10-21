@@ -1,0 +1,54 @@
+.ticker {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding-inline-start: var(--space-16);
+  border-inline-start: var(--border-width) solid var(--color-border);
+  white-space: nowrap;
+}
+
+.price {
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.flashUp {
+  animation: flash-up var(--duration-flash) var(--ease-out);
+}
+
+.flashDown {
+  animation: flash-down var(--duration-flash) var(--ease-out);
+}
+
+.change {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+}
+
+.up {
+  color: var(--color-up);
+}
+
+.down {
+  color: var(--color-down);
+}
+
+@keyframes flash-up {
+  from {
+    background-color: var(--color-up-muted);
+    color: var(--color-up);
+  }
+}
+
+@keyframes flash-down {
+  from {
+    background-color: var(--color-down-muted);
+    color: var(--color-down);
+  }
+}

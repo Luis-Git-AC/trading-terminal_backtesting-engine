@@ -1,0 +1,30 @@
+.logo {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.spoke {
+  stroke: var(--color-accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+.node {
+  fill: var(--color-surface);
+  stroke: var(--color-text-secondary);
+  stroke-width: 1.5;
+}
+
+.core {
+  fill: var(--color-accent);
+  filter: drop-shadow(0 0 3px var(--color-accent));
+}

@@ -2,7 +2,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { RunDetail } from '@tt/shared';
 import { RunProgress } from '@/components/RunProgress/RunProgress';
+import { formatCount, formatUsd } from '@/lib/format';
 import { FakeEventSource } from '@/test/fake-event-source';
 import * as fixtures from '@/test/msw/fixtures';
 import { API_BASE, errorResponse } from '@/test/msw/handlers';
@@ -68,9 +70,9 @@ describe('RunProgress', () => {
     await waitFor(() => {
       expect(screen.getByText('34.2%')).toBeDefined();
     });
-    expect(screen.getByText('5.975 / 17.472')).toBeDefined();
+    expect(screen.getByText('5,975 / 17,472')).toBeDefined();
     expect(screen.getByText('41')).toBeDefined();
-    expect(screen.getByText('10.480,20')).toBeDefined();
+    expect(screen.getByText('$10,480.20')).toBeDefined();
     expect(screen.getByText('1m 30s')).toBeDefined();
     expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe('34');
   });
@@ -244,6 +246,47 @@ describe('RunProgress', () => {
     });
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('al terminar muestra el estado final del run, no el ultimo evento de progreso', async () => {
+    let detail: RunDetail = {
+      ...fixtures.run,
+      status: 'running',
+      metrics: null,
+      progress: { barsDone: 0, barsTotal: 2016 },
+    };
+    server.use(http.get(`${API_BASE}/api/backtests/:id`, () => HttpResponse.json(detail)));
+
+    renderProgress(RUN_ID);
+
+    emit('status', { runId: RUN_ID, status: 'running', barsTotal: 2000 });
+    emit('progress', {
+      runId: RUN_ID,
+      pct: 50,
+      barsDone: 1000,
+      trades: 37,
+      equity: '8802.01',
+      etaMs: 1000,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('50.0%')).toBeDefined();
+    });
+
+    detail = { ...fixtures.run, progress: { barsDone: 2016, barsTotal: 2016 } };
+    emit('done', { runId: RUN_ID, status: 'completed' });
+
+    await waitFor(() => {
+      expect(screen.getByText('100.0%')).toBeDefined();
+    });
+    expect(screen.getByText('2,016 / 2,016')).toBeDefined();
+    expect(screen.getByText(formatCount(fixtures.run.metrics?.trades ?? 0))).toBeDefined();
+    expect(
+      screen.getByText(
+        formatUsd(fixtures.run.exec.initialCapital + Number(fixtures.run.metrics?.netProfit)),
+      ),
+    ).toBeDefined();
+    expect(screen.queryByText('50.0%')).toBeNull();
   });
 
   it('mientras el run no ha empezado usa el progreso persistido del run', async () => {

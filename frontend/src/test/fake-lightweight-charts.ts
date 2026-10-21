@@ -3,13 +3,23 @@ export interface FakeSeries {
   readonly paneIndex: number | undefined;
   readonly setDataCalls: unknown[][];
   readonly updateCalls: unknown[];
+  readonly applyOptionsCalls: unknown[];
+  readonly primitives: unknown[];
   setData(data: unknown[]): void;
   update(point: unknown): void;
+  applyOptions(options: unknown): void;
+  attachPrimitive(primitive: unknown): void;
 }
 
 export interface FakeMarkersPlugin {
   readonly setMarkersCalls: unknown[][];
   setMarkers(markers: unknown[]): void;
+}
+
+export interface FakeWatermarkPlugin {
+  readonly pane: unknown;
+  readonly applyOptionsCalls: unknown[];
+  applyOptions(options: unknown): void;
 }
 
 export interface FakeTimeScale {
@@ -28,14 +38,21 @@ export interface FakeTimeScale {
   ): void;
 }
 
+export interface FakePane {
+  readonly index: number;
+}
+
 export interface FakeChart {
   readonly container: unknown;
   readonly options: unknown;
   readonly series: FakeSeries[];
+  readonly applyOptionsCalls: unknown[];
   removeCalls: number;
   resizeCalls: [number, number][];
   addSeries(definition: { kind: string }, options?: unknown, paneIndex?: number): FakeSeries;
   timeScale(): FakeTimeScale;
+  panes(): FakePane[];
+  applyOptions(options: unknown): void;
   resize(width: number, height: number): void;
   remove(): void;
 }
@@ -43,12 +60,22 @@ export interface FakeChart {
 export const CandlestickSeries = { kind: 'Candlestick' } as const;
 export const HistogramSeries = { kind: 'Histogram' } as const;
 
+export const LineStyle = {
+  Solid: 0,
+  Dotted: 1,
+  Dashed: 2,
+  LargeDashed: 3,
+  SparseDotted: 4,
+} as const;
+
 export const charts: FakeChart[] = [];
 export const markerPlugins: FakeMarkersPlugin[] = [];
+export const watermarkPlugins: FakeWatermarkPlugin[] = [];
 
 export function resetFakeCharts(): void {
   charts.length = 0;
   markerPlugins.length = 0;
+  watermarkPlugins.length = 0;
 }
 
 export function lastChart(): FakeChart {
@@ -67,6 +94,14 @@ export function lastMarkers(): FakeMarkersPlugin {
   return plugin;
 }
 
+export function lastWatermark(): FakeWatermarkPlugin {
+  const plugin = watermarkPlugins.at(-1);
+  if (plugin === undefined) {
+    throw new Error('No se ha creado ninguna marca de agua');
+  }
+  return plugin;
+}
+
 export function seriesOfKind(chart: FakeChart, kind: string): FakeSeries {
   const series = chart.series.find((candidate) => candidate.kind === kind);
   if (series === undefined) {
@@ -78,17 +113,27 @@ export function seriesOfKind(chart: FakeChart, kind: string): FakeSeries {
 function makeSeries(kind: string, paneIndex: number | undefined): FakeSeries {
   const setDataCalls: unknown[][] = [];
   const updateCalls: unknown[] = [];
+  const applyOptionsCalls: unknown[] = [];
+  const primitives: unknown[] = [];
 
   return {
     kind,
     paneIndex,
     setDataCalls,
     updateCalls,
+    applyOptionsCalls,
+    primitives,
     setData(data) {
       setDataCalls.push(data);
     },
     update(point) {
       updateCalls.push(point);
+    },
+    applyOptions(options) {
+      applyOptionsCalls.push(options);
+    },
+    attachPrimitive(primitive) {
+      primitives.push(primitive);
     },
   };
 }
@@ -128,11 +173,13 @@ function makeTimeScale(): FakeTimeScale {
 export function createChart(container: unknown, options?: unknown): FakeChart {
   const series: FakeSeries[] = [];
   const timeScale = makeTimeScale();
+  const panes: FakePane[] = [{ index: 0 }, { index: 1 }];
 
   const chart: FakeChart = {
     container,
     options,
     series,
+    applyOptionsCalls: [],
     removeCalls: 0,
     resizeCalls: [],
     addSeries(definition, _options, paneIndex) {
@@ -142,6 +189,12 @@ export function createChart(container: unknown, options?: unknown): FakeChart {
     },
     timeScale() {
       return timeScale;
+    },
+    panes() {
+      return panes;
+    },
+    applyOptions(next) {
+      chart.applyOptionsCalls.push(next);
     },
     resize(width, height) {
       chart.resizeCalls.push([width, height]);
@@ -166,5 +219,20 @@ export function createSeriesMarkers(_series: unknown, markers: unknown[]): FakeM
   };
 
   markerPlugins.push(plugin);
+  return plugin;
+}
+
+export function createTextWatermark(pane: unknown, options: unknown): FakeWatermarkPlugin {
+  const applyOptionsCalls: unknown[] = [options];
+
+  const plugin: FakeWatermarkPlugin = {
+    pane,
+    applyOptionsCalls,
+    applyOptions(next) {
+      applyOptionsCalls.push(next);
+    },
+  };
+
+  watermarkPlugins.push(plugin);
   return plugin;
 }

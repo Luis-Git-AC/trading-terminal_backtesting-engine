@@ -11,6 +11,7 @@ import { RUN_STATUS_LABEL } from '@/components/RunProgress/format';
 import { useDeleteBacktest } from '@/hooks/useBacktest';
 import { useRuns } from '@/hooks/useRuns';
 import { cx } from '@/lib/cx';
+import { formatUsd } from '@/lib/format';
 import styles from './Runs.module.css';
 
 export const ALL = 'todas';
@@ -23,7 +24,7 @@ function shortMetric(run: RunSummary): string {
   if (run.metrics === null) {
     return '—';
   }
-  return `${Number(run.metrics.netProfit).toFixed(2)} · ${String(run.metrics.trades)} ops`;
+  return `${formatUsd(Number(run.metrics.netProfit))} · ${String(run.metrics.trades)} ops`;
 }
 
 export function Runs() {

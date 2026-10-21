@@ -28,9 +28,9 @@ function lightQuery(): MediaQueryList | null {
 export function readStoredPreference(): ThemePreference {
   try {
     const stored = globalThis.localStorage?.getItem(THEME_STORAGE_KEY);
-    return isThemePreference(stored) ? stored : 'system';
+    return isThemePreference(stored) ? stored : 'dark';
   } catch {
-    return 'system';
+    return 'dark';
   }
 }
 

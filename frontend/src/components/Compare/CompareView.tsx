@@ -26,12 +26,12 @@ import { useCompareRuns } from '@/hooks/useCompare';
 import { cx } from '@/lib/cx';
 import styles from './Compare.module.css';
 
-const CURVE_COLORS = [
-  'var(--color-accent)',
-  'var(--color-up)',
-  'var(--color-warning)',
-  'var(--color-down)',
-];
+export const SERIES_COLORS = [
+  'var(--color-series-1)',
+  'var(--color-series-2)',
+  'var(--color-series-3)',
+  'var(--color-series-4)',
+] as const;
 
 export interface CompareViewProps {
   readonly ids: readonly string[];
@@ -50,8 +50,8 @@ export interface CurveRow {
   [runId: string]: number;
 }
 
-function curveColor(index: number): string {
-  return CURVE_COLORS[index % CURVE_COLORS.length] ?? 'currentColor';
+export function seriesColor(index: number): string {
+  return SERIES_COLORS[index % SERIES_COLORS.length] ?? 'currentColor';
 }
 
 export function mergeCurves(curves: CompareResponse['curves']): CurveRow[] {
@@ -127,7 +127,7 @@ export function CompareView({ ids }: CompareViewProps) {
       <div className={styles.curves} data-testid="compare-curves">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={curveData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid stroke="var(--color-border)" strokeDasharray="2 4" />
+            <CartesianGrid stroke="var(--color-border)" strokeDasharray="2 4" vertical={false} />
             <XAxis
               dataKey="t"
               type="number"
@@ -142,25 +142,45 @@ export function CompareView({ ids }: CompareViewProps) {
                     })
                   : ''
               }
-              stroke="var(--color-text-tertiary)"
+              stroke="var(--color-border-strong)"
+              tick={{ fill: 'var(--color-text-tertiary)' }}
+              tickLine={false}
               fontSize={11}
             />
-            <YAxis stroke="var(--color-text-tertiary)" fontSize={11} width={56} />
+            <YAxis
+              stroke="var(--color-border-strong)"
+              tick={{ fill: 'var(--color-text-tertiary)' }}
+              tickLine={false}
+              axisLine={false}
+              fontSize={11}
+              width={56}
+            />
             <Tooltip
               labelFormatter={(label) =>
                 typeof label === 'number' ? new Date(label).toISOString().slice(0, 16) : ''
               }
+              cursor={{ stroke: 'var(--color-border-strong)', strokeDasharray: '3 3' }}
+              contentStyle={{
+                background: 'var(--color-surface-raised)',
+                border: '1px solid var(--color-border-strong)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: 'var(--shadow-md)',
+                color: 'var(--color-text)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--font-size-sm)',
+              }}
             />
-            <Legend />
+            <Legend iconType="plainline" />
             {runs.map((run, index) => (
               <Line
                 key={run.id}
                 type="monotone"
                 dataKey={run.id}
                 name={runTitle(run)}
-                stroke={curveColor(index)}
-                strokeWidth={1.5}
+                stroke={seriesColor(index)}
+                strokeWidth={1.75}
                 dot={false}
+                activeDot={{ r: 3, fill: seriesColor(index), stroke: 'var(--color-bg)' }}
                 connectNulls
                 isAnimationActive={false}
               />
@@ -173,9 +193,17 @@ export function CompareView({ ids }: CompareViewProps) {
         <thead>
           <tr>
             <th scope="col">Metrica</th>
-            {runs.map((run) => (
-              <th scope="col" key={run.id}>
-                <span className={styles.runTitle}>{runTitle(run)}</span>
+            {runs.map((run, index) => (
+              <th
+                scope="col"
+                key={run.id}
+                className={styles.runHead}
+                style={{ '--series-color': seriesColor(index) }}
+              >
+                <span className={styles.runTitle}>
+                  <span className={styles.swatch} aria-hidden="true" />
+                  {runTitle(run)}
+                </span>
                 <span className={styles.runMeta}>
                   {run.symbol} · {run.timeframe} · seed {run.seed}
                 </span>

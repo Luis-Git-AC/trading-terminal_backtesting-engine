@@ -4,11 +4,13 @@ import type { ApiError } from '@/api/errors';
 import { EmptyState } from '@/components/Feedback/EmptyState';
 import { ErrorState } from '@/components/Feedback/ErrorState';
 import { Skeleton } from '@/components/Feedback/Skeleton';
+import { NumberStepper } from '@/components/StrategyPanel/NumberStepper';
 import { ParamField } from '@/components/StrategyPanel/ParamField';
 import {
   EXEC_DEFAULTS,
   EXEC_FIELDS,
   EXEC_LIMITS,
+  dayStartMs,
   defaultParams,
   isoDay,
   randomSeed,
@@ -20,6 +22,7 @@ import {
 import { useCoverage } from '@/hooks/useMarkets';
 import { useStrategies } from '@/hooks/useStrategies';
 import { cx } from '@/lib/cx';
+import { formatCount } from '@/lib/format';
 import styles from './StrategyPanel.module.css';
 
 export interface StrategyPanelProps {
@@ -40,6 +43,44 @@ const EMPTY_FORM: FormState = {
   to: '',
   label: '',
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export const RANGE_PRESETS = [
+  { key: 'all', label: 'Todo', days: null },
+  { key: '30d', label: '30 d', days: 30 },
+  { key: '7d', label: '7 d', days: 7 },
+] as const;
+
+export function presetRange(
+  days: number | null,
+  firstDay: string,
+  lastDay: string,
+): { readonly from: string; readonly to: string } | null {
+  if (firstDay === '' || lastDay === '') {
+    return null;
+  }
+  if (days === null) {
+    return { from: firstDay, to: lastDay };
+  }
+  const from = new Date(dayStartMs(lastDay) - (days - 1) * DAY_MS).toISOString().slice(0, 10);
+  return { from: from < firstDay ? firstDay : from, to: lastDay };
+}
+
+export function dayWithinCoverage(
+  day: string,
+  firstDay: string,
+  lastDay: string,
+  fallback: string,
+): string {
+  if (day === '') {
+    return fallback;
+  }
+  if (firstDay === '' || lastDay === '') {
+    return day;
+  }
+  return day < firstDay || day > lastDay ? fallback : day;
+}
 
 export function presetForm(
   current: FormState,
@@ -72,12 +113,15 @@ export function presetForm(
     };
   }
 
+  const firstDay = isoDay(coverage?.from ?? null);
+  const lastDay = isoDay(coverage?.to ?? null);
+
   return {
     ...current,
     strategyId: strategy.id,
     params: defaultParams(strategy),
-    from: current.from === '' ? isoDay(coverage?.from ?? null) : current.from,
-    to: current.to === '' ? isoDay(coverage?.to ?? null) : current.to,
+    from: dayWithinCoverage(current.from, firstDay, lastDay, firstDay),
+    to: dayWithinCoverage(current.to, firstDay, lastDay, lastDay),
   };
 }
 
@@ -87,6 +131,37 @@ function serverFieldErrors(error: ApiError | null | undefined): Record<string, s
     mapped[detail.path.replace(/^body\./, '')] = detail.message;
   }
   return mapped;
+}
+
+export function isSubmitShortcut(event: {
+  readonly key: string;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+}): boolean {
+  return event.key === 'Enter' && (event.ctrlKey || event.metaKey);
+}
+
+function DiceIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <circle cx="8.5" cy="8.5" r="1" fill="currentColor" />
+      <circle cx="15.5" cy="15.5" r="1" fill="currentColor" />
+      <circle cx="15.5" cy="8.5" r="1" fill="currentColor" />
+      <circle cx="8.5" cy="15.5" r="1" fill="currentColor" />
+    </svg>
+  );
 }
 
 export function StrategyPanel({
@@ -123,6 +198,9 @@ export function StrategyPanel({
   const fromServer = serverFieldErrors(submitError);
   const errors = { ...result.errors, ...fromServer };
   const blocked = result.body === null || submitting;
+
+  const firstDay = isoDay(coverage.data?.from ?? null);
+  const lastDay = isoDay(coverage.data?.to ?? null);
 
   const setParam = (key: string, value: ParamValue): void => {
     setForm((current) => ({ ...current, params: { ...current.params, [key]: value } }));
@@ -168,18 +246,32 @@ export function StrategyPanel({
           onSubmit(result.body);
         }
       }}
+      onKeyDown={(event) => {
+        if (isSubmitShortcut(event)) {
+          event.preventDefault();
+          event.currentTarget.requestSubmit();
+        }
+      }}
     >
       <section className={styles.section}>
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="strategy">
-            Estrategia
-          </label>
+        <div className={styles.choice}>
+          <div className={styles.legendRow}>
+            <label className={cx(styles.sectionTitle, styles.legend)} htmlFor="strategy">
+              Estrategia
+            </label>
+            <span className={styles.help} title={selected.description} aria-hidden="true">
+              ?
+            </span>
+          </div>
           <select
             id="strategy"
+            name="strategy"
             className={styles.control}
-            value={selected?.id ?? ''}
+            value={selected.id}
+            aria-describedby={`strategy-${selected.id}-description`}
             onChange={(event) => {
-              setForm((current) => ({ ...current, strategyId: event.target.value }));
+              const strategyId = event.target.value;
+              setForm((current) => ({ ...current, strategyId }));
             }}
           >
             {strategies.map((strategy) => (
@@ -188,103 +280,164 @@ export function StrategyPanel({
               </option>
             ))}
           </select>
-          {selected !== undefined && <p className={styles.note}>{selected.description}</p>}
+          {strategies.map((strategy) => (
+            <p
+              key={strategy.id}
+              id={`strategy-${strategy.id}-description`}
+              className={styles.srOnly}
+              hidden={strategy.id !== selected.id}
+            >
+              {strategy.description}
+            </p>
+          ))}
         </div>
 
-        {selected?.params.map((param) => (
-          <ParamField
-            key={`${selected.id}:${param.key}`}
-            param={param}
-            value={form.params[param.key] ?? param.default}
-            error={errors[`params.${param.key}`]}
-            onChange={(value) => {
-              setParam(param.key, value);
-            }}
-          />
-        ))}
+        <div className={styles.grid}>
+          {selected.params.map((param) => (
+            <ParamField
+              key={`${selected.id}:${param.key}`}
+              param={param}
+              value={form.params[param.key] ?? param.default}
+              error={errors[`params.${param.key}`]}
+              onChange={(value) => {
+                setParam(param.key, value);
+              }}
+            />
+          ))}
+        </div>
       </section>
 
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Ejecucion</h3>
 
-        {EXEC_FIELDS.map((field) => {
-          const limits = EXEC_LIMITS[field];
-          const error = errors[`exec.${field}`];
-          return (
-            <div className={styles.field} key={field}>
-              <label className={styles.label} htmlFor={`exec-${field}`}>
-                {limits.label}
-              </label>
+        <div className={styles.grid}>
+          {EXEC_FIELDS.map((field) => {
+            const limits = EXEC_LIMITS[field];
+            const error = errors[`exec.${field}`];
+
+            return (
+              <div className={styles.field} key={field}>
+                <label className={styles.label} htmlFor={`exec-${field}`} title={limits.label}>
+                  {limits.label}
+                  {limits.unit !== undefined && (
+                    <span className={styles.srOnly}> ({limits.unit})</span>
+                  )}
+                </label>
+                <NumberStepper
+                  id={`exec-${field}`}
+                  name={limits.label}
+                  value={form.exec[field]}
+                  step={limits.step}
+                  min={limits.min}
+                  max={limits.max}
+                  unit={limits.unit}
+                  invalid={error !== undefined}
+                  describedBy={error === undefined ? undefined : `exec-${field}-error`}
+                  onChange={(value) => {
+                    setExec(field, value);
+                  }}
+                />
+                {error !== undefined && (
+                  <p className={styles.error} id={`exec-${field}-error`}>
+                    {error}
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="seed">
+              Semilla
+            </label>
+            <div className={styles.seedRow}>
               <input
-                id={`exec-${field}`}
-                type="number"
+                id="seed"
                 className={cx(
                   styles.control,
                   styles.number,
-                  error !== undefined && styles.controlInvalid,
+                  errors.seed !== undefined && styles.controlInvalid,
                 )}
-                value={form.exec[field]}
-                min={limits.min}
-                max={limits.max}
-                step={limits.step}
-                aria-invalid={error !== undefined}
-                aria-describedby={error === undefined ? undefined : `exec-${field}-error`}
+                value={form.seed}
+                inputMode="numeric"
+                placeholder="auto"
+                aria-invalid={errors.seed !== undefined}
+                aria-describedby={errors.seed === undefined ? undefined : 'seed-error'}
                 onChange={(event) => {
-                  setExec(field, event.target.value);
+                  setForm((current) => ({ ...current, seed: event.target.value }));
                 }}
               />
-              {error !== undefined && (
-                <p className={styles.error} id={`exec-${field}-error`}>
-                  {error}
-                </p>
-              )}
+              <button
+                type="button"
+                className={styles.iconButton}
+                aria-label="Aleatoria"
+                title="Semilla aleatoria"
+                onClick={() => {
+                  setForm((current) => ({ ...current, seed: String(randomSeed()) }));
+                }}
+              >
+                <DiceIcon />
+              </button>
             </div>
-          );
-        })}
+            {errors.seed !== undefined && (
+              <p className={styles.error} id="seed-error">
+                {errors.seed}
+              </p>
+            )}
+          </div>
 
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="seed">
-            Semilla
-          </label>
-          <div className={styles.seedRow}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="label">
+              Etiqueta
+            </label>
             <input
-              id="seed"
-              className={cx(
-                styles.control,
-                styles.number,
-                errors.seed !== undefined && styles.controlInvalid,
-              )}
-              value={form.seed}
-              inputMode="numeric"
-              placeholder="la genera el servidor"
-              aria-invalid={errors.seed !== undefined}
-              aria-describedby={errors.seed === undefined ? undefined : 'seed-error'}
+              id="label"
+              className={cx(styles.control, errors.label !== undefined && styles.controlInvalid)}
+              value={form.label}
+              placeholder="opcional"
+              aria-invalid={errors.label !== undefined}
+              aria-describedby={errors.label === undefined ? undefined : 'label-error'}
               onChange={(event) => {
-                setForm((current) => ({ ...current, seed: event.target.value }));
+                setForm((current) => ({ ...current, label: event.target.value }));
               }}
             />
-            <button
-              type="button"
-              className={styles.ghostButton}
-              onClick={() => {
-                setForm((current) => ({ ...current, seed: String(randomSeed()) }));
-              }}
-            >
-              Aleatoria
-            </button>
+            {errors.label !== undefined && (
+              <p className={styles.error} id="label-error">
+                {errors.label}
+              </p>
+            )}
           </div>
-          {errors.seed !== undefined && (
-            <p className={styles.error} id="seed-error">
-              {errors.seed}
-            </p>
-          )}
         </div>
       </section>
 
       <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>Rango</h3>
+        <div className={styles.sectionHead}>
+          <h3 className={styles.sectionTitle}>Rango</h3>
+          <div className={styles.quickRange} role="group" aria-label="Rango rapido">
+            {RANGE_PRESETS.map((option) => {
+              const target = presetRange(option.days, firstDay, lastDay);
+              const active = target !== null && target.from === form.from && target.to === form.to;
 
-        <div className={styles.rangeRow}>
+              return (
+                <button
+                  key={option.key}
+                  type="button"
+                  className={cx(styles.chip, active && styles.chipActive)}
+                  aria-pressed={active}
+                  onClick={() => {
+                    if (target !== null) {
+                      setForm((current) => ({ ...current, from: target.from, to: target.to }));
+                    }
+                  }}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className={styles.grid}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="from">
               Desde
@@ -292,10 +445,14 @@ export function StrategyPanel({
             <input
               id="from"
               type="date"
-              className={cx(styles.control, errors.range !== undefined && styles.controlInvalid)}
+              className={cx(
+                styles.control,
+                styles.date,
+                errors.range !== undefined && styles.controlInvalid,
+              )}
               value={form.from}
-              min={isoDay(coverage.data?.from ?? null)}
-              max={isoDay(coverage.data?.to ?? null)}
+              min={firstDay}
+              max={lastDay}
               aria-invalid={errors.range !== undefined}
               aria-describedby={errors.range === undefined ? undefined : 'range-error'}
               onChange={(event) => {
@@ -310,10 +467,14 @@ export function StrategyPanel({
             <input
               id="to"
               type="date"
-              className={cx(styles.control, errors.range !== undefined && styles.controlInvalid)}
+              className={cx(
+                styles.control,
+                styles.date,
+                errors.range !== undefined && styles.controlInvalid,
+              )}
               value={form.to}
-              min={isoDay(coverage.data?.from ?? null)}
-              max={isoDay(coverage.data?.to ?? null)}
+              min={firstDay}
+              max={lastDay}
               aria-invalid={errors.range !== undefined}
               aria-describedby={errors.range === undefined ? undefined : 'range-error'}
               onChange={(event) => {
@@ -323,10 +484,9 @@ export function StrategyPanel({
           </div>
         </div>
 
-        {coverage.data !== undefined && (
+        {coverage.data !== undefined && firstDay !== '' && lastDay !== '' && (
           <p className={styles.note}>
-            Cobertura: {isoDay(coverage.data.from)} a {isoDay(coverage.data.to)} ·{' '}
-            {coverage.data.candles.toLocaleString('es-ES')} velas
+            Cobertura: {firstDay} a {lastDay} · {formatCount(coverage.data.candles)} velas
           </p>
         )}
         {errors.range !== undefined && (
@@ -339,33 +499,21 @@ export function StrategyPanel({
             {warning}
           </p>
         ))}
-
-        <div className={styles.field}>
-          <label className={styles.label} htmlFor="label">
-            Etiqueta
-          </label>
-          <input
-            id="label"
-            className={cx(styles.control, errors.label !== undefined && styles.controlInvalid)}
-            value={form.label}
-            placeholder="opcional"
-            aria-invalid={errors.label !== undefined}
-            aria-describedby={errors.label === undefined ? undefined : 'label-error'}
-            onChange={(event) => {
-              setForm((current) => ({ ...current, label: event.target.value }));
-            }}
-          />
-          {errors.label !== undefined && (
-            <p className={styles.error} id="label-error">
-              {errors.label}
-            </p>
-          )}
-        </div>
       </section>
 
       <div className={styles.actions}>
-        <button type="submit" className={styles.submit} disabled={blocked}>
+        <button
+          type="submit"
+          className={styles.submit}
+          disabled={blocked}
+          aria-keyshortcuts="Control+Enter Meta+Enter"
+        >
           {submitting ? 'Lanzando…' : 'Ejecutar backtest'}
+          {!submitting && (
+            <kbd className={styles.shortcut} aria-hidden="true">
+              Ctrl ↵
+            </kbd>
+          )}
         </button>
         {blocked && !submitting && (
           <p className={styles.error} role="status">

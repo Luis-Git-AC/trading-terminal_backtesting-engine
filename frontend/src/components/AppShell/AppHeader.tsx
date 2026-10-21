@@ -1,5 +1,8 @@
 import { NavLink } from 'react-router';
+import { BrandMark } from '@/components/AppShell/BrandMark';
+import { ThemeIcon } from '@/components/AppShell/ThemeIcon';
 import { ConnectionBadge } from '@/components/ConnectionBadge/ConnectionBadge';
+import { LiveTicker } from '@/components/LiveTicker/LiveTicker';
 import { cx } from '@/lib/cx';
 import { useMarketSelection } from '@/state/market-selection';
 import { THEME_PREFERENCES, useTheme, type ThemePreference } from '@/state/theme';
@@ -11,12 +14,6 @@ const THEME_LABEL: Record<ThemePreference, string> = {
   dark: 'Oscuro',
 };
 
-const THEME_GLYPH: Record<ThemePreference, string> = {
-  system: '◐',
-  light: '☀',
-  dark: '☾',
-};
-
 function ThemeToggle() {
   const { preference, setPreference } = useTheme();
 
@@ -25,7 +22,15 @@ function ThemeToggle() {
       <span className={styles.fieldLabel} id="theme-label">
         Tema
       </span>
-      <div className={styles.segmented} role="group" aria-labelledby="theme-label">
+      <div
+        className={styles.segmented}
+        role="group"
+        aria-labelledby="theme-label"
+        style={{
+          '--segment-count': THEME_PREFERENCES.length,
+          '--segment-index': THEME_PREFERENCES.indexOf(preference),
+        }}
+      >
         {THEME_PREFERENCES.map((option) => (
           <button
             key={option}
@@ -38,7 +43,7 @@ function ThemeToggle() {
               setPreference(option);
             }}
           >
-            {THEME_GLYPH[option]}
+            <ThemeIcon preference={option} />
           </button>
         ))}
       </div>
@@ -52,10 +57,7 @@ export function AppHeader() {
   return (
     <header className={styles.header}>
       <div className={styles.brand}>
-        <span className={styles.mark} aria-hidden="true">
-          TT
-        </span>
-        <span className={styles.wordmark}>Trading Terminal</span>
+        <BrandMark />
       </div>
 
       <nav className={styles.nav} aria-label="Secciones">
@@ -73,6 +75,8 @@ export function AppHeader() {
           Runs
         </NavLink>
       </nav>
+
+      <LiveTicker />
 
       <div className={styles.market}>
         <label className={styles.field}>
@@ -96,7 +100,15 @@ export function AppHeader() {
           <span className={styles.fieldLabel} id="tf-label">
             Timeframe
           </span>
-          <div className={styles.segmented} role="group" aria-labelledby="tf-label">
+          <div
+            className={styles.segmented}
+            role="group"
+            aria-labelledby="tf-label"
+            style={{
+              '--segment-count': timeframes.length,
+              '--segment-index': timeframes.indexOf(timeframe),
+            }}
+          >
             {timeframes.map((option) => (
               <button
                 key={option}

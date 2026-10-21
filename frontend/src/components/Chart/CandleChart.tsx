@@ -2,13 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import {
   CandlestickSeries,
   HistogramSeries,
+  LineStyle,
   createChart,
   createSeriesMarkers,
+  createTextWatermark,
   type CandlestickData,
   type HistogramData,
   type IChartApi,
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
+  type ITextWatermarkPluginApi,
   type LogicalRange,
   type Time,
   type UTCTimestamp,
@@ -19,9 +22,18 @@ import type { ConnectionState } from '@/hooks/useEventSource';
 import { useLiveCandles } from '@/hooks/useLiveCandles';
 import { toChartTime, tradeMarkers } from '@/components/Chart/markers';
 import { readChartTheme, type ChartTheme } from '@/components/Chart/theme';
+import { TradeSpanPrimitive } from '@/components/Chart/trade-span';
+import { formatUsd } from '@/lib/format';
+import { referenceClose, usePublishLivePrice } from '@/state/live-price';
 import styles from './CandleChart.module.css';
 
 export const LOAD_OLDER_THRESHOLD_BARS = 10;
+
+export interface TradeHighlight {
+  readonly from: number;
+  readonly to: number;
+  readonly win: boolean;
+}
 
 export interface CandleChartProps {
   readonly symbol: string;
@@ -31,6 +43,7 @@ export interface CandleChartProps {
   readonly live?: boolean | undefined;
   readonly onLoadOlder?: (() => void) | undefined;
   readonly focus?: { readonly from: number; readonly to: number } | undefined;
+  readonly highlight?: TradeHighlight | undefined;
   readonly sseCtor?: SseConnectionCtor | undefined;
   readonly onConnectionChange?: ((state: ConnectionState) => void) | undefined;
 }
@@ -49,7 +62,7 @@ export function toVolumeData(candle: Candle, theme: ChartTheme): HistogramData<U
   return {
     time: toChartTime(candle.t),
     value: candle.v,
-    color: candle.c >= candle.o ? theme.up : theme.down,
+    color: candle.c >= candle.o ? theme.volumeUp : theme.volumeDown,
   };
 }
 
@@ -58,6 +71,74 @@ interface ChartRefs {
   candles: ISeriesApi<'Candlestick'>;
   volume: ISeriesApi<'Histogram'>;
   markers: ISeriesMarkersPluginApi<Time>;
+  watermark: ITextWatermarkPluginApi<Time> | null;
+  span: TradeSpanPrimitive;
+}
+
+export function themedChartOptions(theme: ChartTheme): Parameters<IChartApi['applyOptions']>[0] {
+  const crosshairLine = {
+    color: theme.accent,
+    style: LineStyle.Dashed,
+    labelBackgroundColor: theme.accent,
+  };
+
+  return {
+    layout: {
+      background: { color: theme.bg },
+      textColor: theme.textTertiary,
+      fontFamily: theme.fontMono,
+      attributionLogo: false,
+      panes: { separatorColor: theme.border, separatorHoverColor: theme.border },
+    },
+    grid: {
+      vertLines: { color: theme.grid },
+      horzLines: { color: theme.grid },
+    },
+    rightPriceScale: { borderColor: theme.border },
+    timeScale: { borderColor: theme.border },
+    crosshair: { vertLine: crosshairLine, horzLine: crosshairLine },
+  };
+}
+
+export function themedCandleOptions(
+  theme: ChartTheme,
+): Parameters<ISeriesApi<'Candlestick'>['applyOptions']>[0] {
+  return {
+    upColor: theme.up,
+    downColor: theme.down,
+    borderUpColor: theme.up,
+    borderDownColor: theme.down,
+    wickUpColor: theme.up,
+    wickDownColor: theme.down,
+  };
+}
+
+export function watermarkOptions(
+  symbol: string,
+  timeframe: Timeframe,
+  theme: ChartTheme,
+): Parameters<ITextWatermarkPluginApi<Time>['applyOptions']>[0] {
+  return {
+    visible: true,
+    horzAlign: 'center',
+    vertAlign: 'center',
+    lines: [
+      {
+        text: symbol,
+        color: theme.watermark,
+        fontSize: 64,
+        fontFamily: theme.fontSans,
+        fontStyle: '600',
+      },
+      {
+        text: timeframe,
+        color: theme.watermark,
+        fontSize: 24,
+        fontFamily: theme.fontMono,
+        fontStyle: '500',
+      },
+    ],
+  };
 }
 
 export function CandleChart({
@@ -68,6 +149,7 @@ export function CandleChart({
   live = false,
   onLoadOlder,
   focus,
+  highlight,
   sseCtor,
   onConnectionChange,
 }: CandleChartProps) {
@@ -76,8 +158,15 @@ export function CandleChart({
   const onLoadOlderRef = useRef(onLoadOlder);
   const oldestTsRef = useRef<number | null>(null);
   const requestedOlderForRef = useRef<number | null>(null);
+  const referencePriceRef = useRef<number | null>(null);
 
   const [theme, setTheme] = useState<ChartTheme | null>(null);
+
+  const publishPrice = usePublishLivePrice();
+
+  const highlightFrom = highlight?.from;
+  const highlightTo = highlight?.to;
+  const highlightWin = highlight?.win;
 
   useEffect(() => {
     onLoadOlderRef.current = onLoadOlder;
@@ -94,30 +183,16 @@ export function CandleChart({
     setTheme(resolved);
 
     const chart = createChart(container, {
-      layout: {
-        background: { color: resolved.bg },
-        textColor: resolved.textTertiary,
-        attributionLogo: false,
-      },
-      grid: {
-        vertLines: { color: resolved.border },
-        horzLines: { color: resolved.border },
-      },
-      rightPriceScale: { borderColor: resolved.border },
+      ...themedChartOptions(resolved),
       timeScale: { borderColor: resolved.border, timeVisible: true, secondsVisible: false },
-      crosshair: { vertLine: { color: resolved.accent }, horzLine: { color: resolved.accent } },
       autoSize: false,
       width: container.clientWidth,
       height: container.clientHeight,
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: resolved.up,
-      downColor: resolved.down,
-      borderUpColor: resolved.up,
-      borderDownColor: resolved.down,
-      wickUpColor: resolved.up,
-      wickDownColor: resolved.down,
+      ...themedCandleOptions(resolved),
+      priceFormat: { type: 'custom', minMove: 0.01, formatter: (price: number) => formatUsd(price) },
     });
 
     const volumeSeries = chart.addSeries(
@@ -128,12 +203,32 @@ export function CandleChart({
 
     const markersPlugin = createSeriesMarkers(candleSeries, []);
 
+    const pricePane = chart.panes()[0];
+    const watermark =
+      pricePane === undefined ? null : createTextWatermark(pricePane, { visible: false });
+
+    const span = new TradeSpanPrimitive();
+    candleSeries.attachPrimitive(span);
+
     refsRef.current = {
       chart,
       candles: candleSeries,
       volume: volumeSeries,
       markers: markersPlugin,
+      watermark,
+      span,
     };
+
+    const themeObserver = new MutationObserver(() => {
+      const next = readChartTheme(container);
+      chart.applyOptions(themedChartOptions(next));
+      candleSeries.applyOptions(themedCandleOptions(next));
+      setTheme(next);
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
 
     const onRangeChange = (range: LogicalRange | null): void => {
       if (range === null || onLoadOlderRef.current === undefined) {
@@ -159,6 +254,7 @@ export function CandleChart({
 
     return () => {
       observer.disconnect();
+      themeObserver.disconnect();
       chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRangeChange);
       chart.remove();
       refsRef.current = null;
@@ -195,6 +291,25 @@ export function CandleChart({
   }, [candles, theme]);
 
   useEffect(() => {
+    const last = candles.at(-1);
+    referencePriceRef.current = referenceClose(candles);
+
+    if (last !== undefined) {
+      publishPrice({ symbol, candle: last, referencePrice: referencePriceRef.current });
+    }
+  }, [candles, symbol, publishPrice]);
+
+  useEffect(() => {
+    const refs = refsRef.current;
+
+    if (refs?.watermark === null || refs?.watermark === undefined || theme === null) {
+      return;
+    }
+
+    refs.watermark.applyOptions(watermarkOptions(symbol, timeframe, theme));
+  }, [symbol, timeframe, theme]);
+
+  useEffect(() => {
     const refs = refsRef.current;
 
     if (refs === null || theme === null) {
@@ -203,6 +318,25 @@ export function CandleChart({
 
     refs.markers.setMarkers(tradeMarkers(trades ?? [], theme));
   }, [trades, theme]);
+
+  useEffect(() => {
+    const refs = refsRef.current;
+
+    if (refs === null || theme === null) {
+      return;
+    }
+
+    refs.span.setSpan(
+      highlightFrom === undefined || highlightTo === undefined
+        ? null
+        : {
+            from: toChartTime(highlightFrom),
+            to: toChartTime(highlightTo),
+            fill: highlightWin === true ? theme.spanUp : theme.spanDown,
+            edge: highlightWin === true ? theme.up : theme.down,
+          },
+    );
+  }, [highlightFrom, highlightTo, highlightWin, theme]);
 
   useEffect(() => {
     const refs = refsRef.current;
@@ -223,6 +357,7 @@ export function CandleChart({
     {
       ctor: sseCtor,
       onTick: (candle) => {
+        publishPrice({ symbol, candle, referencePrice: referencePriceRef.current });
         const refs = refsRef.current;
         if (refs === null || theme === null) {
           return;

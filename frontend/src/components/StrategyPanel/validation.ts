@@ -16,6 +16,7 @@ export type ExecField = (typeof EXEC_FIELDS)[number];
 
 export interface ExecLimits {
   readonly label: string;
+  readonly unit?: string;
   readonly min: number;
   readonly max: number;
   readonly step: number;
@@ -31,14 +32,22 @@ export const EXEC_LIMITS: Record<ExecField, ExecLimits> = {
     exclusiveMin: true,
   },
   riskPerTradePct: {
-    label: 'Riesgo por trade (%)',
+    label: 'Riesgo por trade',
+    unit: '%',
     min: 0,
     max: 100,
     step: 0.1,
     exclusiveMin: true,
   },
-  feeBps: { label: 'Fee (bps)', min: 0, max: 1000, step: 0.5, exclusiveMin: false },
-  slippageBps: { label: 'Slippage (bps)', min: 0, max: 1000, step: 0.5, exclusiveMin: false },
+  feeBps: { label: 'Fee', unit: 'bps', min: 0, max: 1000, step: 0.5, exclusiveMin: false },
+  slippageBps: {
+    label: 'Slippage',
+    unit: 'bps',
+    min: 0,
+    max: 1000,
+    step: 0.5,
+    exclusiveMin: false,
+  },
 };
 
 export const EXEC_DEFAULTS: Record<ExecField, string> = {
@@ -180,6 +189,14 @@ function validateRange(
   errors: Record<string, string>,
   warnings: string[],
 ): { from: number; to: number } | null {
+  // Va antes que el aviso generico de fechas: una serie sin velas deja el rango
+  // vacio, asi que "Elige un rango de fechas" se adelantaria y taparia la causa real.
+  if (coverage !== undefined && (coverage.from === null || coverage.to === null)) {
+    errors.range =
+      'No hay velas guardadas para esta serie. Ejecuta el backfill o "npm run db:seed".';
+    return null;
+  }
+
   if (state.from === '' || state.to === '') {
     errors.range = 'Elige un rango de fechas';
     return null;
@@ -199,12 +216,6 @@ function validateRange(
 
   if (coverage === undefined) {
     return { from, to };
-  }
-
-  if (coverage.from === null || coverage.to === null) {
-    errors.range =
-      'No hay velas guardadas para esta serie. Ejecuta el backfill o "npm run db:seed".';
-    return null;
   }
 
   const firstDay = isoDay(coverage.from);

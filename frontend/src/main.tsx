@@ -5,6 +5,8 @@ import { BrowserRouter } from 'react-router';
 import { App } from '@/App';
 import { createQueryClient } from '@/api/query-client';
 import { applyTheme, initialResolvedTheme } from '@/state/theme';
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
 import '@/styles/tokens.css';
 import '@/styles/global.css';
 

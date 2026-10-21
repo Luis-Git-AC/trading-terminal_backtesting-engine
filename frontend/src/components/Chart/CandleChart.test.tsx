@@ -1,13 +1,20 @@
-import { act, render } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BacktestTrade, Candle } from '@tt/shared';
 
 vi.mock('lightweight-charts', () => import('@/test/fake-lightweight-charts'));
 
 const { CandleChart } = await import('@/components/Chart/CandleChart');
+const { LivePriceProvider, useLivePrice } = await import('@/state/live-price');
+const { TradeSpanPrimitive } = await import('@/components/Chart/trade-span');
 
 const fake = await import('@/test/fake-lightweight-charts');
 const { FakeEventSource } = await import('@/test/fake-event-source');
+
+function LivePriceProbe() {
+  const live = useLivePrice();
+  return <output data-testid="live-price-probe">{live === null ? '' : String(live.price)}</output>;
+}
 
 const STEP = 60_000;
 const START = 1_785_000_000_000;
@@ -65,6 +72,57 @@ describe('CandleChart', () => {
     expect(chart.series).toHaveLength(2);
     expect(fake.seriesOfKind(chart, 'Candlestick').paneIndex).toBeUndefined();
     expect(fake.seriesOfKind(chart, 'Histogram').paneIndex).toBe(1);
+  });
+
+  it('pinta el simbolo y el timeframe como marca de agua del panel de precio', () => {
+    renderChart({ symbol: 'ETHUSDT', timeframe: '15m' });
+
+    const watermark = fake.lastWatermark();
+    expect(watermark.pane).toBe(fake.lastChart().panes()[0]);
+
+    const options = watermark.applyOptionsCalls.at(-1) as { lines: { text: string }[] };
+    expect(options.lines.map((line) => line.text)).toEqual(['ETHUSDT', '15m']);
+  });
+
+  it('el trade seleccionado sombrea su tramo de entrada a salida con el color de su resultado', () => {
+    const { rerender } = renderChart({
+      highlight: { from: START + 2 * STEP, to: START + 5 * STEP, win: true },
+    });
+
+    const primitive = fake.seriesOfKind(fake.lastChart(), 'Candlestick').primitives[0];
+    if (!(primitive instanceof TradeSpanPrimitive)) {
+      throw new Error('La serie de velas no lleva el tramo del trade');
+    }
+
+    expect(primitive.span).toMatchObject({
+      from: Math.floor((START + 2 * STEP) / 1000),
+      to: Math.floor((START + 5 * STEP) / 1000),
+      edge: 'green',
+    });
+
+    rerender(
+      <CandleChart
+        symbol="BTCUSDT"
+        timeframe="1m"
+        candles={makeCandles(3)}
+        highlight={{ from: START + 2 * STEP, to: START + 5 * STEP, win: false }}
+      />,
+    );
+    expect(primitive.span?.edge).toBe('crimson');
+
+    rerender(<CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(3)} />);
+    expect(primitive.span).toBeNull();
+  });
+
+  it('publica el ultimo cierre de la ventana como precio en vivo', () => {
+    render(
+      <LivePriceProvider>
+        <CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(3)} />
+        <LivePriceProbe />
+      </LivePriceProvider>,
+    );
+
+    expect(screen.getByTestId('live-price-probe').textContent).toBe('102.5');
   });
 
   it('pinta las velas con el tiempo en segundos, no en milisegundos', () => {

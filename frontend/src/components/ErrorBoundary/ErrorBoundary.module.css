@@ -38,7 +38,7 @@
 }
 
 .primary {
-  height: 30px;
+  height: var(--control-height-md);
   padding-inline: var(--space-16);
   background-color: var(--color-accent);
   border-radius: var(--radius-md);
@@ -52,7 +52,7 @@
 }
 
 .secondary {
-  height: 30px;
+  height: var(--control-height-md);
   padding-inline: var(--space-16);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);

@@ -1,4 +1,5 @@
 import type { RunStatus } from '@tt/shared';
+import { formatCount as formatCountValue, formatUsd } from '@/lib/format';
 
 export const RUN_STATUS_LABEL: Record<RunStatus, string> = {
   queued: 'En cola',
@@ -34,7 +35,7 @@ export function formatEta(etaMs: number | null): string {
 }
 
 export function formatCount(value: number): string {
-  return value.toLocaleString('es-ES', { useGrouping: 'always' });
+  return formatCountValue(value);
 }
 
 export function formatQuote(value: string | undefined): string {
@@ -47,11 +48,7 @@ export function formatQuote(value: string | undefined): string {
     return value;
   }
 
-  return parsed.toLocaleString('es-ES', {
-    useGrouping: 'always',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatUsd(parsed);
 }
 
 export function barsLabel(done: number, total: number | null | undefined): string {

@@ -54,14 +54,15 @@ describe('metricCards', () => {
     const cards = metricCards(METRICS);
     const byKey = new Map(cards.map((card) => [card.key, card.value]));
 
-    expect(byKey.get('netProfit')).toBe('1.843,21');
-    expect(byKey.get('netProfitPct')).toBe('18,43%');
-    expect(byKey.get('profitFactor')).toBe('1,61');
-    expect(byKey.get('expectancyR')).toBe('0,23');
+    expect(byKey.get('netProfit')).toBe('$1,843.21');
+    expect(byKey.get('maxDrawdownQuote')).toBe('$1,204.55');
+    expect(byKey.get('netProfitPct')).toBe('18.43%');
+    expect(byKey.get('profitFactor')).toBe('1.61');
+    expect(byKey.get('expectancyR')).toBe('0.23');
     expect(byKey.get('trades')).toBe('137');
     expect(byKey.get('wins')).toBe('58');
     expect(byKey.get('losses')).toBe('79');
-    expect(byKey.get('barsTotal')).toBe('17.472');
+    expect(byKey.get('barsTotal')).toBe('17,472');
   });
 
   it('cubre todas las metricas del contrato salvo la bandera openAtEnd', () => {
@@ -121,7 +122,7 @@ describe('MetricsGrid', () => {
     render(<MetricsGrid metrics={METRICS} />);
 
     expect(screen.getByText('Beneficio neto')).toBeDefined();
-    expect(screen.getByText('1.843,21')).toBeDefined();
+    expect(screen.getByText('$1,843.21')).toBeDefined();
   });
 
   it('la raya del null lleva un title que lo explica', () => {
@@ -132,10 +133,22 @@ describe('MetricsGrid', () => {
     expect(empty[0]?.getAttribute('title')).toContain('perdedoras');
   });
 
-  it('avisa si el run acabo con posicion abierta', () => {
+  it('acabar con posicion abierta no pinta ningun aviso en las metricas', () => {
     render(<MetricsGrid metrics={{ ...METRICS, openAtEnd: true }} />);
 
-    expect(screen.getByText(/posicion abierta/i)).toBeDefined();
+    expect(screen.queryByText(/posicion abierta/i)).toBeNull();
+    expect(screen.queryByText(/fin de datos/i)).toBeNull();
+  });
+});
+
+describe('motivo de salida por fin de datos', () => {
+  it('la operacion cerrada al agotarse los datos se lee como «fin de datos» y lo explica', () => {
+    render(<TradesTable trades={[trade(1), trade(2, { exitReason: 'end-of-data' })]} />);
+
+    const cell = screen.getByText('fin de datos');
+    expect(cell.getAttribute('title')).toContain('final del rango');
+    expect(screen.queryByText('end-of-data')).toBeNull();
+    expect(screen.getByText('stop').getAttribute('title')).toBeNull();
   });
 });
 

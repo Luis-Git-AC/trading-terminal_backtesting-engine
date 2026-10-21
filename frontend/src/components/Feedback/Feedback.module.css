@@ -49,7 +49,7 @@
 }
 
 .retry {
-  height: 26px;
+  height: var(--control-height-md);
   padding-inline: var(--space-12);
   background-color: var(--color-surface-raised);
   border: var(--border-width) solid var(--color-border-strong);

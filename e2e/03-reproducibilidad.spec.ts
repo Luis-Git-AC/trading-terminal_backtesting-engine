@@ -32,7 +32,7 @@ test.describe('flujo 3: reejecutar con la misma semilla da las mismas metricas',
     await waitForCompleted(page);
     const base = await readMetrics(page);
 
-    await panel(page, 'Parametros').getByLabel('EMA rapida').fill('5');
+    await panel(page, 'Parametros').getByLabel('EMA rapida', { exact: true }).fill('5');
     await launchBacktest(page, { seed: SEED, label: 'ema rapida 5' });
     await waitForCompleted(page);
     const changed = await readMetrics(page);

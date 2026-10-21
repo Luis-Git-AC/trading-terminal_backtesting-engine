@@ -14,9 +14,7 @@ export function progress(page: Page): Locator {
 }
 
 export function metricsSection(page: Page): Locator {
-  return page
-    .getByRole('heading', { level: 3, name: 'Metricas', exact: true })
-    .locator('xpath=ancestor::section[1]');
+  return page.getByRole('tabpanel', { name: 'Metricas', exact: true });
 }
 
 export async function blockApi(page: Page, down: () => boolean = () => true): Promise<void> {
@@ -40,8 +38,9 @@ export interface LaunchOptions {
 export async function launchBacktest(page: Page, options: LaunchOptions): Promise<string> {
   const params = panel(page, 'Parametros');
 
-  await expect(params.getByLabel('Estrategia')).toBeEnabled();
-  await params.getByLabel('Estrategia').selectOption('ema-cross');
+  const strategy = params.getByRole('combobox', { name: 'Estrategia' });
+  await expect(strategy).toBeEnabled();
+  await strategy.selectOption('ema-cross');
   await params.getByLabel('Semilla').fill(String(options.seed));
 
   if (options.label !== undefined) {

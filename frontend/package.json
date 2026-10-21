@@ -13,6 +13,8 @@
     "test": "cd .. && vitest run --project frontend"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@tanstack/react-query": "^5.101.4",
     "@tt/shared": "*",
     "lightweight-charts": "^5.2.1",

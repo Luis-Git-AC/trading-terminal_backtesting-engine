@@ -39,11 +39,13 @@ test.describe('flujo 2: configurar, lanzar, ver progreso por SSE y metricas', ()
     await expect(operaciones.locator('dd')).toHaveText('71');
     await expect(metrics.getByText('Barras', { exact: true })).toBeVisible();
 
-    await expect(page.getByRole('heading', { level: 3, name: 'Equity y drawdown' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Equity y drawdown', exact: true }).click();
+    await expect(
+      page.getByRole('tabpanel', { name: 'Equity y drawdown' }).getByTestId('equity-chart'),
+    ).toBeVisible();
 
-    const trades = page
-      .getByRole('heading', { level: 3, name: 'Operaciones', exact: true })
-      .locator('xpath=ancestor::section[1]');
+    await page.getByRole('tab', { name: 'Operaciones', exact: true }).click();
+    const trades = page.getByRole('tabpanel', { name: 'Operaciones', exact: true });
     await expect(trades.getByRole('table')).toBeVisible();
     await expect(trades.getByRole('row')).toHaveCount(51);
     await expect(trades.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
@@ -65,8 +67,8 @@ test.describe('flujo 2: configurar, lanzar, ver progreso por SSE y metricas', ()
     await page.goto('/');
     const params = panel(page, 'Parametros');
 
-    await expect(params.getByLabel('Estrategia')).toBeEnabled();
-    await params.getByLabel('EMA rapida').fill('0');
+    await expect(params.getByRole('combobox', { name: 'Estrategia' })).toBeEnabled();
+    await params.getByLabel('EMA rapida', { exact: true }).fill('0');
 
     await expect(params.getByRole('button', { name: 'Ejecutar backtest' })).toBeDisabled();
     await expect(params.getByRole('status')).toBeVisible();

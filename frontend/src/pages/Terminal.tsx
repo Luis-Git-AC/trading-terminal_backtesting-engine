@@ -14,6 +14,7 @@ import { useCandleWindow } from '@/hooks/useCandleWindow';
 import { useCreateBacktest } from '@/hooks/useBacktest';
 import { useRun, useRunTrades } from '@/hooks/useRuns';
 import { cx } from '@/lib/cx';
+import { usePublishLivePrice } from '@/state/live-price';
 import { useLiveStatus } from '@/state/live-status';
 import { useMarketSelection } from '@/state/market-selection';
 import styles from './Terminal.module.css';
@@ -38,6 +39,7 @@ export function Terminal() {
   const [focused, setFocused] = useState<BacktestTrade | null>(null);
 
   const { setCandleStream } = useLiveStatus();
+  const publishPrice = usePublishLivePrice();
 
   const chartPhase: ChartPhase =
     error !== null ? 'error' : isPending ? 'loading' : candles.length === 0 ? 'empty' : 'chart';
@@ -45,8 +47,16 @@ export function Terminal() {
   useEffect(() => {
     if (chartPhase !== 'chart') {
       setCandleStream('disconnected');
+      publishPrice(null);
     }
-  }, [chartPhase, setCandleStream]);
+  }, [chartPhase, setCandleStream, publishPrice]);
+
+  useEffect(
+    () => () => {
+      publishPrice(null);
+    },
+    [publishPrice],
+  );
 
   const createBacktest = useCreateBacktest();
   const run = useRun(runId);
@@ -136,26 +146,33 @@ export function Terminal() {
               live
               onLoadOlder={canLoadOlder ? loadOlder : undefined}
               focus={focused === null ? undefined : tradeRange(focused, FOCUS_PAD_MS)}
+              highlight={
+                focused === null
+                  ? undefined
+                  : { from: focused.entryTs, to: focused.exitTs, win: focused.pnlR >= 0 }
+              }
               onConnectionChange={setCandleStream}
             />
           )}
         </div>
       </Panel>
 
-      <Panel title="Resultados" className={styles.results}>
-        <RunProgress
-          runId={runId}
-          onDismiss={() => {
-            selectRun(undefined);
-          }}
-        />
-        <RunResults
-          runId={runId}
-          selectedSeq={focused?.seq}
-          onSelectTrade={(trade) => {
-            setFocused(trade);
-          }}
-        />
+      <Panel title="Resultados" className={styles.results} scroll={false}>
+        <div className={styles.resultsBody}>
+          <RunProgress
+            runId={runId}
+            onDismiss={() => {
+              selectRun(undefined);
+            }}
+          />
+          <RunResults
+            runId={runId}
+            selectedSeq={focused?.seq}
+            onSelectTrade={(trade) => {
+              setFocused(trade);
+            }}
+          />
+        </div>
       </Panel>
     </div>
   );

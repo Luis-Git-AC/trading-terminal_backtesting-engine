@@ -10,7 +10,7 @@ test.describe('flujo 4: comparar dos runs, tabla y curvas', () => {
     await launchBacktest(page, { seed: 11, label: 'comparado A' });
     await waitForCompleted(page);
 
-    await panel(page, 'Parametros').getByLabel('EMA rapida').fill('5');
+    await panel(page, 'Parametros').getByLabel('EMA rapida', { exact: true }).fill('5');
     await launchBacktest(page, { seed: 22, label: 'comparado B' });
     await waitForCompleted(page);
 

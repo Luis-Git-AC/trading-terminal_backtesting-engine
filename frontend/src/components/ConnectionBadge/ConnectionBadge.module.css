@@ -18,6 +18,8 @@
 
 .live {
   background-color: var(--color-success);
+  box-shadow: var(--glow-up);
+  animation: pulse var(--duration-pulse) var(--ease-in-out) infinite;
 }
 
 .connecting {
@@ -26,10 +28,23 @@
 
 .stale {
   background-color: var(--color-danger);
+  box-shadow: var(--glow-down);
 }
 
 .offline {
   background-color: var(--color-danger);
+  box-shadow: var(--glow-down);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .age {

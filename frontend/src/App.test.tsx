@@ -44,7 +44,8 @@ describe('App', () => {
     renderAt('/');
 
     const header = screen.getByRole('banner');
-    expect(within(header).getByText('Trading Terminal')).toBeDefined();
+    expect(within(header).getByTestId('brand-mark')).toBeDefined();
+    expect(within(header).queryByText('Trading Terminal')).toBeNull();
     expect(within(header).getByRole('link', { name: 'Terminal' })).toBeDefined();
     expect(within(header).getByRole('link', { name: 'Runs' })).toBeDefined();
     expect(within(header).getByText('Sin conexion')).toBeDefined();

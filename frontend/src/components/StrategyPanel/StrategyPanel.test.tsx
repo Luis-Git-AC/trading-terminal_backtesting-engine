@@ -82,23 +82,90 @@ describe('StrategyPanel', () => {
     expect(screen.getByLabelText('Permitir cortos').getAttribute('type')).toBe('checkbox');
   });
 
+  it('cada estrategia es una opcion del grupo con su descripcion enlazada', async () => {
+    renderPanel();
+    await waitForForm();
+
+    const select = screen.getByRole('combobox', { name: 'Estrategia' });
+
+    expect(select).toHaveProperty('value', 'ema-cross');
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((option) => option.getAttribute('value')),
+    ).toEqual(['ema-cross', 'range-breakout']);
+    expect(
+      document.getElementById(select.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toBe('Cruce de EMA rapida sobre lenta');
+  });
+
+  it('la descripcion se consulta en el icono de ayuda y sigue el cambio de estrategia', async () => {
+    renderPanel();
+    await waitForForm();
+
+    expect(screen.getByTitle('Cruce de EMA rapida sobre lenta')).toBeDefined();
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Estrategia' }), {
+      target: { value: 'range-breakout' },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Ruptura del rango')).toBeDefined();
+    });
+  });
+
+  it('la unidad se pinta aparte pero sigue formando parte del nombre del campo', async () => {
+    renderPanel();
+    await waitForForm();
+
+    expect(screen.getByLabelText('Fee (bps)')).toHaveProperty('value', '6');
+    expect(screen.getByLabelText('Riesgo por trade (%)')).toHaveProperty('value', '1');
+    expect(screen.getAllByText('bps', { exact: true })).toHaveLength(2);
+  });
+
+  it('Ctrl+Enter lanza el backtest desde cualquier campo', async () => {
+    const onSubmit = vi.fn();
+    renderPanel(onSubmit);
+    await waitForForm();
+
+    fireEvent.keyDown(screen.getByLabelText('Permitir cortos'), { key: 'Enter', ctrlKey: true });
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('Ctrl+Enter no salta la validacion', async () => {
+    const onSubmit = vi.fn();
+    renderPanel(onSubmit);
+    await waitForForm();
+
+    fireEvent.change(screen.getByLabelText('EMA rapida'), { target: { value: '999' } });
+    fireEvent.keyDown(screen.getByLabelText('EMA rapida'), { key: 'Enter', metaKey: true });
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it('cambiar de estrategia regenera el formulario con sus defaults', async () => {
     renderPanel();
     await waitForForm();
 
-    fireEvent.change(screen.getByLabelText('Estrategia'), { target: { value: 'range-breakout' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Estrategia' }), {
+      target: { value: 'range-breakout' },
+    });
 
     await waitFor(() => {
       expect(screen.getByLabelText('Barras del rango')).toHaveProperty('value', '20');
     });
     expect(screen.queryByLabelText('EMA rapida')).toBeNull();
 
-    const stopMode = screen.getByLabelText('Modo de stop');
-    expect(stopMode).toHaveProperty('value', 'nearest');
+    const stopMode = screen.getByRole('group', { name: 'Modo de stop' });
+    expect(within(stopMode).getByRole('radio', { name: 'nearest' })).toHaveProperty(
+      'checked',
+      true,
+    );
     expect(
       within(stopMode)
-        .getAllByRole('option')
-        .map((o) => o.textContent),
+        .getAllByRole('radio')
+        .map((option) => option.getAttribute('value')),
     ).toEqual(['range', 'atr', 'nearest']);
   });
 
@@ -109,7 +176,9 @@ describe('StrategyPanel', () => {
     fireEvent.change(screen.getByLabelText('Periodo del ATR'), { target: { value: '99' } });
     expect(screen.getByLabelText('Periodo del ATR')).toHaveProperty('value', '99');
 
-    fireEvent.change(screen.getByLabelText('Estrategia'), { target: { value: 'range-breakout' } });
+    fireEvent.change(screen.getByRole('combobox', { name: 'Estrategia' }), {
+      target: { value: 'range-breakout' },
+    });
 
     await waitFor(() => {
       expect(screen.getByLabelText('Barras del rango')).toBeDefined();
@@ -151,6 +220,105 @@ describe('StrategyPanel', () => {
 
     expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-01-01');
     expect(screen.getByLabelText('Hasta')).toHaveProperty('value', '2026-06-30');
+  });
+
+  function renderWithEmptyCoverage() {
+    server.use(
+      http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
+      http.get(`${API_BASE}/api/markets/:symbol/coverage`, ({ request }) => {
+        const timeframe = new URL(request.url).searchParams.get('timeframe');
+        return HttpResponse.json({
+          ...fixtures.coverage,
+          timeframe,
+          from: null,
+          to: null,
+          candles: 0,
+          expected: 0,
+          missing: 0,
+          gaps: [],
+          backfill: { done: false, cursor: null },
+        });
+      }),
+    );
+
+    return render(
+      <QueryClientProvider client={silentQueryClient()}>
+        <StrategyPanel symbol="SOLUSDT" timeframe="1m" onSubmit={vi.fn()} />
+      </QueryClientProvider>,
+    );
+  }
+
+  it('una serie sin velas avisa y no pinta una cobertura con las fechas vacias', async () => {
+    renderWithEmptyCoverage();
+
+    await waitFor(() => {
+      const avisos = screen.getAllByText(/No hay velas guardadas para esta serie/i);
+      expect(avisos.length).toBeGreaterThan(0);
+    });
+
+    expect(screen.queryByText(/Cobertura:/)).toBeNull();
+  });
+
+  function renderWithCoverageByTimeframe() {
+    server.use(
+      http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
+      http.get(`${API_BASE}/api/markets/:symbol/coverage`, ({ request }) => {
+        const timeframe = new URL(request.url).searchParams.get('timeframe');
+        return HttpResponse.json({
+          ...fixtures.coverage,
+          timeframe,
+          from: timeframe === '1m' ? '2026-03-01T00:00:00.000Z' : '2026-01-01T00:00:00.000Z',
+          to: '2026-06-30T23:45:00.000Z',
+          gaps: [],
+        });
+      }),
+    );
+
+    const client = silentQueryClient();
+    const panelFor = (timeframe: '1m' | '15m') => (
+      <QueryClientProvider client={client}>
+        <StrategyPanel symbol="BTCUSDT" timeframe={timeframe} onSubmit={vi.fn()} />
+      </QueryClientProvider>
+    );
+
+    const view = render(panelFor('15m'));
+    return {
+      switchTo: (timeframe: '1m' | '15m') => {
+        view.rerender(panelFor(timeframe));
+      },
+    };
+  }
+
+  it('al pasar a una serie con menos cobertura el rango se ajusta en vez de quedarse fuera', async () => {
+    const { switchTo } = renderWithCoverageByTimeframe();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-01-01');
+    });
+
+    switchTo('1m');
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-03-01');
+    });
+    expect(screen.getByLabelText('Hasta')).toHaveProperty('value', '2026-06-30');
+    expect(screen.queryByText(/fuera de la cobertura/i)).toBeNull();
+  });
+
+  it('un rango elegido a mano que sigue dentro de la nueva cobertura se respeta', async () => {
+    const { switchTo } = renderWithCoverageByTimeframe();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-01-01');
+    });
+    fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-04-15' } });
+
+    switchTo('1m');
+
+    await waitFor(() => {
+      expect(screen.queryByText(/2026-03-01 a 2026-06-30/)).not.toBeNull();
+    });
+    expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-04-15');
   });
 
   it('la semilla se envia tal cual se escribe', async () => {
@@ -300,7 +468,7 @@ describe('StrategyPanel', () => {
     expect(screen.getByLabelText('Permitir cortos')).toHaveProperty('checked', false);
     expect(screen.getByLabelText('Semilla')).toHaveProperty('value', '4242');
     expect(screen.getByLabelText('Capital inicial')).toHaveProperty('value', '25000');
-    expect(screen.getByLabelText(/Riesgo por trade/)).toHaveProperty('value', '2.5');
+    expect(screen.getByLabelText('Riesgo por trade (%)')).toHaveProperty('value', '2.5');
     expect(screen.getByLabelText('Desde')).toHaveProperty('value', '2026-02-01');
     expect(screen.getByLabelText('Hasta')).toHaveProperty('value', '2026-03-15');
 

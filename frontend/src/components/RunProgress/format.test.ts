@@ -53,7 +53,7 @@ describe('formatEta', () => {
 
 describe('formatQuote', () => {
   it('formatea el importe que llega como string del contrato', () => {
-    expect(formatQuote('10480.2')).toBe('10.480,20');
+    expect(formatQuote('10480.2')).toBe('$10,480.20');
   });
 
   it('sin valor muestra una raya', () => {
@@ -67,7 +67,7 @@ describe('formatQuote', () => {
 
 describe('barsLabel', () => {
   it('muestra hechas sobre totales', () => {
-    expect(barsLabel(5975, 17_472)).toBe('5.975 / 17.472');
+    expect(barsLabel(5975, 17_472)).toBe('5,975 / 17,472');
   });
 
   it('sin total conocido muestra solo las hechas', () => {

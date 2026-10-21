@@ -44,20 +44,24 @@ export function useCandleWindow(
     setBars(INITIAL_BARS);
   }
 
+  const hasSeries = symbol !== undefined && timeframe !== undefined;
+
   const coverage = useCoverage(symbol, timeframe);
   const anchorIso = coverage.data?.to ?? null;
   const anchorMs = anchorIso === null ? null : Date.parse(anchorIso);
 
   const request =
-    symbol === undefined || timeframe === undefined || anchorMs === null
-      ? undefined
-      : candleWindow(symbol, timeframe, bars, anchorMs);
+    !hasSeries || anchorMs === null ? undefined : candleWindow(symbol, timeframe, bars, anchorMs);
 
   const candlesQuery = useCandles(request);
 
   return {
     candles: candlesQuery.data?.candles ?? [],
-    isPending: coverage.isPending || candlesQuery.isPending,
+    // Una query con skipToken se queda en pending para siempre. Sin serie o sin
+    // velas que anclar no hay nada que esperar: si no lo descontamos, la vista se
+    // queda en el skeleton y nunca llega al estado vacio que explica que falta el backfill.
+    isPending:
+      (hasSeries && coverage.isPending) || (request !== undefined && candlesQuery.isPending),
     error: coverage.error ?? candlesQuery.error,
     bars,
     canLoadOlder: bars < CANDLES_MAX_LIMIT,

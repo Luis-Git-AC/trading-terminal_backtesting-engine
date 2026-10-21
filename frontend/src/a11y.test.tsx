@@ -58,15 +58,19 @@ describe('accesibilidad de la vista principal', () => {
     const { container } = renderAt(`/?run=${fixtures.RUN_ID}`);
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Operaciones' })).toBeDefined();
+      expect(screen.getByRole('tabpanel', { name: 'Metricas' })).toBeDefined();
     });
+    expect(await violationsIn(container)).toEqual([]);
 
+    fireEvent.click(screen.getByRole('tab', { name: 'Operaciones' }));
+    await screen.findByRole('table');
     expect(await violationsIn(container)).toEqual([]);
   });
 
   it('el orden de la tabla de operaciones se anuncia en la cabecera, no en su boton', async () => {
     renderAt(`/?run=${fixtures.RUN_ID}`);
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Operaciones' }));
     const header = await screen.findByRole('columnheader', { name: /^#/ });
 
     expect(header.getAttribute('aria-sort')).toBe('ascending');
@@ -86,7 +90,11 @@ describe('navegacion por teclado del panel de parametros', () => {
     const form = screen.getByRole('button', { name: /ejecutar backtest/i }).closest('form');
     expect(form).not.toBeNull();
 
-    const expected = [...(form?.querySelectorAll<HTMLElement>('input, select, button') ?? [])];
+    const expected = [
+      ...(form?.querySelectorAll<HTMLElement>(
+        'input:not([type="radio"]), input[type="radio"]:checked, select, button',
+      ) ?? []),
+    ];
     expect(expected.length).toBeGreaterThan(8);
 
     const first = expected[0];
