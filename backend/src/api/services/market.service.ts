@@ -15,6 +15,16 @@ export const DEFAULT_PRICE_PRECISION = 1;
 
 export const DEFAULT_QTY_PRECISION = 4;
 
+/**
+ * Decimales por par en los perpetuos USDT-M de Bitget. Cuanto mas barato es el
+ * subyacente, mas decimales necesita el precio y menos el tamano.
+ */
+export const SYMBOL_PRECISION: Record<string, { price: number; qty: number }> = {
+  BTCUSDT: { price: 1, qty: 4 },
+  ETHUSDT: { price: 2, qty: 3 },
+  SOLUSDT: { price: 3, qty: 2 },
+};
+
 export interface MarketServiceDeps {
   readonly candles: CandlesRepository;
   readonly ingestState: IngestStateRepository;
@@ -35,7 +45,7 @@ export function listMarkets(deps: MarketServiceDeps): MarketsResponse {
   return {
     exchange: deps.exchange,
     symbols: deps.symbols.map((symbol) => {
-      const precision = deps.precision?.[symbol];
+      const precision = deps.precision?.[symbol] ?? SYMBOL_PRECISION[symbol];
       return {
         symbol,
         timeframes: [...deps.timeframes],

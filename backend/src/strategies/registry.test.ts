@@ -1,7 +1,10 @@
 import { strategyCatalogSchema } from '@tt/shared';
 import { describe, expect, it } from 'vitest';
+import { bollingerReversion } from './bollinger-reversion.js';
 import { emaCross, emaCrossParamsSchema } from './ema-cross.js';
 import { rangeBreakout, rangeBreakoutParamsSchema } from './range-breakout.js';
+import { rsiReversion } from './rsi-reversion.js';
+import { smaPullback } from './sma-pullback.js';
 import {
   STRATEGIES,
   StrategyNotFoundError,
@@ -15,6 +18,9 @@ describe('getStrategy', () => {
   it('devuelve las estrategias registradas', () => {
     expect(getStrategy('ema-cross')).toBe(emaCross);
     expect(getStrategy('range-breakout')).toBe(rangeBreakout);
+    expect(getStrategy('bollinger-reversion')).toBe(bollingerReversion);
+    expect(getStrategy('sma-pullback')).toBe(smaPullback);
+    expect(getStrategy('rsi-reversion')).toBe(rsiReversion);
   });
 
   it('lanza NOT_FOUND tipado si no existe', () => {
@@ -31,7 +37,13 @@ describe('getStrategy', () => {
   });
 
   it('el registro es explicito y su orden es estable', () => {
-    expect(strategyIds()).toEqual(['ema-cross', 'range-breakout']);
+    expect(strategyIds()).toEqual([
+      'ema-cross',
+      'range-breakout',
+      'bollinger-reversion',
+      'sma-pullback',
+      'rsi-reversion',
+    ]);
     expect(strategyIds()).toEqual(STRATEGIES.map((strategy) => strategy.id));
   });
 });

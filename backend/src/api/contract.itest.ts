@@ -331,6 +331,9 @@ describe('contrato del API (docs/03)', () => {
       expect(body.strategies.map((strategy) => strategy.id)).toEqual([
         'ema-cross',
         'range-breakout',
+        'bollinger-reversion',
+        'sma-pullback',
+        'rsi-reversion',
       ]);
     });
 

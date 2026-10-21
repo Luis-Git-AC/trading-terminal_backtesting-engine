@@ -1,8 +1,11 @@
 import type { StrategyCatalog, StrategyMeta, StrategyParam } from '@tt/shared';
 import { z } from 'zod';
 import type { StrategyDefinition } from '../engine/types.js';
+import { bollingerReversion } from './bollinger-reversion.js';
 import { emaCross } from './ema-cross.js';
 import { rangeBreakout } from './range-breakout.js';
+import { rsiReversion } from './rsi-reversion.js';
+import { smaPullback } from './sma-pullback.js';
 
 export class StrategyNotFoundError extends Error {
   override readonly name = 'StrategyNotFoundError';
@@ -30,7 +33,13 @@ export class UndescribableParamError extends Error {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyStrategy = StrategyDefinition<any, any>;
 
-export const STRATEGIES: readonly AnyStrategy[] = [emaCross, rangeBreakout];
+export const STRATEGIES: readonly AnyStrategy[] = [
+  emaCross,
+  rangeBreakout,
+  bollingerReversion,
+  smaPullback,
+  rsiReversion,
+];
 
 const BY_ID = new Map<string, AnyStrategy>(
   STRATEGIES.map((strategy) => [strategy.id, strategy]),

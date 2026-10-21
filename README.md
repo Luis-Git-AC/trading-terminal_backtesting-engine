@@ -224,8 +224,8 @@ Explícitas a propósito — ocultarlas sería peor que tenerlas:
   de esta fase por decisión explícita, para cerrar primero E2E, CI y esta documentación con
   evidencia real en vez de repartir el esfuerzo. El backend ya está preparado para ese deploy
   (`START_MODE` selecciona el rol, health checks, migraciones con _advisory lock_ al arrancar).
-- **Un solo exchange y un solo par** (`BTCUSDT` en Bitget) — la arquitectura no impone ese límite
-  (`SYMBOLS`/`TIMEFRAMES` son configuración), pero el MVP no expone más.
+- **Un solo exchange** (Bitget) y tres pares (`BTCUSDT`, `ETHUSDT`, `SOLUSDT`) — la arquitectura no
+  impone ese límite (`SYMBOLS`/`TIMEFRAMES` son configuración), pero el MVP no expone más.
 - **Sin margen ni liquidación.** El motor simula PnL sobre una posición con tamaño por riesgo, sin
   modelar cuenta apalancada, _funding_ ni liquidación forzosa.
 - **Sin optimización de parámetros** (grid search, walk-forward). Cada run es una ejecución con un
