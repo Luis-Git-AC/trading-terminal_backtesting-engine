@@ -36,4 +36,8 @@ export class AppError extends Error {
   static rangeTooLarge(message: string): AppError {
     return new AppError('RANGE_TOO_LARGE', message);
   }
+
+  static rateLimited(message: string): AppError {
+    return new AppError('RATE_LIMITED', message);
+  }
 }

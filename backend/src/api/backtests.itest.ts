@@ -113,7 +113,9 @@ const EQUITY: EquityPoint[] = [
 function requireRedisUrl(): string {
   const url = process.env.REDIS_URL;
   if (url === undefined || url === '') {
-    throw new Error('REDIS_URL no esta definida. Copia .env.example a .env y ejecuta npm run db:up.');
+    throw new Error(
+      'REDIS_URL no esta definida. Copia .env.example a .env y ejecuta npm run db:up.',
+    );
   }
   return url;
 }
@@ -163,7 +165,7 @@ describe('API de backtests', () => {
     await queue.queue.obliterate({ force: true });
   });
 
-  function makeApp() {
+  function makeApp(overrides: { maxActiveRuns?: number } = {}) {
     const logger = createLogger({ role: 'api', level: 'silent' });
     return createApiApp({
       logger,
@@ -184,6 +186,9 @@ describe('API de backtests', () => {
             symbols: [SYMBOL],
             timeframes: ['1m', '15m', '1h'],
             maxBars: MAX_BARS,
+            ...(overrides.maxActiveRuns === undefined
+              ? {}
+              : { maxActiveRuns: overrides.maxActiveRuns }),
             generateSeed: () => GENERATED_SEED,
           }),
         );
@@ -223,7 +228,9 @@ describe('API de backtests', () => {
   describe('POST /api/backtests', () => {
     it('happy path: 202 con runId, seed, paramsHash y barsTotal, y el job encolado', async () => {
       const pendingBefore = await queue.countPending();
-      const response = await request(makeApp()).post('/api/backtests').send(body({ seed: 99 }));
+      const response = await request(makeApp())
+        .post('/api/backtests')
+        .send(body({ seed: 99 }));
 
       expect(response.status).toBe(202);
       expect(response.body.status).toBe('queued');
@@ -252,7 +259,9 @@ describe('API de backtests', () => {
     it('rellena los defaults de la estrategia antes de calcular el paramsHash', async () => {
       const app = makeApp();
 
-      const explicit = await request(app).post('/api/backtests').send(body({ seed: 5 }));
+      const explicit = await request(app)
+        .post('/api/backtests')
+        .send(body({ seed: 5 }));
       const implicit = await request(app)
         .post('/api/backtests')
         .send(body({ seed: 5, params: { fastPeriod: 12, slowPeriod: 26 } }));
@@ -299,6 +308,30 @@ describe('API de backtests', () => {
       expect(await queue.countPending()).toBe(pendingBefore);
     });
 
+    it('con el tope de runs activos alcanzado responde 429 y no encola nada', async () => {
+      await runs.createRun(runInput());
+      const pendingBefore = await queue.countPending();
+
+      const response = await request(makeApp({ maxActiveRuns: 1 }))
+        .post('/api/backtests')
+        .send(body());
+
+      expect(response.status).toBe(429);
+      expect(response.body.error.code).toBe('RATE_LIMITED');
+      expect(response.body.error.message).toContain('maximo es 1');
+      expect(await queue.countPending()).toBe(pendingBefore);
+    });
+
+    it('los runs ya terminados no cuentan para el tope', async () => {
+      await completedRun();
+
+      const response = await request(makeApp({ maxActiveRuns: 1 }))
+        .post('/api/backtests')
+        .send(body());
+
+      expect(response.status).toBe(202);
+    });
+
     it('un rango con huecos se acepta con warnings coverage-gaps', async () => {
       await db.pool.query('DELETE FROM candles WHERE ts = $1', [new Date(START + 40 * STEP)]);
 
@@ -342,7 +375,12 @@ describe('API de backtests', () => {
     it('un rango invertido da 400', async () => {
       const response = await request(makeApp())
         .post('/api/backtests')
-        .send(body({ from: new Date(START + 10 * STEP).toISOString(), to: new Date(START).toISOString() }));
+        .send(
+          body({
+            from: new Date(START + 10 * STEP).toISOString(),
+            to: new Date(START).toISOString(),
+          }),
+        );
 
       expect(response.status).toBe(400);
       expect(response.body.error.details[0].path).toBe('body.to');

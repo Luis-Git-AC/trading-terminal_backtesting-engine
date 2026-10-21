@@ -109,6 +109,11 @@ async function runApi(logger: AppLogger): Promise<void> {
     symbols: env.SYMBOLS,
     timeframes: env.TIMEFRAMES,
     maxBars: env.BACKTEST_MAX_BARS,
+    maxActiveRuns: env.BACKTEST_MAX_ACTIVE_RUNS,
+    rateLimit: {
+      windowMs: env.RATE_LIMIT_WINDOW_MS,
+      max: env.RATE_LIMIT_MAX_BACKTESTS,
+    },
   });
 
   const shutdown = (signal: NodeJS.Signals): void => {

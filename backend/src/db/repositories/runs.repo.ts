@@ -58,6 +58,7 @@ export interface RunsRepository {
   createRun(input: CreateRunInput): Promise<RunRecord>;
   getRun(runId: string): Promise<RunRecord | null>;
   listRuns(query?: ListRunsQuery): Promise<readonly RunRecord[]>;
+  countActiveRuns(): Promise<number>;
   markRunning(runId: string, barsTotal: number): Promise<boolean>;
   requeueRun(runId: string): Promise<boolean>;
   updateProgress(runId: string, barsDone: number): Promise<void>;
@@ -245,6 +246,13 @@ export function createRunsRepository(db: Queryable): RunsRepository {
       return rows.map(toRunRecord);
     },
 
+    async countActiveRuns(): Promise<number> {
+      const { rows } = await db.query<{ active: string }>(
+        `SELECT count(*)::text AS active FROM backtest_runs WHERE status IN ('queued', 'running')`,
+      );
+      return Number(rows[0]?.active ?? 0);
+    },
+
     async markRunning(runId: string, barsTotal: number): Promise<boolean> {
       const { rowCount } = await db.query(
         `UPDATE backtest_runs
@@ -378,11 +386,7 @@ export function createRunsRepository(db: Queryable): RunsRepository {
       return (rowCount ?? 0) > 0;
     },
 
-    async getTrades(
-      runId: string,
-      limit = DEFAULT_TRADES_LIMIT,
-      cursor = 0,
-    ): Promise<TradesPage> {
+    async getTrades(runId: string, limit = DEFAULT_TRADES_LIMIT, cursor = 0): Promise<TradesPage> {
       const { rows } = await db.query<TradeRow>(
         `SELECT seq, side, entry_ts, entry_price, exit_ts, exit_price, qty, fees,
                 pnl_quote, pnl_r, exit_reason, mae_r, mfe_r

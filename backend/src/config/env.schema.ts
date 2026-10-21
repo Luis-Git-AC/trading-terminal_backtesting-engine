@@ -73,6 +73,9 @@ export const envSchema = z.object({
   GAP_SCAN_WINDOW_DAYS: intIn(1, 365).prefault('7'),
 
   BACKTEST_CONCURRENCY: intIn(1, 32).prefault('2'),
+  BACKTEST_MAX_ACTIVE_RUNS: intIn(1, 10_000).prefault('25'),
+  RATE_LIMIT_WINDOW_MS: intIn(1_000, 3_600_000).prefault('60000'),
+  RATE_LIMIT_MAX_BACKTESTS: intIn(1, 10_000).prefault('60'),
   BACKTEST_MAX_BARS: intIn(1_000, 10_000_000).prefault('500000'),
   ENGINE_CHUNK_BARS: intIn(1_000, 1_000_000).prefault('50000'),
   EQUITY_MAX_POINTS: intIn(100, 100_000).prefault('5000'),

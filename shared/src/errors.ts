@@ -5,6 +5,7 @@ export const ERROR_CODES = [
   'NOT_FOUND',
   'CONFLICT',
   'RANGE_TOO_LARGE',
+  'RATE_LIMITED',
   'UPSTREAM_UNAVAILABLE',
   'INTERNAL',
 ] as const;
@@ -16,6 +17,7 @@ export const ERROR_STATUS = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   RANGE_TOO_LARGE: 413,
+  RATE_LIMITED: 429,
   UPSTREAM_UNAVAILABLE: 503,
   INTERNAL: 500,
 } as const satisfies Record<ErrorCode, number>;

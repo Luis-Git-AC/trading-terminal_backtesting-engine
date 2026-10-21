@@ -5,6 +5,7 @@ import type { Redis } from 'ioredis';
 import { runMigrations } from '../db/migrate.js';
 import type { AppLogger } from '../observability/logger.js';
 import { createApiApp, type ApiDeps } from '../api/server.js';
+import { createBacktestRateLimit, type RateLimitOptions } from '../api/middleware/rate-limit.js';
 import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
 import { marketsRouter } from '../api/routes/markets.js';
@@ -34,6 +35,8 @@ export interface StartApiOptions {
   readonly symbols: readonly string[];
   readonly timeframes: readonly Timeframe[];
   readonly maxBars: number;
+  readonly maxActiveRuns?: number;
+  readonly rateLimit?: RateLimitOptions;
 }
 
 export interface ApiHandle {
@@ -50,7 +53,10 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
       pool,
       log: (event) => {
         if (event.kind === 'applied') {
-          logger.info({ migration: event.filename, durationMs: event.durationMs }, 'migracion aplicada');
+          logger.info(
+            { migration: event.filename, durationMs: event.durationMs },
+            'migracion aplicada',
+          );
         } else if (event.kind === 'warning') {
           logger.warn({ message: event.message }, 'aviso de migracion');
         }
@@ -103,18 +109,24 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
       router.use(candlesRouter({ ...marketDeps, symbols: options.symbols }));
       router.use(strategiesRouter());
       router.use(
-        backtestsRouter({
-          runs,
-          candles,
-          queue: backtests,
-          cancelFlags,
-          logger,
-          exchange: options.exchange,
-          symbols: options.symbols,
-          timeframes: options.timeframes,
-          maxBars: options.maxBars,
-          generateSeed: () => randomInt(0, SEED_MAX + 1),
-        }),
+        backtestsRouter(
+          {
+            runs,
+            candles,
+            queue: backtests,
+            cancelFlags,
+            logger,
+            exchange: options.exchange,
+            symbols: options.symbols,
+            timeframes: options.timeframes,
+            maxBars: options.maxBars,
+            ...(options.maxActiveRuns === undefined
+              ? {}
+              : { maxActiveRuns: options.maxActiveRuns }),
+            generateSeed: () => randomInt(0, SEED_MAX + 1),
+          },
+          { rateLimit: createBacktestRateLimit(options.rateLimit ?? {}) },
+        ),
       );
       router.use(
         streamRouter({

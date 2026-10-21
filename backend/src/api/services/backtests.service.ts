@@ -44,6 +44,7 @@ export interface BacktestsServiceDeps {
   readonly symbols: readonly string[];
   readonly timeframes: readonly Timeframe[];
   readonly maxBars: number;
+  readonly maxActiveRuns?: number;
   readonly generateSeed: () => number;
   readonly engineVersion?: string;
 }
@@ -216,6 +217,15 @@ export async function createBacktest(
     );
   }
 
+  if (deps.maxActiveRuns !== undefined) {
+    const active = await deps.runs.countActiveRuns();
+    if (active >= deps.maxActiveRuns) {
+      throw AppError.rateLimited(
+        `Ya hay ${active} backtests en cola o en ejecucion y el maximo es ${deps.maxActiveRuns}`,
+      );
+    }
+  }
+
   const seed = body.seed ?? deps.generateSeed();
   const warnings = await coverageWarnings(
     deps,
@@ -269,10 +279,7 @@ export async function listBacktests(
   return { runs: runs.map(toRunSummary) };
 }
 
-export async function getBacktest(
-  deps: BacktestsServiceDeps,
-  runId: string,
-): Promise<RunDetail> {
+export async function getBacktest(deps: BacktestsServiceDeps, runId: string): Promise<RunDetail> {
   return toRunDetail(await requireRun(deps, runId));
 }
 
@@ -352,10 +359,7 @@ export async function compareBacktests(
   return { runs: runs.map(toRunSummary), curves, warnings };
 }
 
-export async function deleteBacktest(
-  deps: BacktestsServiceDeps,
-  runId: string,
-): Promise<void> {
+export async function deleteBacktest(deps: BacktestsServiceDeps, runId: string): Promise<void> {
   const run = await requireRun(deps, runId);
 
   if (run.status === 'queued' || run.status === 'running') {

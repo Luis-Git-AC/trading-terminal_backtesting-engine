@@ -8,6 +8,7 @@ describe('codigos de error del contrato', () => {
       'NOT_FOUND',
       'CONFLICT',
       'RANGE_TOO_LARGE',
+      'RATE_LIMITED',
       'UPSTREAM_UNAVAILABLE',
       'INTERNAL',
     ]);
@@ -19,6 +20,7 @@ describe('codigos de error del contrato', () => {
       NOT_FOUND: 404,
       CONFLICT: 409,
       RANGE_TOO_LARGE: 413,
+      RATE_LIMITED: 429,
       UPSTREAM_UNAVAILABLE: 503,
       INTERNAL: 500,
     });

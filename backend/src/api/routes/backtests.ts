@@ -5,7 +5,7 @@ import {
   runIdParamsSchema,
   tradesQuerySchema,
 } from '@tt/shared';
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { withValidation } from '../middleware/validate.js';
 import {
   cancelBacktest,
@@ -19,11 +19,19 @@ import {
   type BacktestsServiceDeps,
 } from '../services/backtests.service.js';
 
-export function backtestsRouter(deps: BacktestsServiceDeps): Router {
+export interface BacktestsRouterOptions {
+  readonly rateLimit?: RequestHandler;
+}
+
+export function backtestsRouter(
+  deps: BacktestsServiceDeps,
+  options: BacktestsRouterOptions = {},
+): Router {
   const router = Router();
 
   router.post(
     '/backtests',
+    ...(options.rateLimit === undefined ? [] : [options.rateLimit]),
     withValidation({ body: createBacktestBodySchema }, ({ body }, _req, res, next) => {
       createBacktest(deps, body)
         .then((payload) => {
