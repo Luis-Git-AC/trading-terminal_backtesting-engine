@@ -139,6 +139,8 @@ export {
   type StrategyParamType,
 } from './strategy-catalog.js';
 
+export { EXCHANGES, exchangeSchema, isExchange, type Exchange } from './exchange.js';
+
 export {
   InvalidTimestampError,
   TIMEFRAMES,

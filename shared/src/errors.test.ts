@@ -11,6 +11,7 @@ describe('codigos de error del contrato', () => {
       'RATE_LIMITED',
       'UPSTREAM_UNAVAILABLE',
       'INTERNAL',
+      'UNKNOWN_EXCHANGE',
     ]);
   });
 
@@ -23,6 +24,7 @@ describe('codigos de error del contrato', () => {
       RATE_LIMITED: 429,
       UPSTREAM_UNAVAILABLE: 503,
       INTERNAL: 500,
+      UNKNOWN_EXCHANGE: 404,
     });
   });
 

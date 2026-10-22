@@ -8,11 +8,14 @@ import {
   DEFAULT_RECONNECT_MAX_MS,
   DEFAULT_STABLE_RESET_MS,
   DEFAULT_STALE_TIMEOUT_MS,
-  type ResilientSocket,
-  type ResilientSocketEvent,
-  type SocketFactory,
 } from '../../ws/resilient-socket.js';
-import { normalizeCandles, type DiscardedRow } from './normalize.js';
+import type {
+  ExchangeCandleStream,
+  ExchangeCandleStreamOptions,
+  ExchangeStreamEvent,
+  ExchangeStreamListener,
+} from '../adapter.js';
+import { normalizeCandles } from './normalize.js';
 import {
   BITGET_WS_DEFAULT_URL,
   BITGET_WS_INST_TYPE,
@@ -25,38 +28,14 @@ import {
   type BitgetWsArg,
 } from './ws-normalize.js';
 
-export type BitgetStreamEvent =
-  | { kind: 'candle'; symbol: string; timeframe: Timeframe; candle: Candle; closed: boolean }
-  | { kind: 'subscribed'; symbol: string; timeframe: Timeframe }
-  | { kind: 'rejected'; arg: BitgetWsArg | undefined; code: string; message: string }
-  | { kind: 'discarded'; symbol: string; timeframe: Timeframe; rows: readonly DiscardedRow[] }
-  | { kind: 'protocol'; detail: string }
-  | { kind: 'socket'; event: ResilientSocketEvent };
+export type {
+  ExchangeCandleStream as BitgetCandleStream,
+  ExchangeStreamEvent as BitgetStreamEvent,
+  ExchangeStreamListener as BitgetStreamListener,
+} from '../adapter.js';
 
-export type BitgetStreamListener = (event: BitgetStreamEvent) => void;
-
-export interface BitgetCandleStreamOptions {
-  url?: string;
-  instType?: string;
-  now?: () => number;
-  createSocket?: SocketFactory;
-  reconnectBaseMs?: number;
-  reconnectMaxMs?: number;
-  staleTimeoutMs?: number;
-  heartbeatIntervalMs?: number;
-  stableResetMs?: number;
-  maxConsecutiveFailures?: number;
-  random?: () => number;
-}
-
-export interface BitgetCandleStream {
-  readonly socket: ResilientSocket;
-  on(listener: BitgetStreamListener): () => void;
-  connect(): void;
-  subscribe(symbol: string, timeframe: Timeframe): void;
-  unsubscribe(symbol: string, timeframe: Timeframe): void;
-  flushExpired(nowMs?: number): void;
-  close(): Promise<void>;
+export interface BitgetCandleStreamOptions extends ExchangeCandleStreamOptions {
+  instType?: string | undefined;
 }
 
 interface SeriesState {
@@ -72,10 +51,10 @@ function seriesKey(symbol: string, timeframe: Timeframe): string {
 
 export function createBitgetCandleStream(
   options: BitgetCandleStreamOptions = {},
-): BitgetCandleStream {
+): ExchangeCandleStream {
   const instType = options.instType ?? BITGET_WS_INST_TYPE;
   const now = options.now ?? Date.now;
-  const listeners = new Set<BitgetStreamListener>();
+  const listeners = new Set<ExchangeStreamListener>();
   const series = new Map<string, SeriesState>();
 
   const socket = createResilientSocket({
@@ -92,7 +71,7 @@ export function createBitgetCandleStream(
     random: options.random ?? Math.random,
   });
 
-  function emit(event: BitgetStreamEvent): void {
+  function emit(event: ExchangeStreamEvent): void {
     for (const listener of [...listeners]) listener(event);
   }
 

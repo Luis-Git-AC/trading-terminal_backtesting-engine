@@ -1,26 +1,13 @@
 import { candleSchema, isAligned, type Candle, type Timeframe } from '@tt/shared';
+import type { DiscardedRow, NormalizeResult } from '../adapter.js';
 import { bitgetCandleRowSchema } from './types.js';
 
-export const DISCARD_REASONS = [
-  'malformed',
-  'not-numeric',
-  'invalid-ts',
-  'unaligned',
-  'invalid-candle',
-] as const;
-
-export type DiscardReason = (typeof DISCARD_REASONS)[number];
-
-export interface DiscardedRow {
-  index: number;
-  reason: DiscardReason;
-  detail: string;
-}
-
-export interface NormalizeResult {
-  candles: Candle[];
-  discarded: DiscardedRow[];
-}
+export {
+  DISCARD_REASONS,
+  type DiscardReason,
+  type DiscardedRow,
+  type NormalizeResult,
+} from '../adapter.js';
 
 const NUMERIC_FIELDS = ['t', 'o', 'h', 'l', 'c', 'v'] as const;
 

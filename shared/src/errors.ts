@@ -8,6 +8,7 @@ export const ERROR_CODES = [
   'RATE_LIMITED',
   'UPSTREAM_UNAVAILABLE',
   'INTERNAL',
+  'UNKNOWN_EXCHANGE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -20,6 +21,7 @@ export const ERROR_STATUS = {
   RATE_LIMITED: 429,
   UPSTREAM_UNAVAILABLE: 503,
   INTERNAL: 500,
+  UNKNOWN_EXCHANGE: 404,
 } as const satisfies Record<ErrorCode, number>;
 
 export function isErrorCode(value: unknown): value is ErrorCode {

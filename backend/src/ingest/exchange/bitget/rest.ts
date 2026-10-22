@@ -1,8 +1,13 @@
 import { z } from 'zod';
-import type { Candle, Timeframe } from '@tt/shared';
-import { createRateLimiter, sleep, type RateLimiter } from '../../rate-limiter.js';
+import type { Candle } from '@tt/shared';
+import { createRateLimiter, sleep } from '../../rate-limiter.js';
+import type {
+  ExchangeRestClient,
+  ExchangeRestClientOptions,
+  HistoryCandlesQuery,
+} from '../adapter.js';
 import { UpstreamError } from '../errors.js';
-import { normalizeCandles, type DiscardedRow } from './normalize.js';
+import { normalizeCandles } from './normalize.js';
 import {
   BITGET_DEFAULT_BASE_URL,
   BITGET_HISTORY_CANDLES_PATH,
@@ -20,47 +25,19 @@ const RETRY_BASE_MS = 500;
 const RETRY_MAX_MS = 20_000;
 const RETRY_AFTER_MAX_MS = 300_000;
 
-export interface HttpHeaders {
-  get(name: string): string | null;
+export interface BitgetRestClientOptions extends ExchangeRestClientOptions {
+  productType?: string | undefined;
 }
 
-export interface HttpResponse {
-  readonly status: number;
-  readonly headers: HttpHeaders;
-  json(): Promise<unknown>;
-}
-
-export type FetchLike = (url: string) => Promise<HttpResponse>;
-
-export type IngestEvent =
-  | { kind: 'retry'; attempt: number; delayMs: number; reason: string }
-  | { kind: 'discarded'; symbol: string; timeframe: Timeframe; rows: readonly DiscardedRow[] };
-
-export type IngestLogger = (event: IngestEvent) => void;
-
-export interface BitgetRestClientOptions {
-  baseUrl?: string;
-  productType?: string;
-  pageLimit?: number;
-  rps?: number;
-  maxAttempts?: number;
-  fetch?: FetchLike;
-  random?: () => number;
-  log?: IngestLogger;
-}
-
-export interface HistoryCandlesQuery {
-  symbol: string;
-  timeframe: Timeframe;
-  startTime?: number | undefined;
-  endTime?: number | undefined;
-  limit?: number | undefined;
-}
-
-export interface BitgetRestClient {
-  readonly limiter: RateLimiter;
-  getHistoryCandles(query: HistoryCandlesQuery): Promise<Candle[]>;
-}
+export type {
+  ExchangeRestClient as BitgetRestClient,
+  FetchLike,
+  HistoryCandlesQuery,
+  HttpHeaders,
+  HttpResponse,
+  IngestEvent,
+  IngestLogger,
+} from '../adapter.js';
 
 const rowsSchema = z.array(z.unknown());
 
@@ -90,7 +67,7 @@ function backoffMs(attempt: number, random: () => number): number {
   return Math.round(random() * ceiling);
 }
 
-export function createBitgetRestClient(options: BitgetRestClientOptions = {}): BitgetRestClient {
+export function createBitgetRestClient(options: BitgetRestClientOptions = {}): ExchangeRestClient {
   const baseUrl = options.baseUrl ?? BITGET_DEFAULT_BASE_URL;
   const productType = options.productType ?? BITGET_PRODUCT_TYPE;
   const pageLimit = assertPageLimit(options.pageLimit ?? BITGET_MAX_PAGE_LIMIT);

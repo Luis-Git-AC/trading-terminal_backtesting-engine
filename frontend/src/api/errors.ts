@@ -20,6 +20,7 @@ const MESSAGES: Record<ApiErrorCode, string> = {
   RATE_LIMITED: 'Demasiadas peticiones seguidas.',
   UPSTREAM_UNAVAILABLE: 'La fuente de datos no esta disponible.',
   INTERNAL: 'Error interno del servidor.',
+  UNKNOWN_EXCHANGE: 'Ese exchange no esta configurado.',
   NETWORK_ERROR: 'No se ha podido contactar con el API.',
   MALFORMED_RESPONSE: 'El API ha respondido algo que no cumple el contrato.',
 };
@@ -32,6 +33,7 @@ const RECOVERY: Record<ApiErrorCode, string | null> = {
   RATE_LIMITED: 'Espera unos segundos antes de volver a lanzarlo.',
   UPSTREAM_UNAVAILABLE: 'Es un fallo del exchange. Reintenta en unos segundos.',
   INTERNAL: 'Mira el log del API; el detalle no viaja al navegador.',
+  UNKNOWN_EXCHANGE: 'Elige uno de los exchanges que sirve el API.',
   NETWORK_ERROR: 'Comprueba que el API esta levantado: npm run dev:api',
   MALFORMED_RESPONSE: 'API y frontend han quedado desalineados. Reconstruye y recarga.',
 };
