@@ -16,7 +16,7 @@ function deps(
   precision?: MarketServiceDeps['precision'],
 ): MarketServiceDeps {
   return {
-    exchanges: [{ exchange: 'bitget', symbols }],
+    exchanges: [{ exchange: 'binance', symbols }],
     timeframes: TIMEFRAMES,
     now: () => 0,
     ...(precision === undefined ? {} : { precision }),
@@ -46,7 +46,7 @@ describe('listMarkets', () => {
   it('aplica la precision declarada para cada par conocido', () => {
     const markets = marketsOf(listMarkets(deps(['BTCUSDT', 'ETHUSDT', 'SOLUSDT'])));
     for (const market of markets) {
-      const expected = SYMBOL_PRECISION[precisionKey('bitget', market.symbol)];
+      const expected = SYMBOL_PRECISION[precisionKey('binance', market.symbol)];
       expect(expected).toBeDefined();
       expect(market.pricePrecision).toBe(expected?.price);
       expect(market.qtyPrecision).toBe(expected?.qty);
@@ -61,7 +61,7 @@ describe('listMarkets', () => {
 
   it('una precision inyectada explicitamente gana sobre el mapa', () => {
     const markets = marketsOf(
-      listMarkets(deps(['SOLUSDT'], { 'bitget/SOLUSDT': { price: 9, qty: 9 } })),
+      listMarkets(deps(['SOLUSDT'], { 'binance/SOLUSDT': { price: 9, qty: 9 } })),
     );
     expect(markets[0]?.pricePrecision).toBe(9);
     expect(markets[0]?.qtyPrecision).toBe(9);

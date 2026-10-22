@@ -24,7 +24,7 @@ const seriesSchema = z.object({
 });
 
 export const fixtureSchema = z.object({
-  exchange: z.literal('bitget'),
+  exchange: z.literal('binance'),
   capturedAt: z.string().min(1),
   origin: z.string().min(1),
   columns: z.tuple([
@@ -48,7 +48,7 @@ export interface FixtureSeries {
 }
 
 export interface CandleFixture {
-  readonly exchange: 'bitget';
+  readonly exchange: 'binance';
   readonly capturedAt: string;
   readonly origin: string;
   readonly series: readonly FixtureSeries[];

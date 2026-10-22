@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const EXCHANGES = ['binance', 'hyperliquid', 'bitget'] as const;
+export const EXCHANGES = ['binance', 'hyperliquid'] as const;
 
 export type Exchange = (typeof EXCHANGES)[number];
 

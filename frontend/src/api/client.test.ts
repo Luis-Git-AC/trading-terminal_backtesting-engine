@@ -176,14 +176,14 @@ describe('errores del API', () => {
 
   it('con validate:false la respuesta pasa sin comprobar el contrato', async () => {
     server.use(
-      http.get(`${API_BASE}/api/markets`, () => HttpResponse.json({ exchange: 'bitget' })),
+      http.get(`${API_BASE}/api/markets`, () => HttpResponse.json({ exchange: 'hyperliquid' })),
     );
 
     const relaxed = createApiClient({ baseUrl: API_BASE, validate: false });
 
     await expect(
       relaxed.request({ path: '/markets', schema: marketsResponseSchema }),
-    ).resolves.toEqual({ exchange: 'bitget' });
+    ).resolves.toEqual({ exchange: 'hyperliquid' });
   });
 
   it('un abort se propaga tal cual, no como ApiError', async () => {

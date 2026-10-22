@@ -55,7 +55,7 @@ export const candleSchema = z
     path: ['l'],
   });
 
-/** Vela de ingesta: `q` es el quote volume cuando el exchange lo da (Binance sí, Bitget no). */
+/** Vela de ingesta: `q` es el quote volume cuando el exchange lo da (Binance sí, Hyperliquid no). */
 export interface IngestCandle extends Candle {
   readonly q?: number | undefined;
 }

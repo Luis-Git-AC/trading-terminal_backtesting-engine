@@ -1,4 +1,4 @@
-import type { Candle, Timeframe } from '@tt/shared';
+import type { Candle, Exchange, Timeframe } from '@tt/shared';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -327,19 +327,16 @@ describe('API de mercado y velas', () => {
   });
 
   describe('(exchange, symbol) como identidad de la serie', () => {
-    const OTHER = 'bitget' as const;
+    const OTHER = 'hyperliquid' as const;
 
-    function multiApp(cache: CacheStore) {
+    function multiApp(cache: CacheStore, served: readonly Exchange[] = ['binance', OTHER]) {
       const logger = createLogger({ role: 'api', level: 'silent' });
       const deps = {
         candles,
         ingestState,
         cache,
         logger,
-        exchanges: [
-          { exchange: 'binance' as const, symbols: [SYMBOL] },
-          { exchange: OTHER, symbols: [SYMBOL] },
-        ],
+        exchanges: served.map((exchange) => ({ exchange, symbols: [SYMBOL] })),
         timeframes: ['1m', '15m', '1h'] as Timeframe[],
         now: () => NOW,
       };
@@ -403,7 +400,8 @@ describe('API de mercado y velas', () => {
     });
 
     it('un exchange no servido da 404 con code UNKNOWN_EXCHANGE', async () => {
-      const response = await request(multiApp(NO_CACHE)).get(
+      // Esta instancia solo sirve binance, aunque hyperliquid exista en el contrato.
+      const response = await request(multiApp(NO_CACHE, ['binance'])).get(
         `/api/markets/hyperliquid/${SYMBOL}/coverage?timeframe=1m`,
       );
 

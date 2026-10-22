@@ -103,7 +103,9 @@
 
 .identity {
   display: flex;
+  /* Envuelve en vez de encoger: con el mercado delante, el id se quedaba en 0 de ancho. */
   flex: 1 1 0;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: flex-end;
   gap: var(--space-8);
@@ -126,6 +128,7 @@
 }
 
 .runId {
+  flex: 0 0 auto;
   max-width: 14ch;
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);

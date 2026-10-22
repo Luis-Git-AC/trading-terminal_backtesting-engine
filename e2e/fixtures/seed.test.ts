@@ -56,7 +56,7 @@ describe('fixture de velas del E2E', () => {
   const fixture = loadCandleFixture();
 
   it('carga y valida el fichero commiteado', () => {
-    expect(fixture.exchange).toBe('bitget');
+    expect(fixture.exchange).toBe('binance');
     expect(fixture.capturedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(fixture.series).toHaveLength(2);
   });
@@ -147,9 +147,9 @@ describe('parseCandleFixture', () => {
     expect(() => parseCandleFixture(raw)).toThrow(/no esta alineado al timeframe/);
   });
 
-  it('rechaza un exchange que no es bitget', () => {
+  it('rechaza un exchange que no es el del fixture', () => {
     const raw = rawFixture();
-    raw.exchange = 'binance';
+    raw.exchange = 'hyperliquid';
 
     expect(() => parseCandleFixture(raw)).toThrow();
   });
@@ -164,8 +164,8 @@ describe('seedFixture', () => {
 
     expect(results.map((r) => r.written)).toEqual([2000, 5000]);
     expect(calls.map((call) => [call.exchange, call.source])).toEqual([
-      ['bitget', 'rest'],
-      ['bitget', 'rest'],
+      ['binance', 'rest'],
+      ['binance', 'rest'],
     ]);
   });
 

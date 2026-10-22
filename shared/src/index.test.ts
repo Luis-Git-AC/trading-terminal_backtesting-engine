@@ -25,7 +25,7 @@ describe('superficie publica de @tt/shared', () => {
     );
     expect(
       shared.candleRowToCandle({
-        exchange: 'bitget',
+        exchange: 'hyperliquid',
         symbol: 'BTCUSDT',
         timeframe: '1m',
         ts: new Date(0),

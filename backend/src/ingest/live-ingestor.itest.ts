@@ -15,17 +15,14 @@ import {
 } from '../queue/pubsub.js';
 import { startFakeBinanceWs, type FakeBinanceWs } from '../testing/fake-binance-ws.js';
 import {
+  candleFrame as buildCandleFrame,
   startFakeHyperliquidWs,
   type FakeHyperliquidWs,
 } from '../testing/fake-hyperliquid-ws.js';
-import {
-  startFakeBitgetWs,
-  updateFrame as buildUpdateFrame,
-  type FakeBitgetWs,
-} from '../testing/fake-bitget-ws.js';
+
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { createBinanceCandleStream } from './exchange/binance/ws.js';
-import { createBitgetCandleStream, type BitgetStreamEvent } from './exchange/bitget/ws.js';
+import type { ExchangeStreamEvent } from './exchange/adapter.js';
 import { createHyperliquidCandleStream } from './exchange/hyperliquid/ws.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 
@@ -33,7 +30,7 @@ const SYMBOL = 'BTCUSDT';
 const TIMEFRAME: Timeframe = '1m';
 const STEP = timeframeToMs(TIMEFRAME);
 const START = Date.UTC(2026, 6, 1, 0, 0, 0);
-const CHANNEL = candleChannel('bitget', SYMBOL, TIMEFRAME);
+const CHANNEL = candleChannel('hyperliquid', SYMBOL, TIMEFRAME);
 
 function makeCandle(index: number): Candle {
   const base = 64_000 + index;
@@ -41,7 +38,7 @@ function makeCandle(index: number): Candle {
 }
 
 function updateFrame(candle: Candle, symbol = SYMBOL): string {
-  return buildUpdateFrame(candle, symbol, TIMEFRAME);
+  return buildCandleFrame(candle, symbol, TIMEFRAME);
 }
 
 interface RedisSpy {
@@ -79,10 +76,10 @@ describe('createLiveIngestor', () => {
   let db: ScratchDatabase;
   let candles: CandlesRepository;
   let state: IngestStateRepository;
-  let exchange: FakeBitgetWs;
+  let exchange: FakeHyperliquidWs;
   let spy: RedisSpy;
   let ingestor: LiveIngestor | undefined;
-  let emitted: BitgetStreamEvent[];
+  let emitted: ExchangeStreamEvent[];
   const redisUrl = requireRedisUrl();
 
   beforeAll(async () => {
@@ -99,8 +96,8 @@ describe('createLiveIngestor', () => {
   beforeEach(async () => {
     await db.pool.query('TRUNCATE candles');
     await db.pool.query('TRUNCATE ingest_state');
-    await state.ensure({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
-    exchange = await startFakeBitgetWs();
+    await state.ensure({ exchange: 'hyperliquid', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
+    exchange = await startFakeHyperliquidWs();
     spy = await subscribeRedis(redisUrl, CHANNEL);
     emitted = [];
     ingestor = undefined;
@@ -113,7 +110,7 @@ describe('createLiveIngestor', () => {
   });
 
   async function launch(flushIntervalMs = 200): Promise<LiveIngestor> {
-    const stream = createBitgetCandleStream({
+    const stream = createHyperliquidCandleStream({
       url: exchange.url,
       staleTimeoutMs: 0,
       heartbeatIntervalMs: 0,
@@ -131,7 +128,7 @@ describe('createLiveIngestor', () => {
       state,
       publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
       series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
-      exchange: 'bitget',
+      exchange: 'hyperliquid',
       flushIntervalMs,
       wsTouchIntervalMs: 0,
     });
@@ -154,13 +151,13 @@ describe('createLiveIngestor', () => {
     return rows.map((row) => row.ts.getTime());
   }
 
-  it('suscribe la serie con el canal y el instType de Bitget', async () => {
+  it('suscribe la serie con la forma que pide el exchange', async () => {
     await launch();
 
     expect(JSON.parse(exchange.subscriptions[0] ?? '{}')).toEqual({
-      instType: 'USDT-FUTURES',
-      channel: 'candle1m',
-      instId: SYMBOL,
+      type: 'candle',
+      coin: SYMBOL,
+      interval: TIMEFRAME,
     });
   });
 
@@ -304,7 +301,7 @@ describe('createLiveIngestor', () => {
     );
     await created.flush();
 
-    const stored = await state.get({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME });
+    const stored = await state.get({ exchange: 'hyperliquid', symbol: SYMBOL, timeframe: TIMEFRAME });
     expect(stored?.lastCandleTs).toBe(START + 2 * STEP);
 
     const { rows } = await db.pool.query<{ last_ws_message_at: Date | null }>(
@@ -330,12 +327,12 @@ describe('createLiveIngestor', () => {
     await created.flush();
 
     expect(await storedTimestamps()).toEqual([START]);
-    const stored = await state.get({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME });
+    const stored = await state.get({ exchange: 'hyperliquid', symbol: SYMBOL, timeframe: TIMEFRAME });
     expect(stored?.lastCandleTs).toBe(START);
   });
 
   it('un publisher que revienta no impide persistir y sale como error de etapa publish', async () => {
-    const stream = createBitgetCandleStream({
+    const stream = createHyperliquidCandleStream({
       url: exchange.url,
       staleTimeoutMs: 0,
       heartbeatIntervalMs: 0,
@@ -351,7 +348,7 @@ describe('createLiveIngestor', () => {
         close: () => Promise.resolve(),
       },
       series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
-      exchange: 'bitget',
+      exchange: 'hyperliquid',
       flushIntervalMs: 50,
       wsTouchIntervalMs: 60_000,
     });
@@ -380,7 +377,7 @@ describe('createLiveIngestor', () => {
   });
 
   it('un fallo al marcar last_ws_message_at no corta la ingesta', async () => {
-    const stream = createBitgetCandleStream({
+    const stream = createHyperliquidCandleStream({
       url: exchange.url,
       staleTimeoutMs: 0,
       heartbeatIntervalMs: 0,
@@ -398,7 +395,7 @@ describe('createLiveIngestor', () => {
       state: brokenState,
       publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
       series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
-      exchange: 'bitget',
+      exchange: 'hyperliquid',
       flushIntervalMs: 50,
       wsTouchIntervalMs: 0,
     });

@@ -27,9 +27,12 @@ export interface Precision {
  * necesita el precio y menos el tamano.
  */
 export const SYMBOL_PRECISION: Record<string, Precision> = {
-  'bitget/BTCUSDT': { price: 1, qty: 4 },
-  'bitget/ETHUSDT': { price: 2, qty: 3 },
-  'bitget/SOLUSDT': { price: 3, qty: 2 },
+  'binance/BTCUSDT': { price: 1, qty: 4 },
+  'binance/ETHUSDT': { price: 2, qty: 3 },
+  'binance/SOLUSDT': { price: 3, qty: 2 },
+  'hyperliquid/BTC': { price: 1, qty: 4 },
+  'hyperliquid/ETH': { price: 2, qty: 3 },
+  'hyperliquid/SOL': { price: 3, qty: 2 },
 };
 
 export function precisionKey(exchange: string, symbol: string): string {

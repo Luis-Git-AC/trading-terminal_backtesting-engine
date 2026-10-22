@@ -9,10 +9,13 @@ import {
 } from '../db/repositories/ingest-state.repo.js';
 import { createCandlePublisher, createRedisClient } from '../queue/pubsub.js';
 import { startFakeBinanceWs, type FakeBinanceWs } from '../testing/fake-binance-ws.js';
-import { startFakeBitgetWs, type FakeBitgetWs } from '../testing/fake-bitget-ws.js';
+import {
+  startFakeHyperliquidWs,
+  type FakeHyperliquidWs,
+} from '../testing/fake-hyperliquid-ws.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { createBinanceCandleStream } from './exchange/binance/ws.js';
-import { createBitgetCandleStream } from './exchange/bitget/ws.js';
+import { createHyperliquidCandleStream } from './exchange/hyperliquid/ws.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 import { reconcileSeries, type ReconcileReport } from './reconcile.js';
 import type { CandleFeed, CandleFeedQuery } from './backfill.js';
@@ -77,7 +80,7 @@ describe('reconcileSeries', () => {
     await db.pool.query('TRUNCATE candles');
     await db.pool.query('TRUNCATE ingest_gaps');
     await db.pool.query('TRUNCATE ingest_state');
-    await state.ensure({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
+    await state.ensure({ exchange: 'hyperliquid', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
   });
 
   async function seed(indices: readonly number[], source: 'rest' | 'ws' = 'ws'): Promise<void> {
@@ -345,12 +348,12 @@ describe('reconcileSeries', () => {
   });
 
   describe('DoD: un corte de la conexion no deja huecos', () => {
-    let exchange: FakeBitgetWs;
+    let exchange: FakeHyperliquidWs;
     let ingestor: LiveIngestor | undefined;
     const redisUrl = requireRedisUrl();
 
     beforeEach(async () => {
-      exchange = await startFakeBitgetWs();
+      exchange = await startFakeHyperliquidWs();
       ingestor = undefined;
     });
 
@@ -364,7 +367,7 @@ describe('reconcileSeries', () => {
       const upstream = Array.from({ length: UPSTREAM }, (_, index) => makeCandle(index));
       const feed = createFeed(upstream);
 
-      const stream = createBitgetCandleStream({
+      const stream = createHyperliquidCandleStream({
         url: exchange.url,
         staleTimeoutMs: 0,
         heartbeatIntervalMs: 0,
@@ -380,7 +383,7 @@ describe('reconcileSeries', () => {
         if (event.kind !== 'state' || event.to !== 'open') return;
         opens += 1;
         if (opens > 1) {
-          reconciled = reconcile(feed, { exchange: 'bitget', to: START + 30 * STEP });
+          reconciled = reconcile(feed, { exchange: 'hyperliquid', to: START + 30 * STEP });
         }
       });
 
@@ -390,7 +393,7 @@ describe('reconcileSeries', () => {
         state,
         publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
         series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
-        exchange: 'bitget',
+        exchange: 'hyperliquid',
         flushIntervalMs: 50,
       });
       ingestor = created;

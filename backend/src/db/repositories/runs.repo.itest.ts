@@ -22,7 +22,7 @@ const RANGE_TO = Date.UTC(2026, 5, 30);
 
 function runInput(overrides: Partial<CreateRunInput> = {}): CreateRunInput {
   return {
-    exchange: 'bitget',
+    exchange: 'hyperliquid',
     symbol: 'BTCUSDT',
     timeframe: '15m',
     strategyId: 'ema-cross',

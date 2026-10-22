@@ -130,7 +130,7 @@ describe('parseEnv: defaults', () => {
 
 describe('parseEnv: multi-exchange', () => {
   it('aborta si queda una clave de la version de un solo exchange', () => {
-    const error = catchEnvError({ ...REQUIRED, EXCHANGE: 'bitget' });
+    const error = catchEnvError({ ...REQUIRED, EXCHANGE: 'binance' });
     expect(error.invalid.join()).toContain('EXCHANGE');
     expect(error.message).toContain('EXCHANGE');
   });
@@ -146,7 +146,7 @@ describe('parseEnv: multi-exchange', () => {
   });
 
   it('rechaza un exchange que no esta en el registry', () => {
-    expect(catchEnvError({ ...REQUIRED, EXCHANGES: 'bitget,kraken' }).invalid.join()).toContain(
+    expect(catchEnvError({ ...REQUIRED, EXCHANGES: 'binance,kraken' }).invalid.join()).toContain(
       'EXCHANGES',
     );
   });
@@ -154,9 +154,9 @@ describe('parseEnv: multi-exchange', () => {
   it('exchangeConfig devuelve las URLs y simbolos de cada exchange', () => {
     const env = parseEnv({
       ...REQUIRED,
-      EXCHANGES: 'binance,bitget',
+      EXCHANGES: 'binance,hyperliquid',
       BINANCE_SYMBOLS: 'BTCUSDT,ETHUSDT',
-      BITGET_SYMBOLS: 'BTCUSDT',
+      HYPERLIQUID_SYMBOLS: 'BTC',
     });
     expect(exchangeConfigs(env)).toEqual([
       {
@@ -166,14 +166,14 @@ describe('parseEnv: multi-exchange', () => {
         symbols: ['BTCUSDT', 'ETHUSDT'],
       },
       {
-        exchange: 'bitget',
-        restUrl: 'https://api.bitget.com',
-        wsUrl: 'wss://ws.bitget.com/v2/ws/public',
-        symbols: ['BTCUSDT'],
+        exchange: 'hyperliquid',
+        restUrl: 'https://api.hyperliquid.xyz',
+        wsUrl: 'wss://api.hyperliquid.xyz/ws',
+        symbols: ['BTC'],
       },
     ]);
     expect(defaultExchange(env)).toBe('binance');
-    expect(allSymbols(env)).toEqual(['BTCUSDT', 'ETHUSDT']);
+    expect(allSymbols(env)).toEqual(['BTCUSDT', 'ETHUSDT', 'BTC']);
   });
 });
 
@@ -193,10 +193,10 @@ describe('parseEnv: coercion y rechazo de valores', () => {
   it('parte los CSV y limpia espacios', () => {
     const env = parseEnv({
       ...REQUIRED,
-      BITGET_SYMBOLS: ' BTCUSDT , ETHUSDT ',
+      BINANCE_SYMBOLS: ' BTCUSDT , ETHUSDT ',
       TIMEFRAMES: '15m, 1h',
     });
-    expect(env.BITGET_SYMBOLS).toEqual(['BTCUSDT', 'ETHUSDT']);
+    expect(env.BINANCE_SYMBOLS).toEqual(['BTCUSDT', 'ETHUSDT']);
     expect(env.TIMEFRAMES).toEqual(['15m', '1h']);
   });
 
@@ -207,8 +207,8 @@ describe('parseEnv: coercion y rechazo de valores', () => {
   });
 
   it('rechaza un CSV que se queda vacio al limpiarlo', () => {
-    expect(catchEnvError({ ...REQUIRED, BITGET_SYMBOLS: ' , ' }).invalid.join()).toContain(
-      'BITGET_SYMBOLS',
+    expect(catchEnvError({ ...REQUIRED, BINANCE_SYMBOLS: ' , ' }).invalid.join()).toContain(
+      'BINANCE_SYMBOLS',
     );
   });
 
@@ -228,9 +228,9 @@ describe('parseEnv: coercion y rechazo de valores', () => {
     ).toContain('BACKFILL_FROM');
   });
 
-  it('rechaza un BACKFILL_PAGE_LIMIT por encima del maximo real de Bitget', () => {
-    expect(parseEnv({ ...REQUIRED, BACKFILL_PAGE_LIMIT: '200' }).BACKFILL_PAGE_LIMIT).toBe(200);
-    expect(catchEnvError({ ...REQUIRED, BACKFILL_PAGE_LIMIT: '1000' }).invalid.join()).toContain(
+  it('rechaza un BACKFILL_PAGE_LIMIT por encima del maximo real de Binance', () => {
+    expect(parseEnv({ ...REQUIRED, BACKFILL_PAGE_LIMIT: '1500' }).BACKFILL_PAGE_LIMIT).toBe(1500);
+    expect(catchEnvError({ ...REQUIRED, BACKFILL_PAGE_LIMIT: '1501' }).invalid.join()).toContain(
       'BACKFILL_PAGE_LIMIT',
     );
   });

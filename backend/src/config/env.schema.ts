@@ -53,11 +53,6 @@ const EXCHANGE_ENV_KEYS = {
     wsUrl: 'HYPERLIQUID_WS_URL',
     symbols: 'HYPERLIQUID_SYMBOLS',
   },
-  bitget: {
-    restUrl: 'BITGET_REST_URL',
-    wsUrl: 'BITGET_WS_URL',
-    symbols: 'BITGET_SYMBOLS',
-  },
 } as const satisfies Record<Exchange, { restUrl: string; wsUrl: string; symbols: string }>;
 
 /**
@@ -111,14 +106,11 @@ export const envSchema = z.object({
   HYPERLIQUID_WS_URL: z.url().prefault('wss://api.hyperliquid.xyz/ws'),
   HYPERLIQUID_SYMBOLS: symbolsSchema('BTC'),
 
-  BITGET_REST_URL: z.url().prefault('https://api.bitget.com'),
-  BITGET_WS_URL: z.url().prefault('wss://ws.bitget.com/v2/ws/public'),
-  BITGET_SYMBOLS: symbolsSchema('BTCUSDT'),
-
   TIMEFRAMES: timeframesSchema,
 
   BACKFILL_FROM: z.iso.datetime().prefault('2026-01-01T00:00:00Z'),
-  BACKFILL_PAGE_LIMIT: intIn(1, 200).prefault('200'),
+  // 1500 es el maximo de /fapi/v1/klines; cada adapter recorta con su maxPageLimit.
+  BACKFILL_PAGE_LIMIT: intIn(1, 1500).prefault('200'),
   BACKFILL_RPS: z.coerce.number().positive().max(100).prefault('5'),
 
   WS_RECONNECT_BASE_MS: intIn(100, 60_000).prefault('1000'),

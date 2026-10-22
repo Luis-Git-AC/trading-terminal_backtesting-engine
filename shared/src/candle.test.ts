@@ -77,7 +77,7 @@ describe('candleSchema', () => {
 describe('candleRowToCandle', () => {
   it('convierte la fila de BD, con numeric como string, al tipo del dominio', () => {
     const row: CandleRow = {
-      exchange: 'bitget',
+      exchange: 'hyperliquid',
       symbol: 'BTCUSDT',
       timeframe: '15m',
       ts: new Date('2026-03-01T00:00:00.000Z'),
@@ -99,7 +99,7 @@ describe('candleRowToCandle', () => {
 
   it('tolera quote_volume nulo', () => {
     const row: CandleRow = {
-      exchange: 'bitget',
+      exchange: 'hyperliquid',
       symbol: 'BTCUSDT',
       timeframe: '1h',
       ts: new Date('2026-03-01T00:00:00.000Z'),

@@ -13,8 +13,9 @@ x-app: &app
     redis:
       condition: service_healthy
   extra_hosts:
-    - 'api.bitget.com:127.0.0.1'
-    - 'ws.bitget.com:127.0.0.1'
+    - 'fapi.binance.com:127.0.0.1'
+    - 'fstream.binance.com:127.0.0.1'
+    - 'api.hyperliquid.xyz:127.0.0.1'
 
 services:
   postgres:

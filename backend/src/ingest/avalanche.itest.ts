@@ -3,7 +3,7 @@ import { timeframeToMs, type Candle, type Timeframe } from '@tt/shared';
 import { runMigrations } from '../db/migrate.js';
 import { createCandlesRepository, type CandlesRepository } from '../db/repositories/candles.repo.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
-import { createBitgetRestClient, type HttpResponse } from './exchange/bitget/rest.js';
+import { createBinanceRestClient, type HttpResponse } from './exchange/binance/rest.js';
 import { reconcileSeries } from './reconcile.js';
 
 const SYMBOL = 'AVALUSDT';
@@ -15,16 +15,17 @@ const PAGE_LIMIT = 200;
 const RPS = 5;
 const TIMER_SLOP_MS = 25;
 
-function makeRow(index: number): string[] {
+/** Fila de /fapi/v1/klines: los tiempos llegan como numero y los precios como string. */
+function makeRow(index: number): (string | number)[] {
   const base = 64_000 + index;
   return [
-    String(START + index * STEP),
+    START + index * STEP,
     String(base),
     String(base + 10),
     String(base - 10),
     String(base + 5),
     '1.5',
-    '96000',
+    START + index * STEP + STEP - 1,
     '96000',
   ];
 }
@@ -58,7 +59,7 @@ function createHttp(available: number): FakeHttp {
       return Promise.resolve({
         status: 200,
         headers: { get: () => null },
-        json: () => Promise.resolve({ code: '00000', msg: 'success', requestTime: 0, data: rows }),
+        json: () => Promise.resolve(rows),
       });
     },
   };
@@ -108,7 +109,7 @@ describe('proteccion contra avalancha tras una reconexion larga', () => {
     });
 
     const http = createHttp(DAY_CANDLES);
-    const client = createBitgetRestClient({
+    const client = createBinanceRestClient({
       baseUrl: 'https://exchange.local',
       pageLimit: PAGE_LIMIT,
       rps: RPS,
@@ -161,7 +162,7 @@ describe('proteccion contra avalancha tras una reconexion larga', () => {
     });
 
     const http = createHttp(DAY_CANDLES);
-    const client = createBitgetRestClient({
+    const client = createBinanceRestClient({
       baseUrl: 'https://exchange.local',
       pageLimit: PAGE_LIMIT,
       rps: RPS,
@@ -192,7 +193,7 @@ describe('proteccion contra avalancha tras una reconexion larga', () => {
     });
 
     const http = createHttp(DAY_CANDLES);
-    const client = createBitgetRestClient({
+    const client = createBinanceRestClient({
       baseUrl: 'https://exchange.local',
       pageLimit: PAGE_LIMIT,
       rps: RPS,
@@ -228,7 +229,7 @@ describe('proteccion contra avalancha tras una reconexion larga', () => {
     });
 
     const http = createHttp(DAY_CANDLES);
-    const client = createBitgetRestClient({
+    const client = createBinanceRestClient({
       baseUrl: 'https://exchange.local',
       pageLimit: PAGE_LIMIT,
       rps: 1000,

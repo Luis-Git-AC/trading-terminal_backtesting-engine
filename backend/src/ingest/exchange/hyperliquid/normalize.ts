@@ -11,7 +11,7 @@ export {
 
 const NUMERIC_FIELDS = ['t', 'o', 'h', 'l', 'c', 'v'] as const;
 
-/** Mismo vocabulario de descartes que Binance y Bitget, aunque la fila sea un objeto. */
+/** Mismo vocabulario de descartes que Binance, aunque la fila sea un objeto. */
 export function normalizeCandles(rows: readonly unknown[], timeframe: Timeframe): NormalizeResult {
   const candles: IngestCandle[] = [];
   const discarded: DiscardedRow[] = [];
