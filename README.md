@@ -13,10 +13,10 @@ comparación de runs.
 _Captura real contra el stack de la sección "Cómo ejecutarlo en local", con el fixture de
 `BTCUSDT` incluido en el repo — no es un mockup._
 
-**Despliegue público**: pendiente. Fue una decisión explícita durante la fase 6 dejar fuera el
-deploy en Railway/Vercel para poder cerrar primero E2E, CI y esta documentación con evidencia
-real; ver "Limitaciones conocidas" al final. Todo lo de aquí arriba se ejecuta y se verifica en
-local con los 5 comandos de más abajo.
+**Despliegue público**: **anulado hasta nuevo aviso**. No es deuda pendiente: el uso previsto del
+proyecto es local con `docker compose`, así que el deploy en Railway/Vercel quedó fuera de alcance
+por decisión explícita; ver "Limitaciones conocidas" al final. Todo lo de aquí arriba se ejecuta y se
+verifica en local con los 5 comandos de más abajo.
 
 ## Sobre este proyecto
 
@@ -220,10 +220,10 @@ hecho y por qué" para quien lee desde fuera es este README y los diagramas de `
 
 Explícitas a propósito — ocultarlas sería peor que tenerlas:
 
-- **Sin deploy público todavía.** Railway (API/worker/ingestor) y Vercel (frontend) quedaron fuera
-  de esta fase por decisión explícita, para cerrar primero E2E, CI y esta documentación con
-  evidencia real en vez de repartir el esfuerzo. El backend ya está preparado para ese deploy
-  (`START_MODE` selecciona el rol, health checks, migraciones con _advisory lock_ al arrancar).
+- **Sin deploy público, y a propósito.** Railway (API/worker/ingestor) y Vercel (frontend) están
+  **anulados hasta nuevo aviso**: el uso previsto es local con `docker compose`. El backend ya está
+  preparado por si la decisión cambia (`START_MODE` selecciona el rol, health checks, migraciones con
+  _advisory lock_ al arrancar), pero no hay nada a medias esperando a desplegarse.
 - **Un solo exchange** (Bitget) y tres pares (`BTCUSDT`, `ETHUSDT`, `SOLUSDT`) — la arquitectura no
   impone ese límite (`SYMBOLS`/`TIMEFRAMES` son configuración), pero el MVP no expone más.
 - **Sin margen ni liquidación.** El motor simula PnL sobre una posición con tamaño por riesgo, sin
@@ -237,8 +237,8 @@ Explícitas a propósito — ocultarlas sería peor que tenerlas:
   evento SSE final llega en un orden concreto — cosmético (las métricas guardadas son siempre
   correctas; recargar la página lo corrige), encontrado por la suite E2E y sin arreglar todavía.
 
-Con más tiempo, en este orden: cerrar el deploy público en Railway y Vercel, rellenar el estado de
-ingesta en `/api/health`, y luego el resto de lo que quedó fuera a propósito desde el diseño —
+Con más tiempo, en este orden: rellenar el estado de ingesta en `/api/health`, arreglar el panel de
+progreso obsoleto, y luego el resto de lo que quedó fuera a propósito desde el diseño —
 multi-exchange, alertas, optimización de parámetros — que nunca fue el objetivo de este proyecto,
 que es demostrar un pipeline de datos en tiempo real, cómputo pesado fuera del ciclo de request, y
 un dominio con reglas propias bien modelado, no una plataforma de trading completa.
