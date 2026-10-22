@@ -2,7 +2,7 @@ import type { Candle, Timeframe } from '@tt/shared';
 import type { CandlesRepository, SeriesRef } from '../db/repositories/candles.repo.js';
 import type { IngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import type { CandlePublisher } from '../queue/pubsub.js';
-import type { BitgetCandleStream, BitgetStreamEvent } from './exchange/bitget/ws.js';
+import type { ExchangeCandleStream, ExchangeStreamEvent } from './exchange/adapter.js';
 
 export const DEFAULT_FLUSH_INTERVAL_MS = 200;
 export const DEFAULT_WS_TOUCH_INTERVAL_MS = 10_000;
@@ -22,13 +22,13 @@ export type LiveIngestorEvent =
       written: number;
       lastTs: number;
     }
-  | { kind: 'stream'; event: BitgetStreamEvent }
+  | { kind: 'stream'; event: ExchangeStreamEvent }
   | { kind: 'error'; stage: 'flush' | 'publish' | 'touch'; error: Error };
 
 export type LiveIngestorListener = (event: LiveIngestorEvent) => void;
 
 export interface LiveIngestorOptions {
-  stream: BitgetCandleStream;
+  stream: ExchangeCandleStream;
   candles: CandlesRepository;
   state: IngestStateRepository;
   publisher: CandlePublisher;
@@ -165,7 +165,7 @@ export function createLiveIngestor(options: LiveIngestorOptions): LiveIngestor {
     }
   }
 
-  function onStreamEvent(event: BitgetStreamEvent): void {
+  function onStreamEvent(event: ExchangeStreamEvent): void {
     if (event.kind !== 'candle') {
       emit({ kind: 'stream', event });
       return;

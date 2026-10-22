@@ -1,19 +1,20 @@
 import { parseArgs } from 'node:util';
-import { isTimeframe, type Timeframe } from '@tt/shared';
-import { env } from '../config/env.js';
+import { isExchange, isTimeframe, type Exchange, type Timeframe } from '@tt/shared';
+import { env, exchangeConfig } from '../config/env.js';
 import { closePool, getPool } from '../db/pool.js';
-import { createBitgetRestClient } from '../ingest/exchange/bitget/rest.js';
+import { getAdapter } from '../ingest/exchange/registry.js';
 import { backfillSeries, type BackfillEvent, type BackfillReport } from '../ingest/backfill.js';
 
 const USAGE = `
-Uso: npm run backfill -- --symbol BTCUSDT --timeframe 15m [--from ISO] [--to ISO]
-     npm run backfill -- --all [--from ISO] [--to ISO]
+Uso: npm run backfill -- --exchange binance --symbol BTCUSDT --timeframe 15m [--from ISO] [--to ISO]
+     npm run backfill -- --exchange binance --all [--from ISO] [--to ISO]
 
+  --exchange   Exchange a rellenar. Obligatorio si EXCHANGES tiene mas de uno
   --symbol     Par a rellenar. Obligatorio salvo con --all
   --timeframe  1m | 15m | 1h. Obligatorio salvo con --all
   --from       Inicio del historico en ISO 8601 UTC. Por defecto BACKFILL_FROM
   --to         Fin del historico en ISO 8601 UTC. Por defecto ahora
-  --all        Recorre SYMBOLS x TIMEFRAMES del entorno
+  --all        Recorre los simbolos del exchange x TIMEFRAMES del entorno
 `.trim();
 
 function fail(message: string): never {
@@ -65,15 +66,30 @@ function onEvent(event: BackfillEvent): void {
   console.log(`  ${detail} (${report.stoppedBy}) en ${formatMs(report.elapsedMs)}`);
 }
 
-function seriesToRun(values: {
-  all?: boolean | undefined;
-  symbol?: string | undefined;
-  timeframe?: string | undefined;
-}): { symbol: string; timeframe: Timeframe }[] {
+function exchangeToRun(raw: string | undefined): Exchange {
+  if (raw === undefined) {
+    const [only, ...rest] = env.EXCHANGES;
+    if (only === undefined || rest.length > 0) {
+      fail(`Falta --exchange. EXCHANGES tiene varios: ${env.EXCHANGES.join(', ')}.`);
+    }
+    return only;
+  }
+  if (!isExchange(raw) || !env.EXCHANGES.includes(raw)) {
+    fail(`--exchange invalido: ${raw}. Configurados: ${env.EXCHANGES.join(', ')}.`);
+  }
+  return raw;
+}
+
+function seriesToRun(
+  values: {
+    all?: boolean | undefined;
+    symbol?: string | undefined;
+    timeframe?: string | undefined;
+  },
+  symbols: readonly string[],
+): { symbol: string; timeframe: Timeframe }[] {
   if (values.all === true) {
-    return env.SYMBOLS.flatMap((symbol) =>
-      env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })),
-    );
+    return symbols.flatMap((symbol) => env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })));
   }
 
   if (values.symbol === undefined) fail('Falta --symbol (o usa --all).');
@@ -88,6 +104,7 @@ function seriesToRun(values: {
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: {
+      exchange: { type: 'string' },
       symbol: { type: 'string' },
       timeframe: { type: 'string' },
       from: { type: 'string' },
@@ -105,11 +122,14 @@ async function main(): Promise<void> {
 
   const from = parseInstant(values.from, '--from') ?? Date.parse(env.BACKFILL_FROM);
   const to = parseInstant(values.to, '--to');
-  const series = seriesToRun(values);
+  const exchange = exchangeToRun(values.exchange);
+  const config = exchangeConfig(env, exchange);
+  const series = seriesToRun(values, config.symbols);
+  const adapter = getAdapter(exchange);
 
-  const feed = createBitgetRestClient({
-    baseUrl: env.EXCHANGE_REST_URL,
-    pageLimit: env.BACKFILL_PAGE_LIMIT,
+  const feed = adapter.createRestClient({
+    baseUrl: config.restUrl,
+    pageLimit: Math.min(env.BACKFILL_PAGE_LIMIT, adapter.maxPageLimit),
     rps: env.BACKFILL_RPS,
     log: (event) => {
       if (event.kind === 'retry') {
@@ -129,7 +149,16 @@ async function main(): Promise<void> {
   try {
     for (const { symbol, timeframe } of series) {
       reports.push(
-        await backfillSeries({ pool, feed, symbol, timeframe, from, to, log: onEvent }),
+        await backfillSeries({
+          pool,
+          feed,
+          exchange,
+          symbol,
+          timeframe,
+          from,
+          to,
+          log: onEvent,
+        }),
       );
     }
   } finally {

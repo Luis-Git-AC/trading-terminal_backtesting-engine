@@ -6,7 +6,7 @@ import {
   type CandleSource,
   type Timeframe,
 } from '@tt/shared';
-import { env } from '../../config/env.js';
+import { defaultExchange, env } from '../../config/env.js';
 
 export const MAX_CANDLES_LIMIT = 5000;
 export const UPSERT_BATCH_SIZE = 1000;
@@ -137,7 +137,7 @@ const LAST_TS_SQL = `
 `;
 
 function exchangeOf(series: SeriesRef): string {
-  return series.exchange ?? env.EXCHANGE;
+  return series.exchange ?? defaultExchange(env);
 }
 
 function clampLimit(limit: number | undefined): number {

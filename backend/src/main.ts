@@ -1,9 +1,9 @@
-import { env } from './config/env.js';
+import { allSymbols, defaultExchange, env, exchangeConfigs } from './config/env.js';
 import { resolveStartMode } from './config/start-mode.js';
 
 const APP_VERSION = '0.1.0';
 import { createPool } from './db/pool.js';
-import { createBitgetRestClient } from './ingest/exchange/bitget/rest.js';
+import { getAdapter } from './ingest/exchange/registry.js';
 import { createLogger, type AppLogger } from './observability/logger.js';
 import { createQueueConnection } from './queue/connection.js';
 import { createCandlePublisher, createRedisClient } from './queue/pubsub.js';
@@ -11,10 +11,11 @@ import { startApi } from './roles/api.js';
 import { startIngestor } from './roles/ingestor.js';
 import { startWorker } from './roles/worker.js';
 
-function seriesFromEnv(): { symbol: string; timeframe: (typeof env.TIMEFRAMES)[number] }[] {
-  return env.SYMBOLS.flatMap((symbol) =>
-    env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })),
-  );
+function seriesOf(symbols: readonly string[]): {
+  symbol: string;
+  timeframe: (typeof env.TIMEFRAMES)[number];
+}[] {
+  return symbols.flatMap((symbol) => env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })));
 }
 
 async function runIngestor(logger: AppLogger): Promise<void> {
@@ -34,33 +35,51 @@ async function runIngestor(logger: AppLogger): Promise<void> {
     },
   });
 
-  const feed = createBitgetRestClient({
-    baseUrl: env.EXCHANGE_REST_URL,
-    pageLimit: env.BACKFILL_PAGE_LIMIT,
-    rps: env.BACKFILL_RPS,
-    log: (event) => {
-      if (event.kind === 'retry') {
+  const exchanges = exchangeConfigs(env).map((config) => {
+    const adapter = getAdapter(config.exchange);
+    const feed = adapter.createRestClient({
+      baseUrl: config.restUrl,
+      pageLimit: Math.min(env.BACKFILL_PAGE_LIMIT, adapter.maxPageLimit),
+      rps: env.BACKFILL_RPS,
+      log: (event) => {
+        if (event.kind === 'retry') {
+          logger.warn(
+            {
+              exchange: config.exchange,
+              attempt: event.attempt,
+              delayMs: event.delayMs,
+              reason: event.reason,
+            },
+            'reintento contra el exchange',
+          );
+          return;
+        }
         logger.warn(
-          { attempt: event.attempt, delayMs: event.delayMs, reason: event.reason },
-          'reintento contra el exchange',
+          {
+            exchange: config.exchange,
+            symbol: event.symbol,
+            timeframe: event.timeframe,
+            rows: event.rows.length,
+          },
+          'filas descartadas al normalizar',
         );
-        return;
-      }
-      logger.warn(
-        { symbol: event.symbol, timeframe: event.timeframe, rows: event.rows.length },
-        'filas descartadas al normalizar',
-      );
-    },
+      },
+    });
+
+    return {
+      exchange: config.exchange,
+      adapter,
+      feed,
+      wsUrl: config.wsUrl,
+      series: seriesOf(config.symbols),
+    };
   });
 
   await startIngestor({
     pool,
-    feed,
     publisher,
     logger,
-    series: seriesFromEnv(),
-    exchange: env.EXCHANGE,
-    wsUrl: env.EXCHANGE_WS_URL,
+    exchanges,
     backfillFrom: Date.parse(env.BACKFILL_FROM),
     gapScanCron: env.GAP_SCAN_CRON,
     gapScanWindowMs: env.GAP_SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000,
@@ -105,8 +124,8 @@ async function runApi(logger: AppLogger): Promise<void> {
     port: env.PORT,
     webOrigin: env.WEB_ORIGIN,
     version: APP_VERSION,
-    exchange: env.EXCHANGE,
-    symbols: env.SYMBOLS,
+    exchange: defaultExchange(env),
+    symbols: allSymbols(env),
     timeframes: env.TIMEFRAMES,
     maxBars: env.BACKTEST_MAX_BARS,
     maxActiveRuns: env.BACKTEST_MAX_ACTIVE_RUNS,
@@ -147,7 +166,7 @@ async function runWorker(logger: AppLogger): Promise<void> {
     concurrency: env.BACKTEST_CONCURRENCY,
     chunkBars: env.ENGINE_CHUNK_BARS,
     equityMaxPoints: env.EQUITY_MAX_POINTS,
-    exchange: env.EXCHANGE,
+    exchange: defaultExchange(env),
     migrate: false,
   });
 

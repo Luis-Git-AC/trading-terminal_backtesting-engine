@@ -1,5 +1,5 @@
 import type { Timeframe } from '@tt/shared';
-import { env } from '../../config/env.js';
+import { defaultExchange, env } from '../../config/env.js';
 import type { Queryable, SeriesRef } from './candles.repo.js';
 
 export interface IngestState {
@@ -87,7 +87,7 @@ const TOUCH_WS_SQL = `
 `;
 
 function exchangeOf(series: SeriesRef): string {
-  return series.exchange ?? env.EXCHANGE;
+  return series.exchange ?? defaultExchange(env);
 }
 
 function toState(row: StateRow): IngestState {

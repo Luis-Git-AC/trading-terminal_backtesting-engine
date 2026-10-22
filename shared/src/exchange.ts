@@ -4,6 +4,8 @@ export const EXCHANGES = ['bitget'] as const;
 
 export type Exchange = (typeof EXCHANGES)[number];
 
+export const DEFAULT_EXCHANGE: Exchange = 'bitget';
+
 export function isExchange(value: unknown): value is Exchange {
   return typeof value === 'string' && EXCHANGES.some((id) => id === value);
 }

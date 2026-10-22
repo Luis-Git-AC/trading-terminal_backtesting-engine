@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { isTimeframe, timeframeToMs, type Timeframe } from '@tt/shared';
-import { env } from '../config/env.js';
+import { allSymbols, env } from '../config/env.js';
 import { closePool, getPool } from '../db/pool.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { verifyIntegrity, type IntegrityReport } from '../ingest/integrity.js';
@@ -13,7 +13,7 @@ Uso: npm run verify -- --symbol BTCUSDT --timeframe 15m [--from ISO] [--to ISO]
   --timeframe  1m | 15m | 1h. Obligatorio salvo con --all
   --from       Inicio del rango en ISO 8601 UTC. Por defecto, la vela mas antigua guardada
   --to         Fin del rango en ISO 8601 UTC (exclusivo). Por defecto, la mas reciente + 1 vela
-  --all        Recorre SYMBOLS x TIMEFRAMES del entorno
+  --all        Recorre los simbolos de todos los exchanges x TIMEFRAMES
 
 Sale con codigo 1 si hay violaciones de integridad. Los huecos se informan pero no fallan:
 pueden ser legitimos del exchange.
@@ -41,7 +41,7 @@ function seriesToVerify(values: {
   timeframe?: string | undefined;
 }): { symbol: string; timeframe: Timeframe }[] {
   if (values.all === true) {
-    return env.SYMBOLS.flatMap((symbol) =>
+    return allSymbols(env).flatMap((symbol) =>
       env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })),
     );
   }

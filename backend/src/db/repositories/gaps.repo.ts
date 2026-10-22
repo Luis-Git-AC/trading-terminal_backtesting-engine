@@ -1,5 +1,5 @@
 import type { Timeframe } from '@tt/shared';
-import { env } from '../../config/env.js';
+import { defaultExchange, env } from '../../config/env.js';
 import type { Queryable, SeriesRef } from './candles.repo.js';
 
 export interface GapRecord {
@@ -109,7 +109,7 @@ const MARK_ERROR_SQL = `
 `;
 
 function exchangeOf(series: SeriesRef): string {
-  return series.exchange ?? env.EXCHANGE;
+  return series.exchange ?? defaultExchange(env);
 }
 
 function toGap(row: GapRow): GapRecord {

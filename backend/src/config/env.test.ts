@@ -2,7 +2,15 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ENV_KEYS, EnvValidationError, parseEnv, type EnvSource } from './env.schema.js';
+import {
+  allSymbols,
+  defaultExchange,
+  exchangeConfigs,
+  ENV_KEYS,
+  EnvValidationError,
+  parseEnv,
+  type EnvSource,
+} from './env.schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ENV_EXAMPLE_PATH = resolve(HERE, '../../../.env.example');
@@ -91,10 +99,10 @@ describe('parseEnv: defaults', () => {
     expect(env.LOG_LEVEL).toBe('info');
     expect(env.DATABASE_SSL).toBe(false);
     expect(env.WEB_ORIGIN).toBe('http://localhost:5173');
-    expect(env.EXCHANGE).toBe('bitget');
-    expect(env.EXCHANGE_REST_URL).toBe('https://api.bitget.com');
-    expect(env.EXCHANGE_WS_URL).toBe('wss://ws.bitget.com/v2/ws/public');
-    expect(env.SYMBOLS).toEqual(['BTCUSDT']);
+    expect(env.EXCHANGES).toEqual(['bitget']);
+    expect(env.BITGET_REST_URL).toBe('https://api.bitget.com');
+    expect(env.BITGET_WS_URL).toBe('wss://ws.bitget.com/v2/ws/public');
+    expect(env.BITGET_SYMBOLS).toEqual(['BTCUSDT']);
     expect(env.TIMEFRAMES).toEqual(['1m', '15m', '1h']);
     expect(env.BACKFILL_FROM).toBe('2026-01-01T00:00:00Z');
     expect(env.BACKFILL_PAGE_LIMIT).toBe(200);
@@ -120,6 +128,44 @@ describe('parseEnv: defaults', () => {
   });
 });
 
+describe('parseEnv: multi-exchange', () => {
+  it('aborta si queda una clave de la version de un solo exchange', () => {
+    const error = catchEnvError({ ...REQUIRED, EXCHANGE: 'bitget' });
+    expect(error.invalid.join()).toContain('EXCHANGE');
+    expect(error.message).toContain('EXCHANGE');
+  });
+
+  it('nombra todas las claves retiradas que encuentre', () => {
+    const error = catchEnvError({
+      ...REQUIRED,
+      SYMBOLS: 'BTCUSDT',
+      EXCHANGE_WS_URL: 'wss://x.test',
+    });
+    expect(error.invalid.join()).toContain('SYMBOLS');
+    expect(error.invalid.join()).toContain('EXCHANGE_WS_URL');
+  });
+
+  it('rechaza un exchange que no esta en el registry', () => {
+    expect(catchEnvError({ ...REQUIRED, EXCHANGES: 'bitget,kraken' }).invalid.join()).toContain(
+      'EXCHANGES',
+    );
+  });
+
+  it('exchangeConfig devuelve las URLs y simbolos de cada exchange', () => {
+    const env = parseEnv({ ...REQUIRED, BITGET_SYMBOLS: 'BTCUSDT,ETHUSDT' });
+    expect(exchangeConfigs(env)).toEqual([
+      {
+        exchange: 'bitget',
+        restUrl: 'https://api.bitget.com',
+        wsUrl: 'wss://ws.bitget.com/v2/ws/public',
+        symbols: ['BTCUSDT', 'ETHUSDT'],
+      },
+    ]);
+    expect(defaultExchange(env)).toBe('bitget');
+    expect(allSymbols(env)).toEqual(['BTCUSDT', 'ETHUSDT']);
+  });
+});
+
 describe('parseEnv: coercion y rechazo de valores', () => {
   it('convierte numeros que llegan como string', () => {
     const env = parseEnv({ ...REQUIRED, PORT: '8080', BACKFILL_RPS: '2.5' });
@@ -134,8 +180,12 @@ describe('parseEnv: coercion y rechazo de valores', () => {
   });
 
   it('parte los CSV y limpia espacios', () => {
-    const env = parseEnv({ ...REQUIRED, SYMBOLS: ' BTCUSDT , ETHUSDT ', TIMEFRAMES: '15m, 1h' });
-    expect(env.SYMBOLS).toEqual(['BTCUSDT', 'ETHUSDT']);
+    const env = parseEnv({
+      ...REQUIRED,
+      BITGET_SYMBOLS: ' BTCUSDT , ETHUSDT ',
+      TIMEFRAMES: '15m, 1h',
+    });
+    expect(env.BITGET_SYMBOLS).toEqual(['BTCUSDT', 'ETHUSDT']);
     expect(env.TIMEFRAMES).toEqual(['15m', '1h']);
   });
 
@@ -146,7 +196,9 @@ describe('parseEnv: coercion y rechazo de valores', () => {
   });
 
   it('rechaza un CSV que se queda vacio al limpiarlo', () => {
-    expect(catchEnvError({ ...REQUIRED, SYMBOLS: ' , ' }).invalid.join()).toContain('SYMBOLS');
+    expect(catchEnvError({ ...REQUIRED, BITGET_SYMBOLS: ' , ' }).invalid.join()).toContain(
+      'BITGET_SYMBOLS',
+    );
   });
 
   it('rechaza PORT fuera de rango y START_MODE desconocido', () => {

@@ -9,7 +9,14 @@ import { createLogger, type AppLogger } from '../observability/logger.js';
 import { createCandlePublisher, type CandlePublisher, type RedisPublisher } from '../queue/pubsub.js';
 import { startFakeBitgetWs, type FakeBitgetWs } from '../testing/fake-bitget-ws.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
-import { startIngestor, type IngestorHandle } from './ingestor.js';
+import { getAdapter } from '../ingest/exchange/registry.js';
+import {
+  startIngestor,
+  type IngestorExchangeConfig,
+  type IngestorHandle,
+  type IngestorOptions,
+  type IngestorSeries,
+} from './ingestor.js';
 
 const SYMBOL = 'ROLEUSDT';
 const TIMEFRAME: Timeframe = '1m';
@@ -125,22 +132,35 @@ describe('startIngestor', () => {
     await exchange.stop();
   });
 
-  async function launch(
-    overrides: Partial<Parameters<typeof startIngestor>[0]> = {},
-  ): Promise<IngestorHandle> {
+  type LaunchOverrides = Partial<Omit<IngestorOptions, 'exchanges'>> & {
+    feed?: CandleFeed;
+    series?: readonly IngestorSeries[];
+    wsUrl?: string;
+  };
+
+  function bitgetConfig(over: LaunchOverrides = {}): IngestorExchangeConfig {
+    return {
+      exchange: 'bitget',
+      adapter: getAdapter('bitget'),
+      feed: over.feed ?? createFeed(),
+      wsUrl: over.wsUrl ?? exchange.url,
+      series: over.series ?? [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+    };
+  }
+
+  async function launch(overrides: LaunchOverrides = {}): Promise<IngestorHandle> {
     const pool = await createScratchPool();
+    const { feed: _feed, series: _series, wsUrl: _wsUrl, ...rest } = overrides;
     const created = await startIngestor({
       pool,
-      feed: createFeed(),
       publisher,
       logger: logs.logger,
-      series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      exchanges: [bitgetConfig(overrides)],
       backfillFrom: START,
-      wsUrl: exchange.url,
       wsStaleTimeoutMs: undefined,
       metricsIntervalMs: 0,
       signals: [],
-      ...overrides,
+      ...rest,
     });
     handle = created;
 
@@ -221,19 +241,19 @@ describe('startIngestor', () => {
       },
       { timeout: 10_000 },
     );
-    await created.ingestor.flush();
+    await created.exchanges[0]!.ingestor.flush();
 
     const snapshot = await created.metrics();
 
-    expect(snapshot.socketState).toBe('open');
-    expect(snapshot.reconnects).toBe(0);
+    expect(snapshot.exchanges[0]?.socketState).toBe('open');
+    expect(snapshot.exchanges[0]?.reconnects).toBe(0);
     expect(snapshot.openGaps).toBe(0);
-    expect(snapshot.series[0]).toMatchObject({
+    expect(snapshot.exchanges[0]?.series[0]).toMatchObject({
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       lastCandleTs: START + 2 * STEP,
     });
-    expect(snapshot.series[0]?.candlesPerMin).toBeGreaterThan(0);
+    expect(snapshot.exchanges[0]?.series[0]?.candlesPerMin).toBeGreaterThan(0);
   });
 
   it('la metrica cuenta velas ingeridas, no filas modificadas por el upsert', async () => {
@@ -246,7 +266,7 @@ describe('startIngestor', () => {
 
     const created = await launch();
     const flushes: { candles: number; written: number }[] = [];
-    created.ingestor.on((event) => {
+    created.exchanges[0]!.ingestor.on((event) => {
       if (event.kind === 'flushed') {
         flushes.push({ candles: event.candles, written: event.written });
       }
@@ -273,7 +293,7 @@ describe('startIngestor', () => {
 
     expect(total.written).toBe(0);
     expect(total.candles).toBeGreaterThan(0);
-    expect((await created.metrics()).series[0]?.candlesPerMin).toBeGreaterThan(0);
+    expect((await created.metrics()).exchanges[0]?.series[0]?.candlesPerMin).toBeGreaterThan(0);
   });
 
   it('reconcilia otra vez al reabrir el socket y cuenta la reconexion', async () => {
@@ -294,7 +314,7 @@ describe('startIngestor', () => {
       { timeout: 10_000 },
     );
 
-    expect((await created.metrics()).reconnects).toBeGreaterThanOrEqual(1);
+    expect((await created.metrics()).exchanges[0]?.reconnects).toBeGreaterThanOrEqual(1);
   });
 
   it('expone la salud de la ingesta con el estado del socket y las series', async () => {
@@ -309,13 +329,13 @@ describe('startIngestor', () => {
       },
       { timeout: 10_000 },
     );
-    await created.ingestor.flush();
+    await created.exchanges[0]!.ingestor.flush();
 
     const health = await created.health();
 
-    expect(health.socketState).toBe('open');
-    expect(health.consecutiveFailures).toBe(0);
-    expect(health.series[0]).toMatchObject({
+    expect(health.exchanges[0]?.socketState).toBe('open');
+    expect(health.exchanges[0]?.consecutiveFailures).toBe(0);
+    expect(health.exchanges[0]?.series[0]).toMatchObject({
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       lastCandleTs: START + 2 * STEP,
@@ -337,11 +357,11 @@ describe('startIngestor', () => {
       },
       { timeout: 10_000 },
     );
-    await created.ingestor.flush();
+    await created.exchanges[0]!.ingestor.flush();
 
     const health = await created.health();
 
-    expect(health.series[0]?.stale).toBe(false);
+    expect(health.exchanges[0]?.series[0]?.stale).toBe(false);
     expect(health.status).toBe('ok');
     expect(health.openGaps).toBe(0);
   });
@@ -351,12 +371,10 @@ describe('startIngestor', () => {
 
     const created = await startIngestor({
       pool: await createScratchPool(),
-      feed: createFeed(),
       publisher,
       logger: logs.logger,
-      series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      exchanges: [bitgetConfig({ wsUrl: 'ws://127.0.0.1:1' })],
       backfillFrom: START,
-      wsUrl: 'ws://127.0.0.1:1',
       wsReconnectBaseMs: 100,
       wsReconnectMaxMs: 120,
       wsMaxConsecutiveFailures: 2,
@@ -381,7 +399,7 @@ describe('startIngestor', () => {
       { timeout: 15_000 },
     );
 
-    expect(created.stream.socket.degraded).toBe(true);
+    expect(created.exchanges[0]!.stream.socket.degraded).toBe(true);
     expect((await created.metrics()).degraded).toBe(true);
 
     exchange = await startFakeBitgetWs();
@@ -441,12 +459,10 @@ describe('startIngestor', () => {
       const codes: number[] = [];
       const created = await startIngestor({
         pool: await createScratchPool(),
-        feed: createFeed(),
         publisher,
         logger: logs.logger,
-        series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+        exchanges: [bitgetConfig({ feed: createFeed() })],
         backfillFrom: START,
-        wsUrl: exchange.url,
         metricsIntervalMs: 0,
         shutdownTimeoutMs: 15_000,
         exit: (code) => codes.push(code),
@@ -461,7 +477,7 @@ describe('startIngestor', () => {
         exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
       }
       await vi.waitFor(() => {
-        expect(created.ingestor.pending).toBe(3);
+        expect(created.exchanges[0]!.ingestor.pending).toBe(3);
       });
 
       const startedAt = Date.now();
@@ -482,8 +498,8 @@ describe('startIngestor', () => {
 
       const elapsed = Date.now() - startedAt;
       expect(elapsed, `el apagado tardo ${elapsed} ms`).toBeLessThan(15_000);
-      expect(created.ingestor.pending).toBe(0);
-      expect(created.stream.socket.state).toBe('closed');
+      expect(created.exchanges[0]!.ingestor.pending).toBe(0);
+      expect(created.exchanges[0]!.stream.socket.state).toBe('closed');
       expect(logs.find('ingestor apagado')).toBeDefined();
 
       handle = undefined;
@@ -495,12 +511,10 @@ describe('startIngestor', () => {
       const before = process.listenerCount('SIGTERM');
       const created = await startIngestor({
         pool: await createScratchPool(),
-        feed: createFeed(),
         publisher,
         logger: logs.logger,
-        series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+        exchanges: [bitgetConfig({ feed: createFeed() })],
         backfillFrom: START,
-        wsUrl: exchange.url,
         metricsIntervalMs: 0,
         exit: () => undefined,
       });

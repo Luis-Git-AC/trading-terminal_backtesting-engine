@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { alignTs, isTimeframe, timeframeToMs, type Timeframe } from '@tt/shared';
-import { env } from '../config/env.js';
+import { allSymbols, env } from '../config/env.js';
 import { closePool, getPool } from '../db/pool.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { DEFAULT_SEED_BARS, seedSeries, type SeedReport } from '../db/seed.js';
@@ -14,7 +14,7 @@ Uso: npm run db:seed -- --symbol BTCUSDT --timeframe 15m [--bars 2000] [--seed 1
   --bars       Velas a generar por serie. Por defecto ${DEFAULT_SEED_BARS}
   --seed       Semilla del PRNG. Por defecto 1
   --from       Inicio de la serie en ISO 8601 UTC. Por defecto BACKFILL_FROM
-  --all        Recorre SYMBOLS x TIMEFRAMES del entorno
+  --all        Recorre los simbolos de todos los exchanges x TIMEFRAMES
 
 Genera velas sinteticas (source = "synthetic") y no toca la red. Pensado para trabajar sin
 conexion al exchange; para datos reales usa "npm run backfill".
@@ -42,7 +42,7 @@ function seriesToRun(values: {
   timeframe?: string | undefined;
 }): { symbol: string; timeframe: Timeframe }[] {
   if (values.all === true) {
-    return env.SYMBOLS.flatMap((symbol) =>
+    return allSymbols(env).flatMap((symbol) =>
       env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })),
     );
   }

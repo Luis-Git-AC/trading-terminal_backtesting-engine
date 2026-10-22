@@ -20,8 +20,8 @@ describe('el stack E2E no habla con el exchange', () => {
   const envFile = read('.env.e2e');
 
   it('.env.e2e apunta las URLs del exchange al puerto discard, no a bitget', () => {
-    expect(envFile).toMatch(/^EXCHANGE_REST_URL=http:\/\/127\.0\.0\.1:9$/m);
-    expect(envFile).toMatch(/^EXCHANGE_WS_URL=ws:\/\/127\.0\.0\.1:9$/m);
+    expect(envFile).toMatch(/^BITGET_REST_URL=http:\/\/127\.0\.0\.1:9$/m);
+    expect(envFile).toMatch(/^BITGET_WS_URL=ws:\/\/127\.0\.0\.1:9$/m);
     expect(envFile).not.toMatch(EXCHANGE_HOSTS);
   });
 
