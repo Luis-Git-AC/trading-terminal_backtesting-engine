@@ -3,14 +3,19 @@ import { timeframeSchema } from './timeframe.js';
 
 export const CANDLES_MAX_LIMIT = 5000;
 
-const SYMBOL_PATTERN = /^[A-Z0-9]{4,20}$/;
+/**
+ * Lista blanca estricta: el simbolo acaba en SQL parametrizado y en claves de cache.
+ * El segmento opcional tras ':' es el prefijo de dex de los mercados HIP-3 (xyz:GOLD).
+ */
+export const SYMBOL_PATTERN = /^[A-Z0-9]{2,20}(:[A-Z0-9]{2,20})?$/;
+
+export const SYMBOL_ERROR =
+  'El simbolo debe ser alfanumerico en mayusculas, de 2 a 20 caracteres, con un prefijo de dex opcional separado por ":"';
 
 export const symbolSchema = z
   .string()
   .transform((value) => value.toUpperCase())
-  .refine((value) => SYMBOL_PATTERN.test(value), {
-    error: 'El simbolo debe ser alfanumerico en mayusculas, de 4 a 20 caracteres',
-  });
+  .refine((value) => SYMBOL_PATTERN.test(value), { error: SYMBOL_ERROR });
 
 export const timestampParamSchema = z.union([
   z

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { DEFAULT_EXCHANGE, EXCHANGES as KNOWN_EXCHANGES, type Exchange } from '@tt/shared';
+import {
+  DEFAULT_EXCHANGE,
+  EXCHANGES as KNOWN_EXCHANGES,
+  SYMBOL_PATTERN,
+  type Exchange,
+} from '@tt/shared';
 
 const TIMEFRAMES = ['1m', '15m', '1h'] as const;
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
@@ -15,7 +20,16 @@ function symbolsSchema(fallback: string) {
   return z
     .string()
     .transform(splitCsv)
-    .pipe(z.array(z.string().regex(/^[A-Z0-9]{5,20}$/, 'simbolo invalido')).min(1))
+    .pipe(
+      z
+        .array(
+          z
+            .string()
+            .transform((value) => value.toUpperCase())
+            .refine((value) => SYMBOL_PATTERN.test(value), 'simbolo invalido'),
+        )
+        .min(1),
+    )
     .prefault(fallback);
 }
 

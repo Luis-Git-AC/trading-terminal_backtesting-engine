@@ -119,6 +119,8 @@ export {
   coverageResponseSchema,
   marketSymbolSchema,
   marketsResponseSchema,
+  SYMBOL_ERROR,
+  SYMBOL_PATTERN,
   symbolSchema,
   timestampParamSchema,
   type CandlesQuery,
