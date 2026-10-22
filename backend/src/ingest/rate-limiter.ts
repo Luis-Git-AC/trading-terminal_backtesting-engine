@@ -5,6 +5,8 @@ export interface RateLimiterOptions {
 export interface RateLimiter {
   readonly intervalMs: number;
   acquire(): Promise<void>;
+  /** Retrasa el siguiente permiso: para frenar antes de un 429 cuando el exchange avisa del peso usado. */
+  pause(ms: number): void;
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -23,6 +25,12 @@ export function createRateLimiter({ rps }: RateLimiterOptions): RateLimiter {
 
   return {
     intervalMs,
+
+    pause(ms: number): void {
+      if (!Number.isFinite(ms) || ms <= 0) return;
+      nextAt = Math.max(nextAt, Date.now() + ms);
+    },
+
     async acquire(): Promise<void> {
       const now = Date.now();
       const grantAt = Math.max(now, nextAt);

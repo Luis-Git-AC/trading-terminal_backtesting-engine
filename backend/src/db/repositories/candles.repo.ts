@@ -4,6 +4,7 @@ import {
   timeframeToMs,
   type Candle,
   type CandleSource,
+  type IngestCandle,
   type Timeframe,
 } from '@tt/shared';
 import { defaultExchange, env } from '../../config/env.js';
@@ -29,7 +30,7 @@ export interface SeriesRef {
 
 export interface UpsertCandlesInput extends SeriesRef {
   source: CandleSource;
-  candles: readonly Candle[];
+  candles: readonly IngestCandle[];
 }
 
 export interface GetCandlesQuery extends SeriesRef {
@@ -79,23 +80,25 @@ interface CandleRowResult extends QueryResultRow {
 }
 
 const UPSERT_SQL = `
-  INSERT INTO candles (exchange, symbol, timeframe, ts, open, high, low, close, volume, source, ingested_at)
-  SELECT $1, $2, $3, page.ts, page.open, page.high, page.low, page.close, page.volume, $4, now()
-  FROM unnest($5::timestamptz[], $6::numeric[], $7::numeric[], $8::numeric[], $9::numeric[], $10::numeric[])
-       AS page(ts, open, high, low, close, volume)
+  INSERT INTO candles (exchange, symbol, timeframe, ts, open, high, low, close, volume, quote_volume, source, ingested_at)
+  SELECT $1, $2, $3, page.ts, page.open, page.high, page.low, page.close, page.volume, page.quote_volume, $4, now()
+  FROM unnest($5::timestamptz[], $6::numeric[], $7::numeric[], $8::numeric[], $9::numeric[], $10::numeric[], $11::numeric[])
+       AS page(ts, open, high, low, close, volume, quote_volume)
   ON CONFLICT (exchange, symbol, timeframe, ts) DO UPDATE SET
-    open        = EXCLUDED.open,
-    high        = EXCLUDED.high,
-    low         = EXCLUDED.low,
-    close       = EXCLUDED.close,
-    volume      = EXCLUDED.volume,
-    source      = EXCLUDED.source,
-    ingested_at = EXCLUDED.ingested_at
+    open         = EXCLUDED.open,
+    high         = EXCLUDED.high,
+    low          = EXCLUDED.low,
+    close        = EXCLUDED.close,
+    volume       = EXCLUDED.volume,
+    quote_volume = EXCLUDED.quote_volume,
+    source       = EXCLUDED.source,
+    ingested_at  = EXCLUDED.ingested_at
   WHERE candles.open   IS DISTINCT FROM EXCLUDED.open
      OR candles.high   IS DISTINCT FROM EXCLUDED.high
      OR candles.low    IS DISTINCT FROM EXCLUDED.low
      OR candles.close  IS DISTINCT FROM EXCLUDED.close
      OR candles.volume IS DISTINCT FROM EXCLUDED.volume
+     OR candles.quote_volume IS DISTINCT FROM EXCLUDED.quote_volume
 `;
 
 const SELECT_RANGE_SQL = `
@@ -185,6 +188,7 @@ export function createCandlesRepository(db: Queryable): CandlesRepository {
           batch.map((candle) => String(candle.l)),
           batch.map((candle) => String(candle.c)),
           batch.map((candle) => String(candle.v)),
+          batch.map((candle) => (candle.q === undefined ? null : String(candle.q))),
         ]);
         affected += result.rowCount ?? 0;
       }

@@ -1,4 +1,4 @@
-import type { Candle, Exchange, Timeframe } from '@tt/shared';
+import type { Candle, Exchange, IngestCandle, Timeframe } from '@tt/shared';
 import type { RateLimiter } from '../rate-limiter.js';
 import type {
   ResilientSocket,
@@ -23,7 +23,7 @@ export interface DiscardedRow {
 }
 
 export interface NormalizeResult {
-  candles: Candle[];
+  candles: IngestCandle[];
   discarded: DiscardedRow[];
 }
 
@@ -61,7 +61,7 @@ export interface HistoryCandlesQuery {
 
 export interface ExchangeRestClient {
   readonly limiter: RateLimiter;
-  getHistoryCandles(query: HistoryCandlesQuery): Promise<Candle[]>;
+  getHistoryCandles(query: HistoryCandlesQuery): Promise<IngestCandle[]>;
 }
 
 export interface ExchangeRestClientOptions {

@@ -10,6 +10,7 @@ export {
   type CandleRow,
   type CandleSource,
   type CandleTick,
+  type IngestCandle,
 } from './candle.js';
 
 export {

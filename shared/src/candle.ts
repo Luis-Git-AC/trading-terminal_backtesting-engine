@@ -55,6 +55,11 @@ export const candleSchema = z
     path: ['l'],
   });
 
+/** Vela de ingesta: `q` es el quote volume cuando el exchange lo da (Binance sí, Bitget no). */
+export interface IngestCandle extends Candle {
+  readonly q?: number | undefined;
+}
+
 export const candleTickSchema = z.intersection(candleSchema, z.object({ closed: z.boolean() }));
 
 export type CandleTick = z.infer<typeof candleTickSchema>;

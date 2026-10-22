@@ -97,6 +97,25 @@ describe('candles.repo', () => {
       expect(Number(rows[0]?.volume)).toBe(2);
     });
 
+    it('guarda el quote volume cuando el exchange lo da y null cuando no', async () => {
+      const [first, second] = makeCandles(2);
+      if (first === undefined || second === undefined) expect.unreachable('faltan velas');
+
+      await repo.upsertCandles({
+        symbol: SYMBOL,
+        timeframe: TIMEFRAME,
+        source: 'rest',
+        candles: [{ ...first, q: 1234.5 }, second],
+      });
+
+      const { rows } = await db.pool.query<{ quote_volume: string | null }>(
+        'SELECT quote_volume FROM candles ORDER BY ts ASC',
+      );
+
+      expect(Number(rows[0]?.quote_volume)).toBe(1234.5);
+      expect(rows[1]?.quote_volume).toBeNull();
+    });
+
     it('parte los lotes grandes en trozos y suma las filas de todos', async () => {
       const affected = await repo.upsertCandles({
         symbol: SYMBOL,
