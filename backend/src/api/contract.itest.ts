@@ -171,7 +171,7 @@ describe('contrato del API (docs/03)', () => {
       ingestState: createIngestStateRepository(db.pool),
       cache: NO_CACHE,
       logger,
-      exchanges: [{ exchange: 'bitget' as const, symbols: [SYMBOL] }],
+      exchanges: [{ exchange: 'binance' as const, symbols: [SYMBOL] }],
       timeframes: ['1m', '15m', '1h'] as Timeframe[],
       now: () => NOW,
     };
@@ -194,7 +194,7 @@ describe('contrato del API (docs/03)', () => {
             queue,
             cancelFlags: createRedisCancelFlags(redis),
             logger,
-            markets: { exchanges: [{ exchange: 'bitget', symbols: [SYMBOL] }] },
+            markets: { exchanges: [{ exchange: 'binance', symbols: [SYMBOL] }] },
             timeframes: ['1m', '15m', '1h'],
             maxBars: 500_000,
             generateSeed: () => 4_242,
@@ -205,7 +205,7 @@ describe('contrato del API (docs/03)', () => {
             runs,
             hub: createSseHub({ subscriber, logger }),
             logger,
-            markets: { exchanges: [{ exchange: 'bitget', symbols: [SYMBOL] }] },
+            markets: { exchanges: [{ exchange: 'binance', symbols: [SYMBOL] }] },
             timeframes: ['1m', '15m', '1h'],
             sse: { heartbeatMs: 0 },
           }),
@@ -247,7 +247,7 @@ describe('contrato del API (docs/03)', () => {
 
   function createBody(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
-      exchange: 'bitget',
+      exchange: 'binance',
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       from: new Date(START).toISOString(),
@@ -261,7 +261,7 @@ describe('contrato del API (docs/03)', () => {
 
   function runInput(overrides: Partial<CreateRunInput> = {}): CreateRunInput {
     return {
-      exchange: 'bitget',
+      exchange: 'binance',
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       strategyId: 'ema-cross',
@@ -306,7 +306,7 @@ describe('contrato del API (docs/03)', () => {
     });
 
     it('GET /api/markets/:exchange/:symbol/coverage', async () => {
-      const response = await request(app).get(`/api/markets/bitget/${SYMBOL}/coverage?timeframe=1h`);
+      const response = await request(app).get(`/api/markets/binance/${SYMBOL}/coverage?timeframe=1h`);
 
       expect(response.status).toBe(200);
       assertContract(coverageResponseSchema, response.body);
@@ -314,7 +314,7 @@ describe('contrato del API (docs/03)', () => {
 
     it('GET /api/candles', async () => {
       const response = await request(app).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1h&from=${START}&to=${START + 10 * STEP}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1h&from=${START}&to=${START + 10 * STEP}`,
       );
 
       expect(response.status).toBe(200);
@@ -433,7 +433,7 @@ describe('contrato del API (docs/03)', () => {
     it('GET /api/stream/candles responde con el content-type de SSE', async () => {
       const controller = new AbortController();
       const response = await fetch(
-        `${baseUrl}/stream/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1h`,
+        `${baseUrl}/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1h`,
         { signal: controller.signal },
       );
 

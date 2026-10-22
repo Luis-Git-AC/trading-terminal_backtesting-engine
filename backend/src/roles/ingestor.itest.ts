@@ -7,7 +7,7 @@ import { createIngestStateRepository } from '../db/repositories/ingest-state.rep
 import type { CandleFeed, CandleFeedQuery } from '../ingest/backfill.js';
 import { createLogger, type AppLogger } from '../observability/logger.js';
 import { createCandlePublisher, type CandlePublisher, type RedisPublisher } from '../queue/pubsub.js';
-import { startFakeBitgetWs, type FakeBitgetWs } from '../testing/fake-bitget-ws.js';
+import { startFakeBinanceWs, type FakeBinanceWs } from '../testing/fake-binance-ws.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { getAdapter } from '../ingest/exchange/registry.js';
 import {
@@ -99,7 +99,7 @@ function createFlakyRedis(): FlakyRedis {
 describe('startIngestor', () => {
   let db: ScratchDatabase;
   let candles: CandlesRepository;
-  let exchange: FakeBitgetWs;
+  let exchange: FakeBinanceWs;
   let handle: IngestorHandle | undefined;
   let logs: LogCapture;
   let redis: FlakyRedis;
@@ -120,7 +120,8 @@ describe('startIngestor', () => {
     await db.pool.query('TRUNCATE ingest_gaps');
     await db.pool.query('TRUNCATE ingest_state');
     candles = createCandlesRepository(db.pool);
-    exchange = await startFakeBitgetWs();
+    exchange = await startFakeBinanceWs();
+    forming = undefined;
     logs = captureLogger();
     redis = createFlakyRedis();
     publisher = createCandlePublisher({ redis });
@@ -138,10 +139,10 @@ describe('startIngestor', () => {
     wsUrl?: string;
   };
 
-  function bitgetConfig(over: LaunchOverrides = {}): IngestorExchangeConfig {
+  function binanceConfig(over: LaunchOverrides = {}): IngestorExchangeConfig {
     return {
-      exchange: 'bitget',
-      adapter: getAdapter('bitget'),
+      exchange: 'binance',
+      adapter: getAdapter('binance'),
       feed: over.feed ?? createFeed(),
       wsUrl: over.wsUrl ?? exchange.url,
       series: over.series ?? [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
@@ -155,7 +156,7 @@ describe('startIngestor', () => {
       pool,
       publisher,
       logger: logs.logger,
-      exchanges: [bitgetConfig(overrides)],
+      exchanges: [binanceConfig(overrides)],
       backfillFrom: START,
       wsStaleTimeoutMs: undefined,
       metricsIntervalMs: 0,
@@ -184,12 +185,24 @@ describe('startIngestor', () => {
     return rows.map((row) => (row.ts.getTime() - START) / STEP);
   }
 
+  let forming: Candle | undefined;
+
+  /**
+   * Empuja una rafaga dejando la ultima vela en formacion, como el WS real; si habia una vela
+   * en formacion de la rafaga anterior, la cierra primero (el rollover del exchange).
+   */
+  function pushBurst(burst: readonly Candle[]): void {
+    if (forming !== undefined) exchange.pushCandle(forming, SYMBOL, TIMEFRAME, true);
+    forming = burst.at(-1);
+    burst.forEach((candle, index) => {
+      exchange.pushCandle(candle, SYMBOL, TIMEFRAME, index < burst.length - 1);
+    });
+  }
+
   it('arranca, se suscribe y persiste las velas cerradas que llegan por el socket', async () => {
     await launch();
 
-    for (const candle of upstream.slice(0, 6)) {
-      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-    }
+    pushBurst(upstream.slice(0, 6));
 
     await vi.waitFor(
       async () => {
@@ -198,10 +211,7 @@ describe('startIngestor', () => {
       { timeout: 10_000 },
     );
 
-    expect(JSON.parse(exchange.subscriptions[0] ?? '{}')).toMatchObject({
-      channel: 'candle1m',
-      instId: SYMBOL,
-    });
+    expect(exchange.subscriptions[0]).toBe(`${SYMBOL.toLowerCase()}@kline_1m`);
   });
 
   it('crea ingest_state para cada serie y no aplica migraciones', async () => {
@@ -232,9 +242,7 @@ describe('startIngestor', () => {
   it('publica las metricas con el estado del socket, reconexiones y huecos abiertos', async () => {
     const created = await launch();
 
-    for (const candle of upstream.slice(0, 4)) {
-      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-    }
+    pushBurst(upstream.slice(0, 4));
     await vi.waitFor(
       async () => {
         expect(await storedIndices()).toHaveLength(3);
@@ -261,7 +269,8 @@ describe('startIngestor', () => {
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       source: 'ws',
-      candles: upstream.slice(0, 6),
+      // Con el mismo quote volume que manda el WS: si no, el upsert las reescribiria por ese campo.
+      candles: upstream.slice(0, 6).map((candle) => ({ ...candle, q: 1 })),
     });
 
     const created = await launch();
@@ -272,9 +281,7 @@ describe('startIngestor', () => {
       }
     });
 
-    for (const candle of upstream.slice(0, 6)) {
-      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-    }
+    pushBurst(upstream.slice(0, 6));
 
     await vi.waitFor(
       () => {
@@ -320,9 +327,7 @@ describe('startIngestor', () => {
   it('expone la salud de la ingesta con el estado del socket y las series', async () => {
     const created = await launch();
 
-    for (const candle of upstream.slice(0, 4)) {
-      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-    }
+    pushBurst(upstream.slice(0, 4));
     await vi.waitFor(
       async () => {
         expect(await storedIndices()).toHaveLength(3);
@@ -348,9 +353,7 @@ describe('startIngestor', () => {
     const clock = START + 3 * STEP;
     const created = await launch({ now: () => clock });
 
-    for (const candle of upstream.slice(0, 4)) {
-      exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-    }
+    pushBurst(upstream.slice(0, 4));
     await vi.waitFor(
       async () => {
         expect(await storedIndices()).toHaveLength(3);
@@ -373,7 +376,7 @@ describe('startIngestor', () => {
       pool: await createScratchPool(),
       publisher,
       logger: logs.logger,
-      exchanges: [bitgetConfig({ wsUrl: 'ws://127.0.0.1:1' })],
+      exchanges: [binanceConfig({ wsUrl: 'ws://127.0.0.1:1' })],
       backfillFrom: START,
       wsReconnectBaseMs: 100,
       wsReconnectMaxMs: 120,
@@ -402,16 +405,15 @@ describe('startIngestor', () => {
     expect(created.exchanges[0]!.stream.socket.degraded).toBe(true);
     expect((await created.metrics()).degraded).toBe(true);
 
-    exchange = await startFakeBitgetWs();
+    exchange = await startFakeBinanceWs();
+    forming = undefined;
   });
 
   describe('degradacion de Redis', () => {
     it('un fallo de Redis no tira el proceso: sigue persistiendo, deja de publicar y se recupera', async () => {
       await launch();
 
-      for (const candle of upstream.slice(0, 3)) {
-        exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-      }
+      pushBurst(upstream.slice(0, 3));
       await vi.waitFor(
         async () => {
           expect(await storedIndices()).toEqual([0, 1]);
@@ -423,9 +425,7 @@ describe('startIngestor', () => {
 
       redis.down = true;
 
-      for (const candle of upstream.slice(3, 8)) {
-        exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-      }
+      pushBurst(upstream.slice(3, 8));
       await vi.waitFor(
         async () => {
           expect(await storedIndices()).toEqual([0, 1, 2, 3, 4, 5, 6]);
@@ -436,9 +436,7 @@ describe('startIngestor', () => {
 
       redis.down = false;
 
-      for (const candle of upstream.slice(8, 11)) {
-        exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-      }
+      pushBurst(upstream.slice(8, 11));
       await vi.waitFor(
         () => {
           expect(redis.published.length).toBeGreaterThan(publishedBefore);
@@ -461,7 +459,7 @@ describe('startIngestor', () => {
         pool: await createScratchPool(),
         publisher,
         logger: logs.logger,
-        exchanges: [bitgetConfig({ feed: createFeed() })],
+        exchanges: [binanceConfig({ feed: createFeed() })],
         backfillFrom: START,
         metricsIntervalMs: 0,
         shutdownTimeoutMs: 15_000,
@@ -473,9 +471,7 @@ describe('startIngestor', () => {
         expect(exchange.subscriptions).toHaveLength(1);
       });
 
-      for (const candle of upstream.slice(0, 4)) {
-        exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
-      }
+      pushBurst(upstream.slice(0, 4));
       await vi.waitFor(() => {
         expect(created.exchanges[0]!.ingestor.pending).toBe(3);
       });
@@ -513,7 +509,7 @@ describe('startIngestor', () => {
         pool: await createScratchPool(),
         publisher,
         logger: logs.logger,
-        exchanges: [bitgetConfig({ feed: createFeed() })],
+        exchanges: [binanceConfig({ feed: createFeed() })],
         backfillFrom: START,
         metricsIntervalMs: 0,
         exit: () => undefined,

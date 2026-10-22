@@ -15,7 +15,7 @@ const NOW = END + STEP;
 
 const RAW_INSERT = `
   INSERT INTO candles (exchange, symbol, timeframe, ts, open, high, low, close, volume, source)
-  VALUES ('bitget', $1, $2, $3, $4, $5, $6, $7, $8, 'rest')
+  VALUES ('binance', $1, $2, $3, $4, $5, $6, $7, $8, 'rest')
 `;
 
 function makeCandles(count = COUNT): Candle[] {

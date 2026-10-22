@@ -150,7 +150,7 @@ describe('candle-loader', () => {
   it('una vela desalineada con el timeframe aborta la carga', async () => {
     await db.pool.query(
       `INSERT INTO candles (exchange, symbol, timeframe, ts, open, high, low, close, volume, source)
-       VALUES ('bitget', $1, $2, $3, 1, 1, 1, 1, 1, 'rest')`,
+       VALUES ('binance', $1, $2, $3, 1, 1, 1, 1, 1, 'rest')`,
       [SYMBOL, TIMEFRAME, new Date(START + 30_000)],
     );
 

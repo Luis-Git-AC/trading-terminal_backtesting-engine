@@ -131,7 +131,7 @@ describe('backtest processor', () => {
 
   function runInput(overrides: Partial<CreateRunInput> = {}): CreateRunInput {
     return {
-      exchange: 'bitget',
+      exchange: 'binance',
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       strategyId: 'ema-cross',
@@ -356,7 +356,7 @@ describe('backtest processor', () => {
     );
     await db.pool.query(
       `INSERT INTO candles (exchange, symbol, timeframe, ts, open, high, low, close, volume, source)
-       VALUES ('bitget', $1, $2, $3, 1, 1, 1, 1, 1, 'rest')`,
+       VALUES ('binance', $1, $2, $3, 1, 1, 1, 1, 1, 'rest')`,
       [SYMBOL, TIMEFRAME, new Date(START + 30_000)],
     );
 

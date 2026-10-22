@@ -50,7 +50,7 @@ const PARAMS = {
 
 function body(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    exchange: 'bitget',
+    exchange: 'binance',
     symbol: SYMBOL,
     timeframe: TIMEFRAME,
     from: new Date(START).toISOString(),
@@ -183,7 +183,7 @@ describe('API de backtests', () => {
             queue,
             cancelFlags,
             logger,
-            markets: { exchanges: [{ exchange: 'bitget', symbols: [SYMBOL] }] },
+            markets: { exchanges: [{ exchange: 'binance', symbols: [SYMBOL] }] },
             timeframes: ['1m', '15m', '1h'],
             maxBars: MAX_BARS,
             ...(overrides.maxActiveRuns === undefined
@@ -198,7 +198,7 @@ describe('API de backtests', () => {
 
   function runInput(overrides: Partial<CreateRunInput> = {}): CreateRunInput {
     return {
-      exchange: 'bitget',
+      exchange: 'binance',
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       strategyId: 'ema-cross',
@@ -386,7 +386,7 @@ describe('API de backtests', () => {
       const response = await request(makeApp()).post('/api/backtests').send(body());
       const detail = await request(makeApp()).get(`/api/backtests/${response.body.runId}`);
 
-      expect(detail.body.exchange).toBe('bitget');
+      expect(detail.body.exchange).toBe('binance');
     });
 
     it('un simbolo no servido da 404', async () => {

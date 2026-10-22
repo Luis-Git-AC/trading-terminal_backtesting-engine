@@ -99,10 +99,10 @@ describe('parseEnv: defaults', () => {
     expect(env.LOG_LEVEL).toBe('info');
     expect(env.DATABASE_SSL).toBe(false);
     expect(env.WEB_ORIGIN).toBe('http://localhost:5173');
-    expect(env.EXCHANGES).toEqual(['bitget']);
-    expect(env.BITGET_REST_URL).toBe('https://api.bitget.com');
-    expect(env.BITGET_WS_URL).toBe('wss://ws.bitget.com/v2/ws/public');
-    expect(env.BITGET_SYMBOLS).toEqual(['BTCUSDT']);
+    expect(env.EXCHANGES).toEqual(['binance']);
+    expect(env.BINANCE_REST_URL).toBe('https://fapi.binance.com');
+    expect(env.BINANCE_WS_URL).toBe('wss://fstream.binance.com/stream');
+    expect(env.BINANCE_SYMBOLS).toEqual(['BTCUSDT']);
     expect(env.TIMEFRAMES).toEqual(['1m', '15m', '1h']);
     expect(env.BACKFILL_FROM).toBe('2026-01-01T00:00:00Z');
     expect(env.BACKFILL_PAGE_LIMIT).toBe(200);
@@ -152,16 +152,27 @@ describe('parseEnv: multi-exchange', () => {
   });
 
   it('exchangeConfig devuelve las URLs y simbolos de cada exchange', () => {
-    const env = parseEnv({ ...REQUIRED, BITGET_SYMBOLS: 'BTCUSDT,ETHUSDT' });
+    const env = parseEnv({
+      ...REQUIRED,
+      EXCHANGES: 'binance,bitget',
+      BINANCE_SYMBOLS: 'BTCUSDT,ETHUSDT',
+      BITGET_SYMBOLS: 'BTCUSDT',
+    });
     expect(exchangeConfigs(env)).toEqual([
+      {
+        exchange: 'binance',
+        restUrl: 'https://fapi.binance.com',
+        wsUrl: 'wss://fstream.binance.com/stream',
+        symbols: ['BTCUSDT', 'ETHUSDT'],
+      },
       {
         exchange: 'bitget',
         restUrl: 'https://api.bitget.com',
         wsUrl: 'wss://ws.bitget.com/v2/ws/public',
-        symbols: ['BTCUSDT', 'ETHUSDT'],
+        symbols: ['BTCUSDT'],
       },
     ]);
-    expect(defaultExchange(env)).toBe('bitget');
+    expect(defaultExchange(env)).toBe('binance');
     expect(allSymbols(env)).toEqual(['BTCUSDT', 'ETHUSDT']);
   });
 });

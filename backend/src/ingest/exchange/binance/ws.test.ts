@@ -131,6 +131,19 @@ describe('createBinanceCandleStream', () => {
     ]);
   });
 
+  it('tras reconectar, el ack repetido sigue reconociendo la serie', () => {
+    const h = connected();
+
+    h.push(ACK);
+    h.fakes.last().emitClose(1006, 'corte');
+    h.stream.connect();
+    h.fakes.last().emitOpen();
+    h.push(ACK);
+
+    expect(h.events.filter((event) => event.kind === 'subscribed')).toHaveLength(2);
+    expect(h.events.filter((event) => event.kind === 'protocol')).toEqual([]);
+  });
+
   it('una kline corrupta se descarta con su razon y no emite vela', () => {
     const h = connected();
 

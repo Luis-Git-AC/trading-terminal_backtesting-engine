@@ -94,7 +94,7 @@ describe('createLiveIngestor', () => {
   beforeEach(async () => {
     await db.pool.query('TRUNCATE candles');
     await db.pool.query('TRUNCATE ingest_state');
-    await state.ensure({ symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
+    await state.ensure({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
     exchange = await startFakeBitgetWs();
     spy = await subscribeRedis(redisUrl, CHANNEL);
     emitted = [];
@@ -299,7 +299,7 @@ describe('createLiveIngestor', () => {
     );
     await created.flush();
 
-    const stored = await state.get({ symbol: SYMBOL, timeframe: TIMEFRAME });
+    const stored = await state.get({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME });
     expect(stored?.lastCandleTs).toBe(START + 2 * STEP);
 
     const { rows } = await db.pool.query<{ last_ws_message_at: Date | null }>(
@@ -325,7 +325,7 @@ describe('createLiveIngestor', () => {
     await created.flush();
 
     expect(await storedTimestamps()).toEqual([START]);
-    const stored = await state.get({ symbol: SYMBOL, timeframe: TIMEFRAME });
+    const stored = await state.get({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME });
     expect(stored?.lastCandleTs).toBe(START);
   });
 

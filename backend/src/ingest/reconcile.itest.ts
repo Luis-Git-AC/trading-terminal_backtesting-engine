@@ -77,7 +77,7 @@ describe('reconcileSeries', () => {
     await db.pool.query('TRUNCATE candles');
     await db.pool.query('TRUNCATE ingest_gaps');
     await db.pool.query('TRUNCATE ingest_state');
-    await state.ensure({ symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
+    await state.ensure({ exchange: 'bitget', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
   });
 
   async function seed(indices: readonly number[], source: 'rest' | 'ws' = 'ws'): Promise<void> {
@@ -380,7 +380,7 @@ describe('reconcileSeries', () => {
         if (event.kind !== 'state' || event.to !== 'open') return;
         opens += 1;
         if (opens > 1) {
-          reconciled = reconcile(feed, { to: START + 30 * STEP });
+          reconciled = reconcile(feed, { exchange: 'bitget', to: START + 30 * STEP });
         }
       });
 

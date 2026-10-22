@@ -150,7 +150,7 @@ describe('rol worker', () => {
 
   function runInput(overrides: Partial<CreateRunInput> = {}): CreateRunInput {
     return {
-      exchange: 'bitget',
+      exchange: 'binance',
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       strategyId: 'ema-cross',

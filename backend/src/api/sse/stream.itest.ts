@@ -211,7 +211,7 @@ describe('sse', () => {
             runs,
             hub,
             logger,
-            markets: { exchanges: [{ exchange: 'bitget', symbols: [SYMBOL] }] },
+            markets: { exchanges: [{ exchange: 'binance', symbols: [SYMBOL] }] },
             timeframes: ['1m', '15m', '1h'],
             sse: { heartbeatMs: 0 },
           }),
@@ -259,7 +259,7 @@ describe('sse', () => {
 
   function runInput(overrides: Partial<CreateRunInput> = {}): CreateRunInput {
     return {
-      exchange: 'bitget',
+      exchange: 'binance',
       symbol: SYMBOL,
       timeframe: TIMEFRAME,
       strategyId: 'ema-cross',
@@ -487,7 +487,7 @@ describe('sse', () => {
               runs,
               hub: raceHub,
               logger,
-              markets: { exchanges: [{ exchange: 'bitget', symbols: [SYMBOL] }] },
+              markets: { exchanges: [{ exchange: 'binance', symbols: [SYMBOL] }] },
               timeframes: ['1m', '15m', '1h'],
               sse: { heartbeatMs: 0 },
             }),
@@ -539,8 +539,8 @@ describe('sse', () => {
 
   describe('GET /api/stream/candles', () => {
     it('reemite los ticks del canal de velas con el formato del contrato', async () => {
-      const client = await open(`/stream/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m`);
-      const channel = candleChannel('bitget', SYMBOL, TIMEFRAME);
+      const client = await open(`/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m`);
+      const channel = candleChannel('binance', SYMBOL, TIMEFRAME);
       await waitUntil(() => hub.listenerCount(channel) === 1, 5_000, 'la suscripcion a velas');
 
       await publish(channel, {
@@ -571,8 +571,8 @@ describe('sse', () => {
     });
 
     it('un tick incoherente se descarta y el stream sigue vivo', async () => {
-      const client = await open(`/stream/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m`);
-      const channel = candleChannel('bitget', SYMBOL, TIMEFRAME);
+      const client = await open(`/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m`);
+      const channel = candleChannel('binance', SYMBOL, TIMEFRAME);
       await waitUntil(() => hub.listenerCount(channel) === 1, 5_000, 'la suscripcion a velas');
 
       await publish(channel, { t: START, o: 100, h: 90, l: 99, c: 100, v: 1, closed: true });
@@ -584,23 +584,23 @@ describe('sse', () => {
     });
 
     it('dos timeframes del mismo simbolo son dos canales distintos', async () => {
-      await open(`/stream/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m`);
-      await open(`/stream/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1h`);
+      await open(`/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m`);
+      await open(`/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1h`);
 
       await waitUntil(() => hub.channels().length === 2, 5_000, 'los dos canales');
       expect([...hub.channels()].sort()).toEqual(
-        [candleChannel('bitget', SYMBOL, '1m'), candleChannel('bitget', SYMBOL, '1h')].sort(),
+        [candleChannel('binance', SYMBOL, '1m'), candleChannel('binance', SYMBOL, '1h')].sort(),
       );
     });
 
     it('un simbolo no servido responde 404', async () => {
-      const response = await fetch(`${baseUrl}/stream/candles?exchange=bitget&symbol=NOPEUSDT&timeframe=1m`);
+      const response = await fetch(`${baseUrl}/stream/candles?exchange=binance&symbol=NOPEUSDT&timeframe=1m`);
       expect(response.status).toBe(404);
       await response.body?.cancel();
     });
 
     it('un timeframe fuera del contrato responde 400', async () => {
-      const response = await fetch(`${baseUrl}/stream/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=5m`);
+      const response = await fetch(`${baseUrl}/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=5m`);
       expect(response.status).toBe(400);
       await response.body?.cancel();
     });

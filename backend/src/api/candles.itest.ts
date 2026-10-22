@@ -86,7 +86,7 @@ describe('API de mercado y velas', () => {
       ingestState,
       cache,
       logger,
-      exchanges: [{ exchange: 'bitget' as const, symbols: [SYMBOL] }],
+      exchanges: [{ exchange: 'binance' as const, symbols: [SYMBOL] }],
       timeframes: ['1m', '15m', '1h'] as Timeframe[],
       now: () => NOW,
     };
@@ -113,7 +113,7 @@ describe('API de mercado y velas', () => {
       expect(response.body).toEqual({
         exchanges: [
           {
-            exchange: 'bitget',
+            exchange: 'binance',
             symbols: [
               {
                 symbol: SYMBOL,
@@ -131,7 +131,7 @@ describe('API de mercado y velas', () => {
   describe('GET /api/markets/:exchange/:symbol/coverage', () => {
     it('devuelve el rango cubierto, lo esperado y los huecos', async () => {
       const response = await request(makeApp()).get(
-        `/api/markets/bitget/${SYMBOL}/coverage?timeframe=1m`,
+        `/api/markets/binance/${SYMBOL}/coverage?timeframe=1m`,
       );
 
       expect(response.status).toBe(200);
@@ -148,7 +148,7 @@ describe('API de mercado y velas', () => {
       await db.pool.query('DELETE FROM candles WHERE ts = $1', [new Date(START + 40 * STEP)]);
 
       const response = await request(makeApp()).get(
-        `/api/markets/bitget/${SYMBOL}/coverage?timeframe=1m`,
+        `/api/markets/binance/${SYMBOL}/coverage?timeframe=1m`,
       );
 
       expect(response.body.candles).toBe(99);
@@ -165,7 +165,7 @@ describe('API de mercado y velas', () => {
       await db.pool.query('TRUNCATE candles');
 
       const response = await request(makeApp()).get(
-        `/api/markets/bitget/${SYMBOL}/coverage?timeframe=15m`,
+        `/api/markets/binance/${SYMBOL}/coverage?timeframe=15m`,
       );
 
       expect(response.status).toBe(200);
@@ -181,7 +181,7 @@ describe('API de mercado y velas', () => {
 
     it('un timeframe fuera del contrato da 400 con details', async () => {
       const response = await request(makeApp()).get(
-        `/api/markets/bitget/${SYMBOL}/coverage?timeframe=5m`,
+        `/api/markets/binance/${SYMBOL}/coverage?timeframe=5m`,
       );
 
       expect(response.status).toBe(400);
@@ -190,7 +190,7 @@ describe('API de mercado y velas', () => {
     });
 
     it('un simbolo desconocido da 404', async () => {
-      const response = await request(makeApp()).get('/api/markets/bitget/NOPEUSDT/coverage?timeframe=1m');
+      const response = await request(makeApp()).get('/api/markets/binance/NOPEUSDT/coverage?timeframe=1m');
       expect(response.status).toBe(404);
       expect(response.body.error.code).toBe('NOT_FOUND');
     });
@@ -199,7 +199,7 @@ describe('API de mercado y velas', () => {
   describe('GET /api/candles', () => {
     it('devuelve las velas en formato compacto', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 10 * STEP}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 10 * STEP}`,
       );
 
       expect(response.status).toBe(200);
@@ -220,7 +220,7 @@ describe('API de mercado y velas', () => {
       const to = new Date(START + 5 * STEP).toISOString();
 
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${from}&to=${to}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${from}&to=${to}`,
       );
 
       expect(response.status).toBe(200);
@@ -229,7 +229,7 @@ describe('API de mercado y velas', () => {
 
     it('pagina con nextFrom cuando se alcanza el limit', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 100 * STEP}&limit=10`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 100 * STEP}&limit=10`,
       );
 
       expect(response.body.count).toBe(10);
@@ -238,7 +238,7 @@ describe('API de mercado y velas', () => {
 
     it('limit=99999 da 413 RANGE_TOO_LARGE', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&limit=99999`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&limit=99999`,
       );
 
       expect(response.status).toBe(413);
@@ -247,7 +247,7 @@ describe('API de mercado y velas', () => {
 
     it('timeframe=5m da 400 VALIDATION_ERROR con details', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=5m&from=${START}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=5m&from=${START}`,
       );
 
       expect(response.status).toBe(400);
@@ -257,7 +257,7 @@ describe('API de mercado y velas', () => {
 
     it('sin to usa el momento actual', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}`,
       );
 
       expect(response.status).toBe(200);
@@ -269,7 +269,7 @@ describe('API de mercado y velas', () => {
       const spy = vi.fn(candles.getCandles.bind(candles));
       const repo: CandlesRepository = { ...candles, getCandles: spy };
       const app = makeApp(cache, repo);
-      const url = `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 10 * STEP}`;
+      const url = `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 10 * STEP}`;
 
       const first = await request(app).get(url);
       const second = await request(app).get(url);
@@ -285,10 +285,10 @@ describe('API de mercado y velas', () => {
       const app = makeApp(cache);
 
       const short = await request(app).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 5 * STEP}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 5 * STEP}`,
       );
       const long = await request(app).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 20 * STEP}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 20 * STEP}`,
       );
 
       expect(short.body.count).toBe(5);
@@ -303,7 +303,7 @@ describe('API de mercado y velas', () => {
       };
 
       const response = await request(makeApp(broken)).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 3 * STEP}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START}&to=${START + 3 * STEP}`,
       );
 
       expect(response.status).toBe(200);
@@ -312,14 +312,14 @@ describe('API de mercado y velas', () => {
 
     it('un simbolo desconocido da 404', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=NOPEUSDT&timeframe=1m&from=${START}`,
+        `/api/candles?exchange=binance&symbol=NOPEUSDT&timeframe=1m&from=${START}`,
       );
       expect(response.status).toBe(404);
     });
 
     it('un rango invertido da 400', async () => {
       const response = await request(makeApp()).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&timeframe=1m&from=${START + 10 * STEP}&to=${START}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&timeframe=1m&from=${START + 10 * STEP}&to=${START}`,
       );
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
@@ -327,7 +327,7 @@ describe('API de mercado y velas', () => {
   });
 
   describe('(exchange, symbol) como identidad de la serie', () => {
-    const OTHER = 'binance' as const;
+    const OTHER = 'bitget' as const;
 
     function multiApp(cache: CacheStore) {
       const logger = createLogger({ role: 'api', level: 'silent' });
@@ -337,7 +337,7 @@ describe('API de mercado y velas', () => {
         cache,
         logger,
         exchanges: [
-          { exchange: 'bitget' as const, symbols: [SYMBOL] },
+          { exchange: 'binance' as const, symbols: [SYMBOL] },
           { exchange: OTHER, symbols: [SYMBOL] },
         ],
         timeframes: ['1m', '15m', '1h'] as Timeframe[],
@@ -372,16 +372,16 @@ describe('API de mercado y velas', () => {
       const cache = memoryCache();
       const app = multiApp(cache);
 
-      const mine = await request(app).get(`/api/markets/bitget/${SYMBOL}/coverage?timeframe=1m`);
+      const mine = await request(app).get(`/api/markets/binance/${SYMBOL}/coverage?timeframe=1m`);
       const other = await request(app).get(`/api/markets/${OTHER}/${SYMBOL}/coverage?timeframe=1m`);
 
-      expect(mine.body.exchange).toBe('bitget');
+      expect(mine.body.exchange).toBe('binance');
       expect(other.body.exchange).toBe(OTHER);
       expect(mine.body.candles).toBe(100);
       expect(other.body.candles).toBe(10);
       expect([...cache.entries.keys()].sort()).toEqual([
+        `coverage:v1:binance:${SYMBOL}:1m`,
         `coverage:v1:${OTHER}:${SYMBOL}:1m`,
-        `coverage:v1:bitget:${SYMBOL}:1m`,
       ]);
     });
 
@@ -391,7 +391,7 @@ describe('API de mercado y velas', () => {
       const range = `timeframe=1m&from=${START}&to=${START + 100 * STEP}`;
 
       const mine = await request(app).get(
-        `/api/candles?exchange=bitget&symbol=${SYMBOL}&${range}`,
+        `/api/candles?exchange=binance&symbol=${SYMBOL}&${range}`,
       );
       const other = await request(app).get(
         `/api/candles?exchange=${OTHER}&symbol=${SYMBOL}&${range}`,

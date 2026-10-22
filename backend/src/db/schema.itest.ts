@@ -11,7 +11,7 @@ const INSERT_CANDLE = `
 `;
 
 const VALID_CANDLE: string[] = [
-  'bitget',
+  'binance',
   'BTCUSDT',
   '15m',
   '2026-03-01T00:00:00Z',
@@ -119,7 +119,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
          ON CONFLICT (exchange, symbol, timeframe, ts)
          DO UPDATE SET close = EXCLUDED.close, source = EXCLUDED.source`,
         [
-          'bitget',
+          'binance',
           'BTCUSDT',
           '15m',
           '2026-03-01T00:00:00Z',
@@ -147,7 +147,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
     it('ingest_state tiene PK por serie y defaults', async () => {
       await db.pool.query(
         'INSERT INTO ingest_state (exchange, symbol, timeframe, backfill_target_ts) VALUES ($1,$2,$3,$4)',
-        ['bitget', 'BTCUSDT', '1h', '2026-01-01T00:00:00Z'],
+        ['binance', 'BTCUSDT', '1h', '2026-01-01T00:00:00Z'],
       );
 
       const { rows } = await db.pool.query<{ backfill_done: boolean; updated_at: Date }>(
@@ -159,7 +159,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       await expectSqlstate(
         db.pool.query(
           'INSERT INTO ingest_state (exchange, symbol, timeframe, backfill_target_ts) VALUES ($1,$2,$3,$4)',
-          ['bitget', 'BTCUSDT', '1h', '2026-02-01T00:00:00Z'],
+          ['binance', 'BTCUSDT', '1h', '2026-02-01T00:00:00Z'],
         ),
         '23505',
       );
@@ -169,7 +169,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       await expectSqlstate(
         db.pool.query(
           'INSERT INTO ingest_gaps (exchange, symbol, timeframe, gap_from, gap_to) VALUES ($1,$2,$3,$4,$5)',
-          ['bitget', 'BTCUSDT', '1h', '2026-01-02T00:00:00Z', '2026-01-01T00:00:00Z'],
+          ['binance', 'BTCUSDT', '1h', '2026-01-02T00:00:00Z', '2026-01-01T00:00:00Z'],
         ),
         '23514',
       );
@@ -178,7 +178,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
     it('solo admite un hueco abierto por serie y gap_from, pero varios ya rellenados', async () => {
       const insert =
         'INSERT INTO ingest_gaps (exchange, symbol, timeframe, gap_from, gap_to, filled_at) VALUES ($1,$2,$3,$4,$5,$6)';
-      const key = ['bitget', 'BTCUSDT', '1h', '2026-01-05T00:00:00Z', '2026-01-05T03:00:00Z'];
+      const key = ['binance', 'BTCUSDT', '1h', '2026-01-05T00:00:00Z', '2026-01-05T03:00:00Z'];
 
       await db.pool.query(insert, [...key, null]);
       await expectSqlstate(db.pool.query(insert, [...key, null]), '23505');
@@ -254,7 +254,7 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
     const ahead = new Date(Date.now() + 80 * 24 * 60 * 60 * 1000).toISOString();
 
     await db.pool.query(INSERT_CANDLE, [
-      'bitget',
+      'binance',
       'BTCUSDT',
       '1h',
       ahead,

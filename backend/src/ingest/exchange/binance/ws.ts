@@ -43,8 +43,10 @@ export function createBinanceCandleStream(
 
   const socket = createResilientSocket({
     url: options.url ?? BINANCE_WS_DEFAULT_URL,
-    // Binance hace ping a nivel de protocolo y la libreria responde el pong: no hay ping de aplicacion.
-    heartbeatIntervalMs: options.heartbeatIntervalMs ?? 0,
+    // Binance hace ping a nivel de protocolo y la libreria responde el pong. Un ping de
+    // aplicacion ('ping' como texto) lo cierra con 1008 Invalid request, asi que va siempre a 0,
+    // aunque el entorno traiga WS_HEARTBEAT_INTERVAL_MS para otros exchanges.
+    heartbeatIntervalMs: 0,
     maxLifetimeMs: options.maxLifetimeMs ?? BINANCE_WS_MAX_LIFETIME_MS,
     reconnectBaseMs: options.reconnectBaseMs ?? DEFAULT_RECONNECT_BASE_MS,
     reconnectMaxMs: options.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS,
@@ -68,8 +70,8 @@ export function createBinanceCandleStream(
     }
 
     if (parsed.kind === 'ack') {
+      // No se borra: al reconectar, el socket reenvia las mismas suscripciones con su id.
       const series = pending.get(parsed.id);
-      pending.delete(parsed.id);
       if (series === undefined) {
         emit({ kind: 'protocol', detail: `ack con id desconocido: ${parsed.id}` });
         return;
@@ -80,7 +82,6 @@ export function createBinanceCandleStream(
 
     if (parsed.kind === 'error') {
       const series = parsed.id === undefined ? undefined : pending.get(parsed.id);
-      if (parsed.id !== undefined) pending.delete(parsed.id);
       emit({ kind: 'rejected', arg: series ?? parsed.id, code: parsed.code, message: parsed.message });
       return;
     }
