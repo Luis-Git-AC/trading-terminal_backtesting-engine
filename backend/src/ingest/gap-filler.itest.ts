@@ -194,6 +194,79 @@ describe('fillGaps', () => {
     expect(rows[0]?.attempts).toBe(1);
   });
 
+  describe('huecos irrecuperables', () => {
+    // Las velas del fixture son de 2026-07: una ventana corta las deja fuera de alcance.
+    const WINDOW = 10;
+    const NOW = START + TOTAL * STEP;
+
+    it('un hueco por debajo de la ventana se marca irrecuperable en el primer intento', async () => {
+      await deleteIndices([20, 21, 22]);
+      await scan();
+
+      const feed = createFeed(upstream);
+      const report = await fill(feed, { historyWindowCandles: WINDOW, now: () => NOW });
+
+      expect(report.unrecoverable).toBe(1);
+      expect(report.results[0]).toMatchObject({ outcome: 'unrecoverable', attempts: 0 });
+      // Ni una llamada al exchange: no hay nada que pedir.
+      expect(feed.calls).toEqual([]);
+
+      const { rows } = await db.pool.query<{ resolution: string; attempts: number }>(
+        'SELECT resolution, attempts FROM ingest_gaps WHERE symbol = $1',
+        [SYMBOL],
+      );
+      expect(rows[0]).toEqual({ resolution: 'unrecoverable', attempts: 0 });
+    });
+
+    it('no reaparece en escaneos posteriores ni suma attempts', async () => {
+      await deleteIndices([20, 21, 22]);
+
+      for (let round = 0; round < 4; round += 1) {
+        await scan();
+        await fill(createFeed(upstream), { historyWindowCandles: WINDOW, now: () => NOW });
+      }
+
+      const { rows } = await db.pool.query<{ count: string; attempts: number }>(
+        'SELECT count(*)::text AS count, max(attempts) AS attempts FROM ingest_gaps WHERE symbol = $1',
+        [SYMBOL],
+      );
+      expect(rows[0]).toEqual({ count: '1', attempts: 0 });
+    });
+
+    it('dentro de la ventana se rellena como siempre', async () => {
+      await deleteIndices([55, 56]);
+      await scan();
+
+      const report = await fill(createFeed(upstream), {
+        historyWindowCandles: WINDOW,
+        now: () => NOW,
+      });
+
+      expect(report.unrecoverable).toBe(0);
+      expect(report.filled).toBe(1);
+    });
+
+    it('sin ventana declarada nada se marca irrecuperable', async () => {
+      await deleteIndices([20, 21, 22]);
+      await scan();
+
+      const report = await fill(createFeed(upstream), { now: () => NOW });
+
+      expect(report.unrecoverable).toBe(0);
+      expect(report.filled).toBe(1);
+    });
+
+    it('el conteo de irrecuperables no se mezcla con los huecos abiertos', async () => {
+      await deleteIndices([20, 21, 22]);
+      await scan();
+      await fill(createFeed(upstream), { historyWindowCandles: WINDOW, now: () => NOW });
+
+      const ref = { symbol: SYMBOL, timeframe: TIMEFRAME };
+      expect(await gaps.listOpen(ref)).toEqual([]);
+      expect(await gaps.countUnrecoverable(ref)).toBe(1);
+    });
+  });
+
   it('un relleno parcial cierra el hueco y anota que el resto no esta upstream', async () => {
     await deleteIndices([20, 21, 22]);
     await scan();

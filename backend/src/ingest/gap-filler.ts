@@ -4,6 +4,7 @@ import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import {
   createGapsRepository,
   NO_DATA_UPSTREAM,
+  UNRECOVERABLE,
   type GapRecord,
 } from '../db/repositories/gaps.repo.js';
 import { sleep } from './rate-limiter.js';
@@ -16,7 +17,7 @@ export const DEFAULT_FILL_BATCH = 100;
 export const RETRY_BASE_MS = 1000;
 export const RETRY_MAX_MS = 60_000;
 
-export type FillOutcome = 'filled' | 'partial' | 'no-data-upstream' | 'failed';
+export type FillOutcome = 'filled' | 'partial' | 'no-data-upstream' | 'unrecoverable' | 'failed';
 
 export interface GapFillOptions {
   pool: Pool;
@@ -25,6 +26,8 @@ export interface GapFillOptions {
   symbol?: string | undefined;
   timeframe?: Timeframe | undefined;
   maxAttempts?: number;
+  /** Velas de histórico que guarda el exchange (`adapter.maxHistoryCandles`). Sin esto no se marca nada como irrecuperable. */
+  historyWindowCandles?: number | undefined;
   pageLimit?: number;
   maxPages?: number;
   batch?: number;
@@ -51,6 +54,7 @@ export interface GapFillReport {
   results: GapFillResult[];
   filled: number;
   noData: number;
+  unrecoverable: number;
   failed: number;
   elapsedMs: number;
 }
@@ -110,6 +114,7 @@ export async function fillGaps(options: GapFillOptions): Promise<GapFillReport> 
     results,
     filled: results.filter((result) => result.outcome === 'filled').length,
     noData: results.filter((result) => result.outcome === 'no-data-upstream').length,
+    unrecoverable: results.filter((result) => result.outcome === 'unrecoverable').length,
     failed: results.filter((result) => result.outcome === 'failed').length,
     elapsedMs: now() - startedAt,
   };
@@ -121,6 +126,30 @@ export async function fillGaps(options: GapFillOptions): Promise<GapFillReport> 
     const ref = { exchange: gap.exchange, symbol: gap.symbol, timeframe: gap.timeframe };
     const step = timeframeToMs(gap.timeframe);
     const upperTs = gap.toTs + step;
+
+    // Por debajo de la ventana del exchange no hay nada que pedir: se cierra en el primer intento.
+    // shortcut: un hueco a caballo de la ventana se cierra entero; el trozo recuperable lo recoge
+    // el escaneo siguiente, que lo vuelve a detectar ya dentro de la ventana.
+    const windowCandles = options.historyWindowCandles;
+    if (windowCandles !== undefined && gap.fromTs < now() - windowCandles * step) {
+      const detail = `${gap.fromTs} queda fuera de las ultimas ${windowCandles} velas de ${gap.timeframe} que guarda el exchange`;
+      await gaps.markUnrecoverable({ id: gap.id, lastError: UNRECOVERABLE });
+      const result: GapFillResult = {
+        id: gap.id,
+        symbol: gap.symbol,
+        timeframe: gap.timeframe,
+        fromTs: gap.fromTs,
+        toTs: gap.toTs,
+        attempts: gap.attempts,
+        fetched: 0,
+        upserted: 0,
+        stillMissing: expectedCandleCount(gap.fromTs, upperTs, gap.timeframe),
+        outcome: 'unrecoverable',
+        error: detail,
+      };
+      log({ kind: 'gap', result });
+      return result;
+    }
 
     const delayMs = retryDelayMs(gap.attempts);
     if (delayMs > 0) {

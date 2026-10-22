@@ -2,6 +2,9 @@ import type { Timeframe } from '@tt/shared';
 import { defaultExchange, env } from '../../config/env.js';
 import type { Queryable, SeriesRef } from './candles.repo.js';
 
+/** Como se cerro el hueco. `unrecoverable`: por debajo de la ventana de historico del exchange. */
+export type GapResolution = 'filled' | 'no-data-upstream' | 'unrecoverable';
+
 export interface GapRecord {
   id: string;
   exchange: string;
@@ -13,6 +16,7 @@ export interface GapRecord {
   filledAt: number | null;
   attempts: number;
   lastError: string | null;
+  resolution: GapResolution | null;
 }
 
 export interface RecordGapInput extends SeriesRef {
@@ -21,6 +25,7 @@ export interface RecordGapInput extends SeriesRef {
 }
 
 export const NO_DATA_UPSTREAM = 'no-data-upstream';
+export const UNRECOVERABLE = 'unrecoverable';
 
 export interface ListFillableQuery {
   exchange?: string | undefined;
@@ -35,13 +40,22 @@ export interface MarkFilledInput {
   lastError: string | null;
 }
 
+export interface CountUnrecoverableQuery {
+  exchange?: string | undefined;
+  symbol: string;
+  timeframe: Timeframe;
+}
+
 export interface GapsRepository {
   recordGap(input: RecordGapInput): Promise<GapRecord>;
   listOpen(series: SeriesRef): Promise<GapRecord[]>;
   listFillable(query: ListFillableQuery): Promise<GapRecord[]>;
-  listNoDataFrom(series: SeriesRef): Promise<number[]>;
+  /** Inicios de hueco ya cerrados sin datos: el escaneo no debe volver a abrirlos. */
+  listUnfillableFrom(series: SeriesRef): Promise<number[]>;
   registerAttempt(id: string): Promise<number>;
   markFilled(input: MarkFilledInput): Promise<void>;
+  markUnrecoverable(input: MarkFilledInput): Promise<void>;
+  countUnrecoverable(query: CountUnrecoverableQuery): Promise<number>;
   markError(input: MarkFilledInput): Promise<void>;
 }
 
@@ -56,10 +70,12 @@ interface GapRow {
   filled_at: Date | null;
   attempts: number;
   last_error: string | null;
+  resolution: GapResolution | null;
 }
 
 const RETURNING = `
-  id::text, exchange, symbol, timeframe, gap_from, gap_to, detected_at, filled_at, attempts, last_error
+  id::text, exchange, symbol, timeframe, gap_from, gap_to, detected_at, filled_at, attempts, last_error,
+  resolution
 `;
 
 const RECORD_SQL = `
@@ -89,11 +105,12 @@ const LIST_FILLABLE_SQL = `
   LIMIT $5
 `;
 
-const LIST_NO_DATA_SQL = `
+const LIST_UNFILLABLE_SQL = `
   SELECT gap_from
   FROM ingest_gaps
   WHERE exchange = $1 AND symbol = $2 AND timeframe = $3
-    AND filled_at IS NOT NULL AND last_error = '${NO_DATA_UPSTREAM}'
+    AND filled_at IS NOT NULL
+    AND last_error IN ('${NO_DATA_UPSTREAM}', '${UNRECOVERABLE}')
 `;
 
 const REGISTER_ATTEMPT_SQL = `
@@ -101,7 +118,24 @@ const REGISTER_ATTEMPT_SQL = `
 `;
 
 const MARK_FILLED_SQL = `
-  UPDATE ingest_gaps SET filled_at = now(), last_error = $2 WHERE id = $1::bigint
+  UPDATE ingest_gaps
+  SET filled_at = now(),
+      last_error = $2,
+      resolution = CASE WHEN $2::text = '${NO_DATA_UPSTREAM}' THEN '${NO_DATA_UPSTREAM}' ELSE 'filled' END
+  WHERE id = $1::bigint
+`;
+
+// No toca attempts: un irrecuperable no se reintenta, asi que no gasta intentos.
+const MARK_UNRECOVERABLE_SQL = `
+  UPDATE ingest_gaps
+  SET filled_at = now(), last_error = $2, resolution = 'unrecoverable'
+  WHERE id = $1::bigint
+`;
+
+const COUNT_UNRECOVERABLE_SQL = `
+  SELECT count(*)::int AS total
+  FROM ingest_gaps
+  WHERE exchange = $1 AND symbol = $2 AND timeframe = $3 AND resolution = 'unrecoverable'
 `;
 
 const MARK_ERROR_SQL = `
@@ -124,6 +158,7 @@ function toGap(row: GapRow): GapRecord {
     filledAt: row.filled_at?.getTime() ?? null,
     attempts: row.attempts,
     lastError: row.last_error,
+    resolution: row.resolution,
   };
 }
 
@@ -173,8 +208,8 @@ export function createGapsRepository(db: Queryable): GapsRepository {
       return rows.map(toGap);
     },
 
-    async listNoDataFrom(series: SeriesRef): Promise<number[]> {
-      const { rows } = await db.query<{ gap_from: Date }>(LIST_NO_DATA_SQL, [
+    async listUnfillableFrom(series: SeriesRef): Promise<number[]> {
+      const { rows } = await db.query<{ gap_from: Date }>(LIST_UNFILLABLE_SQL, [
         exchangeOf(series),
         series.symbol,
         series.timeframe,
@@ -191,6 +226,19 @@ export function createGapsRepository(db: Queryable): GapsRepository {
 
     async markFilled(input: MarkFilledInput): Promise<void> {
       await db.query(MARK_FILLED_SQL, [input.id, input.lastError]);
+    },
+
+    async markUnrecoverable(input: MarkFilledInput): Promise<void> {
+      await db.query(MARK_UNRECOVERABLE_SQL, [input.id, input.lastError]);
+    },
+
+    async countUnrecoverable(query: CountUnrecoverableQuery): Promise<number> {
+      const { rows } = await db.query<{ total: number }>(COUNT_UNRECOVERABLE_SQL, [
+        exchangeOf(query),
+        query.symbol,
+        query.timeframe,
+      ]);
+      return rows[0]?.total ?? 0;
     },
 
     async markError(input: MarkFilledInput): Promise<void> {

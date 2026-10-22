@@ -21,6 +21,8 @@ export interface SeriesHealth {
   staleAfterSec: number;
   stale: boolean;
   openGaps: number;
+  /** Huecos cerrados por estar fuera de la ventana del exchange: no son una alarma. */
+  unrecoverableGaps: number;
 }
 
 export interface IngestHealth {
@@ -29,6 +31,7 @@ export interface IngestHealth {
   reconnects: number;
   consecutiveFailures: number;
   openGaps: number;
+  unrecoverableGaps: number;
   staleSeries: number;
   series: SeriesHealth[];
   checkedAt: number;
@@ -65,6 +68,7 @@ export async function getIngestHealth(options: IngestHealthOptions): Promise<Ing
     const ref = { exchange: options.exchange, symbol: item.symbol, timeframe: item.timeframe };
     const lastCandleTs = await candles.getLastCandleTs(ref);
     const openGaps = (await gaps.listOpen(ref)).length;
+    const unrecoverableGaps = await gaps.countUnrecoverable(ref);
 
     const staleAfterMs = staleFactor * timeframeToMs(item.timeframe);
     const ageMs = lastCandleTs === null ? null : Math.max(0, checkedAt - lastCandleTs);
@@ -77,6 +81,7 @@ export async function getIngestHealth(options: IngestHealthOptions): Promise<Ing
       staleAfterSec: Math.floor(staleAfterMs / 1000),
       stale: ageMs === null || ageMs > staleAfterMs,
       openGaps,
+      unrecoverableGaps,
     });
   }
 
@@ -88,6 +93,7 @@ export async function getIngestHealth(options: IngestHealthOptions): Promise<Ing
     reconnects,
     consecutiveFailures,
     openGaps: reports.reduce((total, report) => total + report.openGaps, 0),
+    unrecoverableGaps: reports.reduce((total, report) => total + report.unrecoverableGaps, 0),
     staleSeries,
     series: reports,
     checkedAt,

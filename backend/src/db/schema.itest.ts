@@ -47,7 +47,13 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
   beforeAll(async () => {
     db = await createScratchDatabase({ applicationName: 'tt-itest-schema' });
     const result = await runMigrations({ pool: db.pool });
-    expect(result.applied).toEqual(['000_init.sql', '001_candles.sql', '002_ingest.sql', '003_backtests.sql']);
+    expect(result.applied).toEqual([
+      '000_init.sql',
+      '001_candles.sql',
+      '002_ingest.sql',
+      '003_backtests.sql',
+      '004_gaps_unrecoverable.sql',
+    ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
 

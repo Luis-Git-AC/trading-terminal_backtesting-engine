@@ -244,6 +244,7 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
           pool,
           feed: runtime.config.feed,
           exchange: runtime.config.exchange,
+          historyWindowCandles: runtime.config.adapter.maxHistoryCandles ?? undefined,
           now,
         });
         logger.info(
@@ -254,6 +255,7 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
             suppressed: scan.suppressed,
             filled: fill.filled,
             noData: fill.noData,
+            unrecoverable: fill.unrecoverable,
             failed: fill.failed,
           },
           'auditoria de huecos',

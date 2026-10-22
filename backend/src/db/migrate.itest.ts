@@ -19,13 +19,19 @@ describe('runMigrations sobre una base de datos limpia', () => {
   it('aplica todas las migraciones desde cero y las registra', async () => {
     const result = await runMigrations({ pool: db.pool });
 
-    expect(result.applied).toEqual(['000_init.sql', '001_candles.sql', '002_ingest.sql', '003_backtests.sql']);
+    expect(result.applied).toEqual([
+      '000_init.sql',
+      '001_candles.sql',
+      '002_ingest.sql',
+      '003_backtests.sql',
+      '004_gaps_unrecoverable.sql',
+    ]);
     expect(result.alreadyApplied).toEqual([]);
 
     const { rows } = await db.pool.query<{ version: number; name: string; checksum: string }>(
       'SELECT version, name, checksum FROM schema_migrations ORDER BY version',
     );
-    expect(rows.map((row) => row.version)).toEqual([0, 1, 2, 3]);
+    expect(rows.map((row) => row.version)).toEqual([0, 1, 2, 3, 4]);
     expect(rows[0]?.name).toBe('init');
     expect(rows[0]?.checksum).toHaveLength(64);
   });
@@ -44,12 +50,18 @@ describe('runMigrations sobre una base de datos limpia', () => {
     const result = await runMigrations({ pool: db.pool });
 
     expect(result.applied).toEqual([]);
-    expect(result.alreadyApplied).toEqual(['000_init.sql', '001_candles.sql', '002_ingest.sql', '003_backtests.sql']);
+    expect(result.alreadyApplied).toEqual([
+      '000_init.sql',
+      '001_candles.sql',
+      '002_ingest.sql',
+      '003_backtests.sql',
+      '004_gaps_unrecoverable.sql',
+    ]);
 
     const { rows } = await db.pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM schema_migrations',
     );
-    expect(rows[0]?.count).toBe('4');
+    expect(rows[0]?.count).toBe('5');
   });
 });
 

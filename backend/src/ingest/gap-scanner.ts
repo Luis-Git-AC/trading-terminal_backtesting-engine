@@ -66,7 +66,7 @@ export async function scanGaps(options: GapScanOptions): Promise<GapScanReport> 
     const fromTs = alignTs(Math.max(0, toTs - windowMs), timeframe);
 
     const found = await candles.findGaps({ ...ref, from: fromTs, to: toTs });
-    const noData = new Set(await gaps.listNoDataFrom(ref));
+    const unfillable = new Set(await gaps.listUnfillableFrom(ref));
 
     let recorded = 0;
     let suppressed = 0;
@@ -75,7 +75,7 @@ export async function scanGaps(options: GapScanOptions): Promise<GapScanReport> 
     for (const gap of found) {
       missing += gap.missing;
 
-      if (noData.has(gap.fromTs)) {
+      if (unfillable.has(gap.fromTs)) {
         suppressed += 1;
         continue;
       }
