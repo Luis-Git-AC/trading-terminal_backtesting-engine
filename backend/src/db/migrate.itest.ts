@@ -25,13 +25,14 @@ describe('runMigrations sobre una base de datos limpia', () => {
       '002_ingest.sql',
       '003_backtests.sql',
       '004_gaps_unrecoverable.sql',
+      '005_derivatives.sql',
     ]);
     expect(result.alreadyApplied).toEqual([]);
 
     const { rows } = await db.pool.query<{ version: number; name: string; checksum: string }>(
       'SELECT version, name, checksum FROM schema_migrations ORDER BY version',
     );
-    expect(rows.map((row) => row.version)).toEqual([0, 1, 2, 3, 4]);
+    expect(rows.map((row) => row.version)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(rows[0]?.name).toBe('init');
     expect(rows[0]?.checksum).toHaveLength(64);
   });
@@ -56,12 +57,13 @@ describe('runMigrations sobre una base de datos limpia', () => {
       '002_ingest.sql',
       '003_backtests.sql',
       '004_gaps_unrecoverable.sql',
+      '005_derivatives.sql',
     ]);
 
     const { rows } = await db.pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM schema_migrations',
     );
-    expect(rows[0]?.count).toBe('5');
+    expect(rows[0]?.count).toBe('6');
   });
 });
 

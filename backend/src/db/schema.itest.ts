@@ -53,6 +53,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '002_ingest.sql',
       '003_backtests.sql',
       '004_gaps_unrecoverable.sql',
+      '005_derivatives.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -199,6 +200,81 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       expect(rows[0]?.count).toBe('3');
     });
   });
+
+  describe('funding_rates y open_interest', () => {
+    it('son hypertables con chunks de 30 dias', async () => {
+      const { rows } = await db.pool.query<{ hypertable_name: string; time_interval: string }>(
+        `SELECT h.hypertable_name, d.time_interval::text AS time_interval
+         FROM timescaledb_information.hypertables h
+         JOIN timescaledb_information.dimensions d
+           ON d.hypertable_name = h.hypertable_name
+         WHERE h.hypertable_name IN ('funding_rates', 'open_interest')
+         ORDER BY h.hypertable_name`,
+      );
+
+      expect(rows.map((row) => row.hypertable_name)).toEqual(['funding_rates', 'open_interest']);
+      expect(rows.every((row) => row.time_interval === '30 days')).toBe(true);
+    });
+
+    it('tienen el indice de serie descendente, sin timeframe', async () => {
+      const { rows } = await db.pool.query<{ indexdef: string }>(
+        `SELECT indexdef FROM pg_indexes
+         WHERE indexname IN ('funding_rates_series_ts_idx', 'open_interest_series_ts_idx')
+         ORDER BY indexname`,
+      );
+
+      expect(rows).toHaveLength(2);
+      expect(rows.every((row) => row.indexdef.includes('(exchange, symbol, ts DESC)'))).toBe(true);
+    });
+
+    it('rechaza la misma clave (exchange, symbol, ts) dos veces', async () => {
+      const insert =
+        'INSERT INTO funding_rates (exchange, symbol, ts, rate, interval_hours, source) VALUES ($1,$2,$3,$4,$5,$6)';
+      const key = ['binance', 'XAUUSDT', '2026-04-01T00:00:00Z', '0.0001', 4, 'rest'];
+
+      await db.pool.query(insert, key);
+      await expectSqlstate(db.pool.query(insert, key), '23505');
+
+      const oiInsert =
+        'INSERT INTO open_interest (exchange, symbol, ts, oi_base, oi_quote, source) VALUES ($1,$2,$3,$4,$5,$6)';
+      const oiKey = ['binance', 'XAUUSDT', '2026-04-01T00:00:00Z', '200000', '800000000', 'rest'];
+
+      await db.pool.query(oiInsert, oiKey);
+      await expectSqlstate(db.pool.query(oiInsert, oiKey), '23505');
+    });
+
+    it('rechaza un periodo de funding imposible', async () => {
+      await expectSqlstate(
+        db.pool.query(
+          'INSERT INTO funding_rates (exchange, symbol, ts, rate, interval_hours, source) VALUES ($1,$2,$3,$4,$5,$6)',
+          ['binance', 'XAGUSDT', '2026-04-01T00:00:00Z', '0.0001', 0, 'rest'],
+        ),
+        '23514',
+      );
+    });
+
+    it('rechaza un open interest negativo', async () => {
+      await expectSqlstate(
+        db.pool.query(
+          'INSERT INTO open_interest (exchange, symbol, ts, oi_base, source) VALUES ($1,$2,$3,$4,$5)',
+          ['binance', 'XAGUSDT', '2026-04-01T00:00:00Z', '-1', 'rest'],
+        ),
+        '23514',
+      );
+    });
+
+    it('admite el open interest sin valor en quote', async () => {
+      await db.pool.query(
+        'INSERT INTO open_interest (exchange, symbol, ts, oi_base, source) VALUES ($1,$2,$3,$4,$5)',
+        ['hyperliquid', 'BTC', '2026-04-02T00:00:00Z', '1234.5', 'ws'],
+      );
+
+      const { rows } = await db.pool.query<{ oi_quote: string | null }>(
+        "SELECT oi_quote FROM open_interest WHERE exchange = 'hyperliquid'",
+      );
+      expect(rows[0]?.oi_quote).toBeNull();
+    });
+  });
 });
 
 describe('fallback sin TimescaleDB (ADR-002)', () => {
@@ -211,7 +287,9 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
       applicationName: 'tt-itest-fallback',
     });
     dir = await mkdtemp(join(tmpdir(), 'tt-schema-fallback-'));
-    await copyFile(join(MIGRATIONS_DIR, '001_candles.sql'), join(dir, '001_candles.sql'));
+    for (const filename of ['001_candles.sql', '005_derivatives.sql']) {
+      await copyFile(join(MIGRATIONS_DIR, filename), join(dir, filename));
+    }
   });
 
   afterAll(async () => {
@@ -236,7 +314,7 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
       },
     });
 
-    expect(result.applied).toEqual(['001_candles.sql']);
+    expect(result.applied).toEqual(['001_candles.sql', '005_derivatives.sql']);
     expect(result.timescaleVersion).toBeNull();
     expect(warnings.join('\n')).toMatch(/particionada por rango|no esta instalada/i);
 
@@ -244,6 +322,25 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
       "SELECT relkind::text AS relkind FROM pg_class WHERE relname = 'candles'",
     );
     expect(rows[0]?.relkind).toBe('p');
+  });
+
+  it('crea funding_rates y open_interest particionadas, con su BRIN', async () => {
+    const { rows } = await db.pool.query<{ relname: string; relkind: string }>(
+      `SELECT relname, relkind::text AS relkind FROM pg_class
+       WHERE relname IN ('funding_rates', 'open_interest') AND relkind IN ('r', 'p')
+       ORDER BY relname`,
+    );
+    expect(rows).toEqual([
+      { relname: 'funding_rates', relkind: 'p' },
+      { relname: 'open_interest', relkind: 'p' },
+    ]);
+
+    const indexes = await db.pool.query<{ indexdef: string }>(
+      `SELECT indexdef FROM pg_indexes WHERE tablename IN ('funding_rates', 'open_interest')`,
+    );
+    const definitions = indexes.rows.map((row) => row.indexdef).join('\n');
+    expect(definitions.match(/USING brin \(ts\)/g)).toHaveLength(2);
+    expect(definitions.match(/ts DESC/g)).toHaveLength(2);
   });
 
   it('tiene indice BRIN sobre ts ademas del btree de serie', async () => {
