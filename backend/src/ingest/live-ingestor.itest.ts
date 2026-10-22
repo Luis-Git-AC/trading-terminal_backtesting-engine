@@ -13,12 +13,14 @@ import {
   createRedisClient,
   type CandleTick,
 } from '../queue/pubsub.js';
+import { startFakeBinanceWs, type FakeBinanceWs } from '../testing/fake-binance-ws.js';
 import {
   startFakeBitgetWs,
   updateFrame as buildUpdateFrame,
   type FakeBitgetWs,
 } from '../testing/fake-bitget-ws.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
+import { createBinanceCandleStream } from './exchange/binance/ws.js';
 import { createBitgetCandleStream, type BitgetStreamEvent } from './exchange/bitget/ws.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 
@@ -446,5 +448,104 @@ describe('createLiveIngestor', () => {
 
     expect(created.pending).toBe(0);
     expect(await storedTimestamps()).toEqual([START]);
+  });
+});
+
+describe('createLiveIngestor con Binance', () => {
+  let db: ScratchDatabase;
+  let candles: CandlesRepository;
+  let state: IngestStateRepository;
+  let exchange: FakeBinanceWs;
+  let spy: RedisSpy;
+  let ingestor: LiveIngestor | undefined;
+  const redisUrl = requireRedisUrl();
+
+  beforeAll(async () => {
+    db = await createScratchDatabase({ applicationName: 'tt-itest-live-binance' });
+    await runMigrations({ pool: db.pool });
+    candles = createCandlesRepository(db.pool);
+    state = createIngestStateRepository(db.pool);
+  });
+
+  afterAll(async () => {
+    await db.drop();
+  });
+
+  beforeEach(async () => {
+    await db.pool.query('TRUNCATE candles');
+    await db.pool.query('TRUNCATE ingest_state');
+    await state.ensure({ exchange: 'binance', symbol: SYMBOL, timeframe: TIMEFRAME, targetTs: START });
+    exchange = await startFakeBinanceWs();
+    spy = await subscribeRedis(redisUrl, candleChannel('binance', SYMBOL, TIMEFRAME));
+    ingestor = undefined;
+  });
+
+  afterEach(async () => {
+    await ingestor?.stop();
+    await spy.stop();
+    await exchange.stop();
+  });
+
+  async function launch(): Promise<LiveIngestor> {
+    const stream = createBinanceCandleStream({
+      url: exchange.url,
+      staleTimeoutMs: 0,
+      reconnectBaseMs: 20,
+      reconnectMaxMs: 50,
+    });
+
+    const created = createLiveIngestor({
+      stream,
+      candles,
+      state,
+      publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
+      series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      exchange: 'binance',
+      flushIntervalMs: 50,
+      wsTouchIntervalMs: 0,
+    });
+
+    ingestor = created;
+    created.start();
+
+    await vi.waitFor(() => {
+      expect(exchange.subscriptions).toEqual(['btcusdt@kline_1m']);
+    });
+
+    return created;
+  }
+
+  async function storedTimestamps(): Promise<number[]> {
+    const { rows } = await db.pool.query<{ ts: Date }>(
+      'SELECT ts FROM candles WHERE exchange = $1 AND symbol = $2 AND timeframe = $3 ORDER BY ts ASC',
+      ['binance', SYMBOL, TIMEFRAME],
+    );
+    return rows.map((row) => row.ts.getTime());
+  }
+
+  it('la vela en formacion se publica pero no se persiste; la cerrada si', async () => {
+    await launch();
+
+    const candle = makeCandle(0);
+    for (let tick = 0; tick < 3; tick += 1) {
+      exchange.pushCandle({ ...candle, c: candle.c + tick }, SYMBOL, TIMEFRAME, false);
+    }
+
+    await vi.waitFor(() => {
+      expect(spy.messages).toHaveLength(3);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    expect(spy.messages.every((tick) => !tick.closed)).toBe(true);
+    expect(await storedTimestamps()).toEqual([]);
+
+    exchange.pushCandle(candle, SYMBOL, TIMEFRAME, true);
+
+    await vi.waitFor(
+      async () => {
+        expect(await storedTimestamps()).toEqual([START]);
+      },
+      { timeout: 10_000 },
+    );
   });
 });

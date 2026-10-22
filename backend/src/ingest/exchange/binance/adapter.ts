@@ -1,6 +1,7 @@
 import type { ExchangeAdapter } from '../adapter.js';
 import { createBinanceRestClient } from './rest.js';
 import { BINANCE_MAX_PAGE_LIMIT } from './types.js';
+import { createBinanceCandleStream } from './ws.js';
 
 export function createBinanceAdapter(): ExchangeAdapter {
   return {
@@ -8,9 +9,7 @@ export function createBinanceAdapter(): ExchangeAdapter {
     maxHistoryCandles: null,
     maxPageLimit: BINANCE_MAX_PAGE_LIMIT,
     createRestClient: (options = {}) => createBinanceRestClient(options),
-    createCandleStream: () => {
-      throw new Error('El stream de velas de Binance llega en F7b-T2');
-    },
+    createCandleStream: (options = {}) => createBinanceCandleStream(options),
     normalizeSymbol: (raw) => raw.trim().toUpperCase(),
   };
 }

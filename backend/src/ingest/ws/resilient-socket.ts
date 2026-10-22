@@ -12,6 +12,8 @@ export const DEFAULT_CLOSE_GRACE_MS = 1000;
 export const DEFAULT_HEARTBEAT_MESSAGE = 'ping';
 export const DEFAULT_HEARTBEAT_RESPONSE = 'pong';
 export const DEFAULT_MAX_CONSECUTIVE_FAILURES = 10;
+/** 0 = sin limite de vida. Binance corta a las 24 h, asi que se reconecta antes. */
+export const DEFAULT_MAX_LIFETIME_MS = 0;
 
 export interface SocketHandlers {
   open(): void;
@@ -36,6 +38,7 @@ export type ResilientSocketEvent =
   | { kind: 'reconnect'; attempt: number; delayMs: number; reason: string }
   | { kind: 'degraded'; consecutiveFailures: number; delayMs: number; reason: string }
   | { kind: 'stale'; idleMs: number }
+  | { kind: 'lifetime'; ageMs: number }
   | { kind: 'error'; error: Error };
 
 export type ResilientSocketListener = (event: ResilientSocketEvent) => void;
@@ -49,6 +52,7 @@ export interface ResilientSocketOptions {
   stableResetMs?: number;
   closeGraceMs?: number;
   maxConsecutiveFailures?: number;
+  maxLifetimeMs?: number;
   heartbeatMessage?: string;
   heartbeatResponse?: string;
   createSocket?: SocketFactory;
@@ -161,6 +165,7 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
     'maxConsecutiveFailures',
     options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES,
   );
+  const maxLifetimeMs = nonNegativeMs('maxLifetimeMs', options.maxLifetimeMs ?? DEFAULT_MAX_LIFETIME_MS);
   const heartbeatMessage = options.heartbeatMessage ?? DEFAULT_HEARTBEAT_MESSAGE;
   const heartbeatResponse = options.heartbeatResponse ?? DEFAULT_HEARTBEAT_RESPONSE;
   const createSocket = options.createSocket ?? createWebSocketFactory();
@@ -187,6 +192,7 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
   let stableTimer: ReturnType<typeof setTimeout> | undefined;
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+  let lifetimeTimer: ReturnType<typeof setTimeout> | undefined;
 
   function emit(event: ResilientSocketEvent): void {
     for (const listener of [...listeners]) listener(event);
@@ -208,9 +214,11 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
   function teardownSocket(): void {
     clearTimeout(staleTimer);
     clearTimeout(stableTimer);
+    clearTimeout(lifetimeTimer);
     clearInterval(heartbeatTimer);
     staleTimer = undefined;
     stableTimer = undefined;
+    lifetimeTimer = undefined;
     heartbeatTimer = undefined;
 
     if (socket !== undefined) {
@@ -246,10 +254,8 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
     }, delayMs);
   }
 
-  function onStale(): void {
+  function recycle(reason: string): void {
     const current = socket;
-    staleTimer = undefined;
-    emit({ kind: 'stale', idleMs: staleTimeoutMs });
 
     if (current !== undefined) {
       try {
@@ -261,7 +267,19 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
 
     teardownSocket();
     settleClosed();
-    if (!closedByUser) scheduleReconnect('watchdog: sin mensajes');
+    if (!closedByUser) scheduleReconnect(reason);
+  }
+
+  function onLifetime(): void {
+    lifetimeTimer = undefined;
+    emit({ kind: 'lifetime', ageMs: maxLifetimeMs });
+    recycle('reconexion preventiva antes del corte del exchange');
+  }
+
+  function onStale(): void {
+    staleTimer = undefined;
+    emit({ kind: 'stale', idleMs: staleTimeoutMs });
+    recycle('watchdog: sin mensajes');
   }
 
   function connect(): void {
@@ -277,6 +295,10 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
         if (mine !== generation) return;
         setState('open');
         armStale();
+
+        if (maxLifetimeMs > 0) {
+          lifetimeTimer = setTimeout(onLifetime, maxLifetimeMs);
+        }
 
         stableTimer = setTimeout(() => {
           stableTimer = undefined;

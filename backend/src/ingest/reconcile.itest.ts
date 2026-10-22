@@ -8,8 +8,10 @@ import {
   type IngestStateRepository,
 } from '../db/repositories/ingest-state.repo.js';
 import { createCandlePublisher, createRedisClient } from '../queue/pubsub.js';
+import { startFakeBinanceWs, type FakeBinanceWs } from '../testing/fake-binance-ws.js';
 import { startFakeBitgetWs, type FakeBitgetWs } from '../testing/fake-bitget-ws.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
+import { createBinanceCandleStream } from './exchange/binance/ws.js';
 import { createBitgetCandleStream } from './exchange/bitget/ws.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 import { reconcileSeries, type ReconcileReport } from './reconcile.js';
@@ -87,11 +89,17 @@ describe('reconcileSeries', () => {
     });
   }
 
-  async function storedIndices(): Promise<number[]> {
-    const { rows } = await db.pool.query<{ ts: Date }>(
-      'SELECT ts FROM candles WHERE symbol = $1 AND timeframe = $2 ORDER BY ts ASC',
-      [SYMBOL, TIMEFRAME],
-    );
+  async function storedIndices(exchange?: string): Promise<number[]> {
+    const { rows } =
+      exchange === undefined
+        ? await db.pool.query<{ ts: Date }>(
+            'SELECT ts FROM candles WHERE symbol = $1 AND timeframe = $2 ORDER BY ts ASC',
+            [SYMBOL, TIMEFRAME],
+          )
+        : await db.pool.query<{ ts: Date }>(
+            'SELECT ts FROM candles WHERE exchange = $1 AND symbol = $2 AND timeframe = $3 ORDER BY ts ASC',
+            [exchange, SYMBOL, TIMEFRAME],
+          );
     return rows.map((row) => (row.ts.getTime() - START) / STEP);
   }
 
@@ -450,6 +458,126 @@ describe('reconcileSeries', () => {
       ).toEqual([]);
       expect(
         await candles.findDuplicates({
+          symbol: SYMBOL,
+          timeframe: TIMEFRAME,
+          from: START,
+          to: START + UPSTREAM * STEP,
+        }),
+      ).toEqual([]);
+    });
+  });
+
+  describe('DoD con Binance: un corte de la conexion no deja huecos', () => {
+    let exchange: FakeBinanceWs;
+    let ingestor: LiveIngestor | undefined;
+    const redisUrl = requireRedisUrl();
+
+    beforeEach(async () => {
+      exchange = await startFakeBinanceWs();
+      ingestor = undefined;
+    });
+
+    afterEach(async () => {
+      await ingestor?.stop();
+      await exchange.stop();
+    });
+
+    it('velas cerradas por WS, corte duro, reconexion + reconciliacion: 0 huecos y 0 duplicados', async () => {
+      const UPSTREAM = 41;
+      const upstream = Array.from({ length: UPSTREAM }, (_, index) => makeCandle(index));
+      const feed = createFeed(upstream);
+
+      const stream = createBinanceCandleStream({
+        url: exchange.url,
+        staleTimeoutMs: 0,
+        reconnectBaseMs: 20,
+        reconnectMaxMs: 60,
+        random: () => 1,
+      });
+
+      let opens = 0;
+      let reconciled: Promise<ReconcileReport> | undefined;
+      stream.socket.on((event) => {
+        if (event.kind !== 'state' || event.to !== 'open') return;
+        opens += 1;
+        if (opens > 1) {
+          reconciled = reconcile(feed, { exchange: 'binance', to: START + 30 * STEP });
+        }
+      });
+
+      const created = createLiveIngestor({
+        stream,
+        candles,
+        state,
+        publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
+        series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+        exchange: 'binance',
+        flushIntervalMs: 50,
+      });
+      ingestor = created;
+      created.start();
+
+      await vi.waitFor(() => {
+        expect(exchange.subscriptions).toHaveLength(1);
+      });
+
+      // Binance marca el cierre en k.x, asi que las 10 primeras se persisten tal cual.
+      for (const candle of upstream.slice(0, 10)) {
+        exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
+      }
+
+      await vi.waitFor(
+        async () => {
+          expect(await storedIndices('binance')).toEqual(Array.from({ length: 10 }, (_, i) => i));
+        },
+        { timeout: 10_000 },
+      );
+
+      exchange.cutConnections();
+
+      await vi.waitFor(
+        () => {
+          expect(exchange.connections()).toBe(2);
+          expect(exchange.subscriptions).toHaveLength(2);
+        },
+        { timeout: 10_000 },
+      );
+
+      await vi.waitFor(
+        () => {
+          expect(reconciled).toBeDefined();
+        },
+        { timeout: 10_000 },
+      );
+      if (reconciled === undefined) throw new Error('la reconciliacion no llego a lanzarse');
+      const report = await reconciled;
+
+      expect(report.lastCandleTs).toBe(START + 9 * STEP);
+      expect(report.stoppedBy).toBe('complete');
+
+      for (const candle of upstream.slice(30)) {
+        exchange.pushCandle(candle, SYMBOL, TIMEFRAME);
+      }
+
+      await vi.waitFor(
+        async () => {
+          expect(await storedIndices('binance')).toHaveLength(UPSTREAM);
+        },
+        { timeout: 10_000 },
+      );
+
+      expect(
+        await candles.findGaps({
+          exchange: 'binance',
+          symbol: SYMBOL,
+          timeframe: TIMEFRAME,
+          from: START,
+          to: START + UPSTREAM * STEP,
+        }),
+      ).toEqual([]);
+      expect(
+        await candles.findDuplicates({
+          exchange: 'binance',
           symbol: SYMBOL,
           timeframe: TIMEFRAME,
           from: START,

@@ -16,3 +16,17 @@ con `symbol=BTCUSDT`. Endpoint público, sin API key.
 | `error-bad-interval.json` | **real** | `interval=3x&limit=5` | Error de negocio con **HTTP 400** (al revés que Bitget, que usa 200) y `code` **numérico** negativo |
 | `error-limit-out-of-range.json` | **real** | `interval=15m&limit=2000` | El máximo real de `limit` es 1500: `code: -1130` |
 | `klines-15m-dirty.json` | **sintético** | — | Construido a mano a partir del real. Cada fila mala ejercita una causa de descarte distinta: campos faltantes, `high < low`, `ts` desalineado, precio no numérico y volumen negativo. Las filas 1 y 7 son válidas y deben sobrevivir |
+
+## WebSocket
+
+El stream combinado `wss://fstream.binance.com/stream` aceptó la suscripción desde esta red
+(`{"result":null,"id":1}` es **real**), pero no llegó ni una kline en 30 s de espera, así que los
+frames de vela están **construidos a mano** a partir de la forma documentada del payload
+`<symbol>@kline_<interval>`. Si algún día se capturan de verdad, se sustituyen y se marca aquí.
+
+| Fichero | Origen | Qué demuestra |
+|---|---|---|
+| `ws-ack.json` | **real** | Confirmación de `SUBSCRIBE`: `{result: null, id}`. No dice qué stream confirma, de ahí el mapa id -> serie |
+| `ws-kline-forming.json` | **sintético** | Envoltorio `{stream, data}` con `k.x: false`: vela en formación, se publica pero no se persiste |
+| `ws-kline-closed.json` | **sintético** | La misma vela con `k.x: true`: cerrada, es la única que entra en la BD |
+| `ws-error.json` | **sintético** | `{error: {code, msg}}` con `code` **numérico**, la forma documentada del rechazo |

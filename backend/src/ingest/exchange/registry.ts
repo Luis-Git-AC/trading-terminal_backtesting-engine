@@ -1,10 +1,12 @@
 import { EXCHANGES, type Exchange } from '@tt/shared';
 import { AppError } from '../../api/errors.js';
 import type { ExchangeAdapter } from './adapter.js';
+import { createBinanceAdapter } from './binance/adapter.js';
 import { createBitgetAdapter } from './bitget/adapter.js';
 
 /** Un id de `EXCHANGES` sin entrada aqui es un exchange cuyo adapter aun no existe. */
 const FACTORIES: Partial<Record<Exchange, () => ExchangeAdapter>> = {
+  binance: createBinanceAdapter,
   bitget: createBitgetAdapter,
 };
 
