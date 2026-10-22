@@ -54,6 +54,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '003_backtests.sql',
       '004_gaps_unrecoverable.sql',
       '005_derivatives.sql',
+      '006_macro.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -275,6 +276,82 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       expect(rows[0]?.oi_quote).toBeNull();
     });
   });
+
+  describe('macro_series y market_events', () => {
+    it('macro_series es hypertable con chunks de un ano', async () => {
+      const { rows } = await db.pool.query<{ time_interval: string }>(
+        `SELECT d.time_interval::text AS time_interval
+         FROM timescaledb_information.dimensions d
+         WHERE d.hypertable_name = 'macro_series'`,
+      );
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.time_interval).toBe('365 days');
+    });
+
+    it('market_events no es hypertable: no es una serie temporal densa', async () => {
+      const { rows } = await db.pool.query<{ count: string }>(
+        `SELECT count(*)::text AS count FROM timescaledb_information.hypertables
+         WHERE hypertable_name = 'market_events'`,
+      );
+      expect(rows[0]?.count).toBe('0');
+    });
+
+    it('tiene los indices que pide el ticket, con el GIN sobre asset_tags', async () => {
+      const { rows } = await db.pool.query<{ indexname: string; indexdef: string }>(
+        `SELECT indexname, indexdef FROM pg_indexes
+         WHERE tablename IN ('macro_series', 'market_events') ORDER BY indexname`,
+      );
+      const byName = new Map(rows.map((row) => [row.indexname, row.indexdef]));
+
+      expect(byName.get('macro_series_series_ts_idx')).toContain('(series_id, ts DESC)');
+      expect(byName.get('market_events_scheduled_idx')).toContain('(scheduled_at DESC)');
+      expect(byName.get('market_events_tags_idx')).toContain('USING gin (asset_tags)');
+    });
+
+    it('la clave de macro_series incluye revision, asi que la correccion convive con el original', async () => {
+      const insert = `INSERT INTO macro_series
+        (source, series_id, ts, value, published_at, fetched_at, revision)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)`;
+      const key = ['fred', 'CPIAUCSL', '2026-05-01T00:00:00Z', '318.1', '2026-06-11T00:00:00Z'];
+
+      await db.pool.query(insert, [...key, '2026-06-11T00:00:00Z', 0]);
+      await db.pool.query(insert, [
+        'fred',
+        'CPIAUCSL',
+        '2026-05-01T00:00:00Z',
+        '318.4',
+        '2026-07-11T00:00:00Z',
+        '2026-07-11T00:00:00Z',
+        1,
+      ]);
+      await expect(db.pool.query(insert, [...key, '2026-06-11T00:00:00Z', 0])).rejects.toThrow(
+        /macro_series_pkey|duplicate key/,
+      );
+
+      const { rows } = await db.pool.query<{ count: string }>(
+        "SELECT count(*)::text AS count FROM macro_series WHERE series_id = 'CPIAUCSL'",
+      );
+      expect(rows[0]?.count).toBe('2');
+    });
+
+    it('rechaza una revision negativa y un content_hash repetido', async () => {
+      await expect(
+        db.pool.query(
+          `INSERT INTO macro_series (source, series_id, ts, value, published_at, fetched_at, revision)
+           VALUES ('fred','UNRATE','2026-05-01T00:00:00Z','4.1','2026-06-01T00:00:00Z','2026-06-01T00:00:00Z',-1)`,
+        ),
+      ).rejects.toThrow(/macro_series_revision/);
+
+      const insert = `INSERT INTO market_events
+        (source, type, asset_tags, scheduled_at, published_at, fetched_at, payload, content_hash)
+        VALUES ('te','fomc','{rates}','2026-11-18T19:00:00Z','2026-01-02T00:00:00Z',
+                '2026-01-02T00:00:00Z','{}'::jsonb,'hash-repetido')`;
+
+      await db.pool.query(insert);
+      await expect(db.pool.query(insert)).rejects.toThrow(/content_hash/);
+    });
+  });
 });
 
 describe('fallback sin TimescaleDB (ADR-002)', () => {
@@ -287,7 +364,7 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
       applicationName: 'tt-itest-fallback',
     });
     dir = await mkdtemp(join(tmpdir(), 'tt-schema-fallback-'));
-    for (const filename of ['001_candles.sql', '005_derivatives.sql']) {
+    for (const filename of ['001_candles.sql', '005_derivatives.sql', '006_macro.sql']) {
       await copyFile(join(MIGRATIONS_DIR, filename), join(dir, filename));
     }
   });
@@ -314,7 +391,11 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
       },
     });
 
-    expect(result.applied).toEqual(['001_candles.sql', '005_derivatives.sql']);
+    expect(result.applied).toEqual([
+      '001_candles.sql',
+      '005_derivatives.sql',
+      '006_macro.sql',
+    ]);
     expect(result.timescaleVersion).toBeNull();
     expect(warnings.join('\n')).toMatch(/particionada por rango|no esta instalada/i);
 
@@ -341,6 +422,25 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
     const definitions = indexes.rows.map((row) => row.indexdef).join('\n');
     expect(definitions.match(/USING brin \(ts\)/g)).toHaveLength(2);
     expect(definitions.match(/ts DESC/g)).toHaveLength(2);
+  });
+
+  it('crea macro_series particionada por ano y market_events sin particionar', async () => {
+    const { rows } = await db.pool.query<{ relname: string; relkind: string }>(
+      `SELECT relname, relkind::text AS relkind FROM pg_class
+       WHERE relname IN ('macro_series', 'market_events') AND relkind IN ('r', 'p')
+       ORDER BY relname`,
+    );
+    expect(rows).toEqual([
+      { relname: 'macro_series', relkind: 'p' },
+      { relname: 'market_events', relkind: 'r' },
+    ]);
+
+    const indexes = await db.pool.query<{ indexdef: string }>(
+      "SELECT indexdef FROM pg_indexes WHERE tablename = 'macro_series'",
+    );
+    const definitions = indexes.rows.map((row) => row.indexdef).join('\n');
+    expect(definitions).toContain('USING brin (ts)');
+    expect(definitions).toContain('(series_id, ts DESC)');
   });
 
   it('tiene indice BRIN sobre ts ademas del btree de serie', async () => {
