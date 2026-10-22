@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { sourceStateKey } from '@tt/shared';
 import { Redis } from 'ioredis';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runMigrations } from '../db/migrate.js';
@@ -72,13 +71,23 @@ describe('rol collector', () => {
   });
 
   afterAll(async () => {
+    // Los schedulers y el estado de los casos viven en el Redis de desarrollo y no caducan: sin
+    // esto cada ejecucion de la suite deja cientos de claves `tt-itest-collector-*` para siempre.
+    const leftovers = await redis.keys('tt-itest-collector-*');
+    if (leftovers.length > 0) await redis.del(...leftovers);
     await redis.quit();
     await db.drop();
   });
 
-  beforeEach(async () => {
-    const keys = await redis.keys(sourceStateKey('*'));
-    if (keys.length > 0) await redis.del(...keys);
+  /**
+   * `keyPrefix` aisla el estado del caso. Sin el habria que limpiar `source:state:*` a mano, y eso
+   * arrasaba las claves del collector de verdad que corre contra el mismo Redis de desarrollo.
+   */
+  function stateClient(): Redis {
+    return new Redis(redisUrl, { maxRetriesPerRequest: null, keyPrefix: `${prefix}:` });
+  }
+
+  beforeEach(() => {
     handle = undefined;
     prefix = freshPrefix();
   });
@@ -94,7 +103,7 @@ describe('rol collector', () => {
     const created = await startCollector({
       pool: db.pool,
       connection: createQueueConnection(redisUrl),
-      redis: new Redis(redisUrl, { maxRetriesPerRequest: null }),
+      redis: stateClient(),
       logger: createLogger({ role: 'collector', level: 'silent' }),
       registry: buildSourceRegistry({ candidates, env: options.env ?? {} }),
       prefix,
@@ -126,7 +135,7 @@ describe('rol collector', () => {
     const created = await startCollector({
       pool: db.pool,
       connection: createQueueConnection(redisUrl),
-      redis: new Redis(redisUrl, { maxRetriesPerRequest: null }),
+      redis: stateClient(),
       logger: createLogger({ role: 'collector', level: 'silent' }),
       registry: buildSourceRegistry({ candidates: [fakeSource('uno')], env: {} }),
       prefix,
@@ -245,7 +254,7 @@ describe('rol collector', () => {
     const first = await startCollector({
       ...common,
       connection: createQueueConnection(redisUrl),
-      redis: new Redis(redisUrl, { maxRetriesPerRequest: null }),
+      redis: stateClient(),
       registry: buildSourceRegistry({ candidates: [fakeSource('temporal')], env: {} }),
     });
     expect((await first.queue.getJobSchedulers()).map((item) => item.key)).toEqual(['temporal']);
@@ -255,7 +264,7 @@ describe('rol collector', () => {
     const second = await startCollector({
       ...common,
       connection: createQueueConnection(redisUrl),
-      redis: new Redis(redisUrl, { maxRetriesPerRequest: null }),
+      redis: stateClient(),
       registry: buildSourceRegistry({
         candidates: [fakeSource('temporal', { requiredEnv: ['FALTA'] })],
         env: {},

@@ -11,17 +11,20 @@ import { startApi } from './roles/api.js';
 import { startCollector } from './roles/collector.js';
 import { startIngestor } from './roles/ingestor.js';
 import { startWorker } from './roles/worker.js';
-import { toRunnable } from './sources/adapter.js';
+import { toRunnable, type RunnableSource } from './sources/adapter.js';
 import {
   DERIVATIVES_SOURCE_ID,
   createDerivativesSource,
   type DerivativesMarket,
 } from './sources/derivatives.source.js';
+import { createFredClient } from './sources/fred/client.js';
+import { createFredSource } from './sources/fred/fred.source.js';
+import { FRED_SOURCE_ID } from './sources/fred/types.js';
 import { buildSourceRegistry } from './sources/registry.js';
 import { createSourceStateStore } from './sources/state.js';
 
 /** Las fuentes cuyo estado refleja /api/health. Crece con cada fuente nueva de la fase 9. */
-const COLLECTOR_SOURCE_IDS = [DERIVATIVES_SOURCE_ID] as const;
+const COLLECTOR_SOURCE_IDS = [DERIVATIVES_SOURCE_ID, FRED_SOURCE_ID] as const;
 
 function seriesOf(symbols: readonly string[]): {
   symbol: string;
@@ -140,25 +143,47 @@ async function runCollector(logger: AppLogger): Promise<void> {
     return config.symbols.map((symbol) => ({ exchange: config.exchange, symbol, client }));
   });
 
-  const candidates =
-    markets.length === 0
-      ? []
-      : [
-          toRunnable(
-            createDerivativesSource({
-              pool,
-              markets,
-              schedule: env.DERIVATIVES_CRON,
-              lookbackMs: env.DERIVATIVES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
-              onMarketError: (market, error) => {
-                logger.warn(
-                  { exchange: market.exchange, symbol: market.symbol, err: error },
-                  'un mercado de derivados fallo, se sigue con los demas',
-                );
-              },
-            }),
-          ),
-        ];
+  const candidates: RunnableSource[] = [];
+
+  if (markets.length > 0) {
+    candidates.push(
+      toRunnable(
+        createDerivativesSource({
+          pool,
+          markets,
+          schedule: env.DERIVATIVES_CRON,
+          lookbackMs: env.DERIVATIVES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+          onMarketError: (market, error) => {
+            logger.warn(
+              { exchange: market.exchange, symbol: market.symbol, err: error },
+              'un mercado de derivados fallo, se sigue con los demas',
+            );
+          },
+        }),
+      ),
+    );
+  }
+
+  // La clave puede faltar: el candidato se construye igual y es el registro el que lo desactiva
+  // con su aviso, que es el camino que ya prueba el itest del collector.
+  candidates.push(
+    toRunnable(
+      createFredSource({
+        pool,
+        client: createFredClient({
+          apiKey: env.FRED_API_KEY ?? '',
+          baseUrl: env.FRED_BASE_URL,
+          fetch: (url) => globalThis.fetch(url),
+        }),
+        seriesIds: env.FRED_SERIES,
+        schedule: env.FRED_CRON,
+        observationStart: env.FRED_OBSERVATION_START,
+        onDiscard: (discard) => {
+          logger.warn({ ...discard }, 'observacion del FRED descartada');
+        },
+      }),
+    ),
+  );
 
   await startCollector({
     pool,

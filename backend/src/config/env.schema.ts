@@ -74,6 +74,29 @@ const timeframesSchema = z
 
 const intIn = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
+const cronSchema = (fallback: string) =>
+  z
+    .string()
+    .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
+    .prefault(fallback);
+
+/** Ids de serie de una fuente macro: letras, digitos, guion y guion bajo. */
+const seriesSchema = (fallback: string) =>
+  z
+    .string()
+    .transform(splitCsv)
+    .pipe(
+      z
+        .array(
+          z
+            .string()
+            .transform((value) => value.toUpperCase())
+            .refine((value) => /^[A-Z0-9_-]{1,64}$/.test(value), 'id de serie invalido'),
+        )
+        .min(1),
+    )
+    .prefault(fallback);
+
 /** Clave opcional: vacia cuenta como ausente, que es lo que desactiva la fuente que la necesita. */
 const optionalSecret = () =>
   z.preprocess(
@@ -129,21 +152,21 @@ export const envSchema = z.object({
 
   RECONCILE_MAX_PAGES: intIn(1, 500).prefault('10'),
 
-  GAP_SCAN_CRON: z
-    .string()
-    .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
-    .prefault('*/15 * * * *'),
+  GAP_SCAN_CRON: cronSchema('*/15 * * * *'),
   GAP_SCAN_WINDOW_DAYS: intIn(1, 365).prefault('7'),
 
-  DERIVATIVES_CRON: z
-    .string()
-    .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
-    .prefault('7 * * * *'),
+  DERIVATIVES_CRON: cronSchema('7 * * * *'),
   COLLECTOR_SOURCE_RPS: z.coerce.number().positive().max(100).prefault('2'),
   COLLECTOR_CONCURRENCY: intIn(1, 32).prefault('1'),
   // Sin la clave de una fuente, esa fuente se omite con un aviso: el proceso no muere.
   FRED_API_KEY: optionalSecret(),
   EIA_API_KEY: optionalSecret(),
+  FRED_BASE_URL: z.url().prefault('https://api.stlouisfed.org'),
+  FRED_SERIES: seriesSchema('DFII10,DTWEXBGS,DFF'),
+  FRED_CRON: cronSchema('23 6 * * *'),
+  // Las revisiones del FRED aterrizan sobre fechas de observacion viejas, asi que cada pasada
+  // pide la serie entera desde aqui: una ventana incremental se dejaria la correccion fuera.
+  FRED_OBSERVATION_START: z.iso.date().prefault('2015-01-01'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 
