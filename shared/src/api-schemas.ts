@@ -146,3 +146,53 @@ export const candlesResponseSchema = z.object({
 });
 
 export type CandlesResponse = z.infer<typeof candlesResponseSchema>;
+
+export const derivativesParamsSchema = z.object({
+  exchange: exchangeSchema,
+  symbol: symbolSchema,
+});
+
+export const derivativesQuerySchema = z.object({
+  from: timestampParamSchema,
+  to: timestampParamSchema.optional(),
+  limit: z
+    .string()
+    .regex(/^\d+$/, { error: 'limit debe ser un entero' })
+    .transform((value) => Number(value))
+    .refine((value) => value >= 1, { error: 'limit debe ser al menos 1' })
+    .optional(),
+});
+
+export type DerivativesQuery = z.infer<typeof derivativesQuerySchema>;
+
+export const fundingRateSchema = z.object({
+  t: z.number().int().nonnegative(),
+  rate: z.number(),
+  intervalHours: z.number().int().positive(),
+});
+
+export const fundingResponseSchema = z.object({
+  exchange: exchangeSchema,
+  symbol: z.string(),
+  count: z.number().int().nonnegative(),
+  funding: z.array(fundingRateSchema),
+  nextFrom: z.number().int().nonnegative().nullable(),
+});
+
+export type FundingResponse = z.infer<typeof fundingResponseSchema>;
+
+export const openInterestPointSchema = z.object({
+  t: z.number().int().nonnegative(),
+  base: z.number(),
+  quote: z.number().nullable(),
+});
+
+export const openInterestResponseSchema = z.object({
+  exchange: exchangeSchema,
+  symbol: z.string(),
+  count: z.number().int().nonnegative(),
+  openInterest: z.array(openInterestPointSchema),
+  nextFrom: z.number().int().nonnegative().nullable(),
+});
+
+export type OpenInterestResponse = z.infer<typeof openInterestResponseSchema>;

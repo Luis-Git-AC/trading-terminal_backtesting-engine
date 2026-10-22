@@ -1,9 +1,10 @@
 .workspace {
   display: grid;
   grid-template-columns: var(--layout-sidebar-width) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) var(--layout-results-height);
+  grid-template-rows: minmax(0, 1fr) var(--layout-derivatives-height) var(--layout-results-height);
   grid-template-areas:
     'params chart'
+    'params derivatives'
     'params results';
   gap: var(--space-12);
   height: 100%;
@@ -18,12 +19,28 @@
   grid-area: chart;
 }
 
+.derivatives {
+  grid-area: derivatives;
+}
+
+.derivativesSurface {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  padding: var(--space-8);
+}
+
 .results {
   grid-area: results;
 }
 
 .workspace:has([aria-label='Progreso del backtest']) {
-  grid-template-rows: minmax(0, 1fr) var(--layout-results-height-run);
+  grid-template-rows:
+    minmax(0, 1fr) var(--layout-derivatives-height)
+    var(--layout-results-height-run);
 }
 
 .resultsBody {

@@ -5,9 +5,11 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  fundingResponseSchema,
   healthResponseSchema,
   listBacktestsResponseSchema,
   marketsResponseSchema,
+  openInterestResponseSchema,
   runDetailSchema,
   strategyCatalogSchema,
   tradesResponseSchema,
@@ -19,10 +21,12 @@ import {
   type CreateBacktestResponse,
   type EquityResponse,
   type Exchange,
+  type FundingResponse,
   type HealthResponse,
   type ListBacktestsQuery,
   type ListBacktestsResponse,
   type MarketsResponse,
+  type OpenInterestResponse,
   type RunDetail,
   type RunStatus,
   type StrategyCatalog,
@@ -36,6 +40,14 @@ export interface CandlesRequest {
   readonly exchange: Exchange;
   readonly symbol: string;
   readonly timeframe: Timeframe;
+  readonly from: number;
+  readonly to?: number | undefined;
+  readonly limit?: number | undefined;
+}
+
+export interface DerivativesRequest {
+  readonly exchange: Exchange;
+  readonly symbol: string;
   readonly from: number;
   readonly to?: number | undefined;
   readonly limit?: number | undefined;
@@ -98,6 +110,37 @@ export function getCandles(
       limit: request.limit,
     },
     schema: candlesResponseSchema,
+    signal,
+  });
+}
+
+function derivativesPath(request: DerivativesRequest, resource: string): string {
+  const { exchange, symbol } = request;
+  return `/derivatives/${encodeURIComponent(exchange)}/${encodeURIComponent(symbol)}/${resource}`;
+}
+
+export function getFunding(
+  request: DerivativesRequest,
+  client: ApiClient = apiClient,
+  signal?: AbortSignal,
+): Promise<FundingResponse> {
+  return client.request({
+    path: derivativesPath(request, 'funding'),
+    query: { from: request.from, to: request.to, limit: request.limit },
+    schema: fundingResponseSchema,
+    signal,
+  });
+}
+
+export function getOpenInterest(
+  request: DerivativesRequest,
+  client: ApiClient = apiClient,
+  signal?: AbortSignal,
+): Promise<OpenInterestResponse> {
+  return client.request({
+    path: derivativesPath(request, 'open-interest'),
+    query: { from: request.from, to: request.to, limit: request.limit },
+    schema: openInterestResponseSchema,
     signal,
   });
 }

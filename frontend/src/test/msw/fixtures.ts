@@ -3,9 +3,11 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  fundingResponseSchema,
   healthResponseSchema,
   listBacktestsResponseSchema,
   marketsResponseSchema,
+  openInterestResponseSchema,
   runDetailSchema,
   strategyCatalogSchema,
   tradesResponseSchema,
@@ -13,9 +15,11 @@ import {
   type CoverageResponse,
   type CreateBacktestResponse,
   type EquityResponse,
+  type FundingResponse,
   type HealthResponse,
   type ListBacktestsResponse,
   type MarketsResponse,
+  type OpenInterestResponse,
   type RunDetail,
   type StrategyCatalog,
   type TradesResponse,
@@ -77,6 +81,28 @@ export const candles: CandlesResponse = frozen(candlesResponseSchema, {
     { t: 1_785_001_800_000, o: 64_100.9, h: 64_150.2, l: 64_050.4, c: 64_075.6, v: 11.1 },
   ],
   nextFrom: 1_785_002_700_000,
+});
+
+export const funding: FundingResponse = frozen(fundingResponseSchema, {
+  exchange: 'binance',
+  symbol: 'BTCUSDT',
+  count: 2,
+  funding: [
+    { t: 1_785_000_000_000, rate: 0.0001, intervalHours: 8 },
+    { t: 1_785_028_800_000, rate: -0.00005, intervalHours: 8 },
+  ],
+  nextFrom: null,
+});
+
+export const openInterest: OpenInterestResponse = frozen(openInterestResponseSchema, {
+  exchange: 'binance',
+  symbol: 'BTCUSDT',
+  count: 2,
+  openInterest: [
+    { t: 1_785_000_000_000, base: 81_234.5, quote: 5_203_000_000 },
+    { t: 1_785_003_600_000, base: 81_990.1, quote: null },
+  ],
+  nextFrom: null,
 });
 
 export const strategies: StrategyCatalog = frozen(strategyCatalogSchema, {

@@ -1,5 +1,10 @@
 import type { Exchange, Timeframe } from '@tt/shared';
-import type { CandlesRequest, RunsRequest, TradesRequest } from '@/api/resources';
+import type {
+  CandlesRequest,
+  DerivativesRequest,
+  RunsRequest,
+  TradesRequest,
+} from '@/api/resources';
 
 export const queryKeys = {
   health: () => ['health'] as const,
@@ -18,6 +23,17 @@ export const queryKeys = {
       request?.exchange ?? null,
       request?.symbol ?? null,
       request?.timeframe ?? null,
+      request?.from ?? null,
+      request?.to ?? null,
+      request?.limit ?? null,
+    ] as const,
+
+  derivatives: (resource: 'funding' | 'open-interest', request: DerivativesRequest | undefined) =>
+    [
+      'derivatives',
+      resource,
+      request?.exchange ?? null,
+      request?.symbol ?? null,
       request?.from ?? null,
       request?.to ?? null,
       request?.limit ?? null,

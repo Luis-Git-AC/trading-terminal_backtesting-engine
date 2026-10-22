@@ -7,9 +7,11 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  fundingResponseSchema,
   healthResponseSchema,
   listBacktestsResponseSchema,
   marketsResponseSchema,
+  openInterestResponseSchema,
   runDetailSchema,
   runEventSchema,
   strategyCatalogSchema,
@@ -24,6 +26,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z, type ZodType } from 'zod';
 import { runMigrations } from '../db/migrate.js';
 import { createCandlesRepository, type CandlesRepository } from '../db/repositories/candles.repo.js';
+import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import {
   createRunsRepository,
@@ -38,6 +41,7 @@ import { createQueueConnection } from '../queue/connection.js';
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { backtestsRouter } from './routes/backtests.js';
 import { candlesRouter } from './routes/candles.js';
+import { derivativesRouter } from './routes/derivatives.js';
 import { marketsRouter } from './routes/markets.js';
 import { strategiesRouter } from './routes/strategies.js';
 import { streamRouter } from './routes/stream.js';
@@ -166,6 +170,20 @@ describe('contrato del API (docs/03)', () => {
       candles: Array.from({ length: BARS }, (_, index) => makeCandle(index)),
     });
 
+    const derivatives = createDerivativesRepository(db.pool);
+    await derivatives.upsertFundingRates({
+      exchange: 'binance',
+      symbol: SYMBOL,
+      source: 'rest',
+      rates: [{ t: START, rate: 1 / 10_000, intervalHours: 8 }],
+    });
+    await derivatives.upsertOpenInterest({
+      exchange: 'binance',
+      symbol: SYMBOL,
+      source: 'rest',
+      points: [{ t: START, base: 1_000, quote: null }],
+    });
+
     const marketDeps = {
       candles,
       ingestState: createIngestStateRepository(db.pool),
@@ -186,6 +204,7 @@ describe('contrato del API (docs/03)', () => {
       registerRoutes: (router) => {
         router.use(marketsRouter(marketDeps));
         router.use(candlesRouter({ ...marketDeps, markets: marketDeps }));
+        router.use(derivativesRouter({ derivatives, markets: marketDeps, now: () => NOW }));
         router.use(strategiesRouter());
         router.use(
           backtestsRouter({
@@ -320,6 +339,26 @@ describe('contrato del API (docs/03)', () => {
       expect(response.status).toBe(200);
       const body = assertContract(candlesResponseSchema, response.body);
       expect(body.count).toBe(10);
+    });
+
+    it('GET /api/derivatives/:exchange/:symbol/funding', async () => {
+      const response = await request(app).get(
+        `/api/derivatives/binance/${SYMBOL}/funding?from=${START}`,
+      );
+
+      expect(response.status).toBe(200);
+      const body = assertContract(fundingResponseSchema, response.body);
+      expect(body.count).toBe(1);
+    });
+
+    it('GET /api/derivatives/:exchange/:symbol/open-interest', async () => {
+      const response = await request(app).get(
+        `/api/derivatives/binance/${SYMBOL}/open-interest?from=${START}`,
+      );
+
+      expect(response.status).toBe(200);
+      const body = assertContract(openInterestResponseSchema, response.body);
+      expect(body.openInterest[0]?.quote).toBeNull();
     });
 
     it('GET /api/strategies', async () => {

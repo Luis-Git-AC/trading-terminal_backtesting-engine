@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import type { BacktestTrade } from '@tt/shared';
+import { timeframeToMs, type BacktestTrade } from '@tt/shared';
 import { CandleChart } from '@/components/Chart/CandleChart';
+import { DerivativesPanel } from '@/components/Chart/DerivativesPanel';
 import { EmptyState } from '@/components/Feedback/EmptyState';
 import { ErrorState } from '@/components/Feedback/ErrorState';
 import { Skeleton } from '@/components/Feedback/Skeleton';
@@ -57,6 +58,14 @@ export function Terminal() {
     },
     [publishPrice],
   );
+
+  // Funding y OI se piden en la misma ventana que las velas cargadas: mismo eje temporal.
+  const first = candles[0];
+  const last = candles.at(-1);
+  const range =
+    first === undefined || last === undefined
+      ? undefined
+      : { from: first.t, to: last.t + timeframeToMs(timeframe) };
 
   const createBacktest = useCreateBacktest();
   const run = useRun(runId);
@@ -155,6 +164,16 @@ export function Terminal() {
               }
               onConnectionChange={setCandleStream}
             />
+          )}
+        </div>
+      </Panel>
+
+      <Panel title="Funding y OI" meta={symbol} className={styles.derivatives} scroll={false}>
+        <div className={styles.derivativesSurface}>
+          {range === undefined ? (
+            <EmptyState centered title="Elige una serie con velas para ver funding y OI" />
+          ) : (
+            <DerivativesPanel exchange={exchange} symbol={symbol} from={range.from} to={range.to} />
           )}
         </div>
       </Panel>

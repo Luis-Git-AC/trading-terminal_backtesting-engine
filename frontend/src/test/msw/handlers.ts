@@ -41,6 +41,22 @@ export const handlers: HttpHandler[] = [
     });
   }),
 
+  http.get(url('/derivatives/:exchange/:symbol/funding'), ({ params }) =>
+    HttpResponse.json({
+      ...fixtures.funding,
+      exchange: String(params.exchange),
+      symbol: String(params.symbol),
+    }),
+  ),
+
+  http.get(url('/derivatives/:exchange/:symbol/open-interest'), ({ params }) =>
+    HttpResponse.json({
+      ...fixtures.openInterest,
+      exchange: String(params.exchange),
+      symbol: String(params.symbol),
+    }),
+  ),
+
   http.get(url('/strategies'), () => HttpResponse.json(fixtures.strategies)),
 
   http.post(url('/backtests'), () => HttpResponse.json(fixtures.created, { status: 202 })),

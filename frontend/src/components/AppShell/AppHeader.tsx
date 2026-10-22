@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router';
-import { isExchange } from '@tt/shared';
+import { ASSET_CLASSES, assetClassOf, isExchange, type AssetClass } from '@tt/shared';
 import { BrandMark } from '@/components/AppShell/BrandMark';
 import { ThemeIcon } from '@/components/AppShell/ThemeIcon';
 import { ConnectionBadge } from '@/components/ConnectionBadge/ConnectionBadge';
@@ -8,6 +8,22 @@ import { cx } from '@/lib/cx';
 import { useMarketSelection } from '@/state/market-selection';
 import { THEME_PREFERENCES, useTheme, type ThemePreference } from '@/state/theme';
 import styles from './AppHeader.module.css';
+
+const ASSET_CLASS_LABEL: Record<AssetClass, string> = {
+  crypto: 'Crypto',
+  metals: 'Metales',
+  energy: 'Energia',
+};
+
+/** Agrupa para que el oro y el petroleo no se pierdan en la lista de pares. */
+export function groupByAssetClass(
+  symbols: readonly string[],
+): readonly { readonly assetClass: AssetClass; readonly symbols: readonly string[] }[] {
+  return ASSET_CLASSES.map((assetClass) => ({
+    assetClass,
+    symbols: symbols.filter((symbol) => assetClassOf(symbol) === assetClass),
+  })).filter((group) => group.symbols.length > 0);
+}
 
 const THEME_LABEL: Record<ThemePreference, string> = {
   system: 'Sistema',
@@ -117,10 +133,14 @@ export function AppHeader() {
               setSymbol(event.target.value);
             }}
           >
-            {symbols.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+            {groupByAssetClass(symbols).map((group) => (
+              <optgroup key={group.assetClass} label={ASSET_CLASS_LABEL[group.assetClass]}>
+                {group.symbols.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </label>

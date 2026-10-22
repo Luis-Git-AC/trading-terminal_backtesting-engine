@@ -8,12 +8,14 @@ import { createApiApp, type ApiDeps } from '../api/server.js';
 import { createBacktestRateLimit, type RateLimitOptions } from '../api/middleware/rate-limit.js';
 import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
+import { derivativesRouter } from '../api/routes/derivatives.js';
 import { marketsRouter } from '../api/routes/markets.js';
 import { strategiesRouter } from '../api/routes/strategies.js';
 import { streamRouter } from '../api/routes/stream.js';
 import { createSseHub } from '../api/sse/hub.js';
 import { createRedisCache } from '../api/services/cache.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
+import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import { createRunsRepository } from '../db/repositories/runs.repo.js';
 import { createBacktestQueue } from '../queue/backtest.queue.js';
@@ -75,6 +77,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
   const startedAt = Date.now();
 
   const candles = createCandlesRepository(pool);
+  const derivatives = createDerivativesRepository(pool);
   const ingestState = createIngestStateRepository(pool);
   const runs = createRunsRepository(pool);
   const cache = createRedisCache(redis);
@@ -106,6 +109,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
     registerRoutes: (router) => {
       router.use(marketsRouter(marketDeps));
       router.use(candlesRouter({ ...marketDeps, markets: marketDeps }));
+      router.use(derivativesRouter({ derivatives, markets: marketDeps }));
       router.use(strategiesRouter());
       router.use(
         backtestsRouter(
