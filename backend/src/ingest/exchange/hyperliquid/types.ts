@@ -51,3 +51,41 @@ export function candleSnapshotBody(
     req: { coin, interval: toInterval(timeframe), startTime, endTime },
   });
 }
+
+/** El funding de Hyperliquid se liquida cada hora. */
+export const HYPERLIQUID_FUNDING_INTERVAL_HOURS = 1;
+
+export const hyperliquidFundingRowSchema = z.object({
+  coin: z.string(),
+  fundingRate: z.string(),
+  time: z.number(),
+});
+
+/** El `ctx` de un activo: lo mismo que manda el WS en `activeAssetCtx` y el REST en `metaAndAssetCtxs`. */
+export const hyperliquidAssetCtxSchema = z.object({
+  funding: z.string(),
+  openInterest: z.string(),
+  markPx: z.string().optional(),
+  oraclePx: z.string().optional(),
+});
+
+export type HyperliquidAssetCtx = z.infer<typeof hyperliquidAssetCtxSchema>;
+
+export function fundingHistoryBody(coin: string, startTime: number, endTime?: number): string {
+  return JSON.stringify({
+    type: 'fundingHistory',
+    coin,
+    startTime,
+    ...(endTime === undefined ? {} : { endTime }),
+  });
+}
+
+export function metaAndAssetCtxsBody(dex?: string): string {
+  return JSON.stringify({ type: 'metaAndAssetCtxs', ...(dex === undefined ? {} : { dex }) });
+}
+
+/** Los mercados HIP-3 llevan prefijo de dex en minusculas: `xyz:GOLD`. */
+export function dexOf(coin: string): string | undefined {
+  const colon = coin.indexOf(':');
+  return colon === -1 ? undefined : coin.slice(0, colon);
+}

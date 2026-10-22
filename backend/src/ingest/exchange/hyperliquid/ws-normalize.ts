@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import type { Timeframe } from '@tt/shared';
-import { fromInterval, hyperliquidCandleSchema, toInterval } from './types.js';
+import {
+  fromInterval,
+  hyperliquidAssetCtxSchema,
+  hyperliquidCandleSchema,
+  toInterval,
+} from './types.js';
 
 export const HYPERLIQUID_WS_DEFAULT_URL = 'wss://api.hyperliquid.xyz/ws';
 export const HYPERLIQUID_WS_PING = JSON.stringify({ method: 'ping' });
@@ -25,9 +30,13 @@ const subscriptionResponseSchema = z.object({
 
 const candleDataSchema = hyperliquidCandleSchema.extend({ s: z.string(), i: z.string() });
 
+const assetCtxDataSchema = z.object({ coin: z.string(), ctx: hyperliquidAssetCtxSchema });
+
 export type ParsedWsMessage =
   | { kind: 'pong' }
   | { kind: 'subscribed'; symbol: string; timeframe: Timeframe }
+  | { kind: 'subscribed-ctx'; symbol: string }
+  | { kind: 'asset-ctx'; symbol: string; funding: number; openInterest: number }
   | { kind: 'error'; message: string }
   | { kind: 'candle'; symbol: string; timeframe: Timeframe; row: unknown }
   | { kind: 'unparsable'; detail: string };
@@ -57,6 +66,9 @@ export function parseHyperliquidWsMessage(text: string): ParsedWsMessage {
 
   if (envelope.data.channel === 'subscriptionResponse') {
     const response = subscriptionResponseSchema.safeParse(envelope.data.data);
+    if (response.success && response.data.subscription.type === 'activeAssetCtx') {
+      return { kind: 'subscribed-ctx', symbol: response.data.subscription.coin };
+    }
     const interval = response.success ? response.data.subscription.interval : undefined;
     const timeframe = interval === undefined ? undefined : fromInterval(interval);
     if (!response.success || timeframe === undefined) {
@@ -66,6 +78,21 @@ export function parseHyperliquidWsMessage(text: string): ParsedWsMessage {
       };
     }
     return { kind: 'subscribed', symbol: response.data.subscription.coin, timeframe };
+  }
+
+  if (envelope.data.channel === 'activeAssetCtx') {
+    const ctx = assetCtxDataSchema.safeParse(envelope.data.data);
+    if (!ctx.success) {
+      return { kind: 'unparsable', detail: `activeAssetCtx con forma inesperada: ${preview(text)}` };
+    }
+
+    const funding = Number(ctx.data.ctx.funding);
+    const openInterest = Number(ctx.data.ctx.openInterest);
+    if (!Number.isFinite(funding) || !Number.isFinite(openInterest)) {
+      return { kind: 'unparsable', detail: `activeAssetCtx no numerico: ${preview(text)}` };
+    }
+
+    return { kind: 'asset-ctx', symbol: ctx.data.coin, funding, openInterest };
   }
 
   if (envelope.data.channel !== 'candle') {
@@ -96,5 +123,16 @@ export function buildUnsubscribeMessage(symbol: string, timeframe: Timeframe): s
   return JSON.stringify({
     method: 'unsubscribe',
     subscription: { type: 'candle', coin: symbol, interval: toInterval(timeframe) },
+  });
+}
+
+export function buildAssetCtxSubscribeMessage(symbol: string): string {
+  return JSON.stringify({ method: 'subscribe', subscription: { type: 'activeAssetCtx', coin: symbol } });
+}
+
+export function buildAssetCtxUnsubscribeMessage(symbol: string): string {
+  return JSON.stringify({
+    method: 'unsubscribe',
+    subscription: { type: 'activeAssetCtx', coin: symbol },
   });
 }

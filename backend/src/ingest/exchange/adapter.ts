@@ -103,6 +103,9 @@ export type ExchangeStreamEvent =
   | { kind: 'rejected'; arg: unknown; code: string; message: string }
   | { kind: 'discarded'; symbol: string; timeframe: Timeframe; rows: readonly DiscardedRow[] }
   | { kind: 'protocol'; detail: string }
+  /** Funding en curso y open interest vivos. Sin `ts` del exchange: el frame no lo trae. */
+  | { kind: 'assetCtx'; symbol: string; funding: number; openInterest: number }
+  | { kind: 'subscribedCtx'; symbol: string }
   | { kind: 'socket'; event: ResilientSocketEvent };
 
 export type ExchangeStreamListener = (event: ExchangeStreamEvent) => void;
@@ -126,6 +129,8 @@ export interface ExchangeCandleStream {
   connect(): void;
   subscribe(symbol: string, timeframe: Timeframe): void;
   unsubscribe(symbol: string, timeframe: Timeframe): void;
+  /** Ausente mientras el exchange no mande funding ni OI por el socket (Binance no lo hace). */
+  subscribeAssetCtx?(symbol: string): void;
   flushExpired(nowMs?: number): void;
   close(): Promise<void>;
 }

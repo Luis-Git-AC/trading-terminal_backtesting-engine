@@ -1,0 +1,38 @@
+[
+  {
+    "coin": "BTC",
+    "fundingRate": "0.0000125",
+    "premium": "-0.0001918266",
+    "time": 1792454400021
+  },
+  {
+    "coin": "BTC",
+    "fundingRate": "0.0000125",
+    "premium": "-0.0002190564",
+    "time": 1792458000051
+  },
+  {
+    "coin": "BTC",
+    "fundingRate": "0.0000125",
+    "premium": "-0.0002610653",
+    "time": 1792461600017
+  },
+  {
+    "coin": "BTC",
+    "fundingRate": "0.0000125",
+    "premium": "-0.0002091585",
+    "time": 1792465200036
+  },
+  {
+    "coin": "BTC",
+    "fundingRate": "0.0000125",
+    "premium": "-0.000191752",
+    "time": 1792468800083
+  },
+  {
+    "coin": "BTC",
+    "fundingRate": "0.0000125",
+    "premium": "-0.000175886",
+    "time": 1792472400019
+  }
+]

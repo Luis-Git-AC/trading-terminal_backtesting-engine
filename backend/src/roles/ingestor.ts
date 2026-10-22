@@ -10,6 +10,7 @@ import type {
   ExchangeDerivativesClient,
 } from '../ingest/exchange/adapter.js';
 import { collectDerivatives } from '../ingest/derivatives-collector.js';
+import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
 import { fillGaps } from '../ingest/gap-filler.js';
 import { getIngestHealth, type SeriesHealth } from '../ingest/health.js';
 import { scanGaps, DEFAULT_GAP_SCAN_WINDOW_MS } from '../ingest/gap-scanner.js';
@@ -23,6 +24,8 @@ export const DEFAULT_METRICS_INTERVAL_MS = 60_000;
 export const DEFAULT_RATE_WINDOW_MS = 5 * 60_000;
 export const DEFAULT_SHUTDOWN_TIMEOUT_MS = 15_000;
 export const DEFAULT_SIGNALS = ['SIGTERM', 'SIGINT'] as const;
+/** El `activeAssetCtx` de Hyperliquid llega ~1 vez por segundo y por mercado: el OI vivo se guarda a este ritmo. */
+export const DEFAULT_LIVE_OI_INTERVAL_MS = 60_000;
 
 export interface IngestorSeries {
   symbol: string;
@@ -48,6 +51,7 @@ export interface IngestorOptions {
   gapScanWindowMs?: number;
   derivativesCron?: string | undefined;
   derivativesLookbackMs?: number | undefined;
+  liveOpenInterestIntervalMs?: number | undefined;
   reconcilePageLimit?: number | undefined;
   reconcileMaxPages?: number | undefined;
   metricsIntervalMs?: number;
@@ -166,6 +170,9 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
   const state = createIngestStateRepository(pool);
   const gaps = createGapsRepository(pool);
   const candlesRepo = createCandlesRepository(pool);
+  const derivativesRepo = createDerivativesRepository(pool);
+  const liveOiIntervalMs = options.liveOpenInterestIntervalMs ?? DEFAULT_LIVE_OI_INTERVAL_MS;
+  const lastLiveOiAt = new Map<string, number>();
   const handlers = new Map<NodeJS.Signals, () => void>();
 
   let stopping: Promise<void> | undefined;
@@ -393,6 +400,36 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
         );
         return;
       }
+      if (streamEvent.kind === 'subscribedCtx') {
+        logger.info(
+          { exchange: config.exchange, symbol: streamEvent.symbol },
+          'suscripcion de funding y OI confirmada',
+        );
+        return;
+      }
+      if (streamEvent.kind === 'assetCtx') {
+        const key = `${config.exchange}|${streamEvent.symbol}`;
+        const at = now();
+        const last = lastLiveOiAt.get(key);
+        if (last !== undefined && at - last < liveOiIntervalMs) return;
+
+        lastLiveOiAt.set(key, at);
+        void derivativesRepo
+          .upsertOpenInterest({
+            exchange: config.exchange,
+            symbol: streamEvent.symbol,
+            source: 'ws',
+            points: [{ t: at, base: streamEvent.openInterest, quote: null }],
+          })
+          .catch((error: unknown) => {
+            lastLiveOiAt.delete(key);
+            logger.warn(
+              { exchange: config.exchange, symbol: streamEvent.symbol, err: error },
+              'no se pudo guardar el open interest vivo',
+            );
+          });
+        return;
+      }
       if (streamEvent.kind === 'protocol') {
         logger.warn(
           { exchange: config.exchange, detail: streamEvent.detail },
@@ -576,7 +613,16 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
 
   for (const runtime of runtimes) await reconcileExchange(runtime, 'arranque');
 
-  for (const runtime of runtimes) runtime.ingestor.start();
+  for (const runtime of runtimes) {
+    runtime.ingestor.start();
+
+    const subscribeCtx = runtime.stream.subscribeAssetCtx?.bind(runtime.stream);
+    if (subscribeCtx !== undefined) {
+      for (const symbol of new Set(runtime.config.series.map((item) => item.symbol))) {
+        subscribeCtx(symbol);
+      }
+    }
+  }
 
   for (const signal of signals) {
     const handler = (): void => {

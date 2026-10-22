@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { timeframeToMs, type IngestCandle } from '@tt/shared';
-import { createRateLimiter, sleep } from '../../rate-limiter.js';
+import { createRateLimiter, sleep, type RateLimiter } from '../../rate-limiter.js';
 import type {
   ExchangeRestClient,
   ExchangeRestClientOptions,
@@ -71,9 +71,15 @@ export function splitRange(
   return chunks;
 }
 
-export function createHyperliquidRestClient(
+export interface HyperliquidRequester {
+  readonly limiter: RateLimiter;
+  readonly request: (body: string) => Promise<unknown>;
+}
+
+/** El POST a `/info` con su reintento y backoff, que comparten velas y derivados. */
+export function createHyperliquidRequester(
   options: ExchangeRestClientOptions = {},
-): ExchangeRestClient {
+): HyperliquidRequester {
   const baseUrl = options.baseUrl ?? HYPERLIQUID_DEFAULT_BASE_URL;
   const maxAttempts = Math.max(1, options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
   const doFetch =
@@ -135,6 +141,15 @@ export function createHyperliquidRestClient(
       { attempts: maxAttempts, status: lastStatus, retryable: true, cause: lastCause },
     );
   }
+
+  return { limiter, request };
+}
+
+export function createHyperliquidRestClient(
+  options: ExchangeRestClientOptions = {},
+): ExchangeRestClient {
+  const log = options.log ?? ((): void => undefined);
+  const { limiter, request } = createHyperliquidRequester(options);
 
   return {
     limiter,

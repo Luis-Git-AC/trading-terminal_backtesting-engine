@@ -1,0 +1,29 @@
+[
+  {
+    "universe": [
+      {
+        "szDecimals": 5,
+        "name": "BTC",
+        "maxLeverage": 40,
+        "marginTableId": 56
+      }
+    ]
+  },
+  [
+    {
+      "funding": "0.0000125",
+      "openInterest": "43446.6771",
+      "prevDayPx": "84494.0",
+      "dayNtlVlm": "3579534609.5562119484",
+      "premium": "0.0000073758",
+      "oraclePx": "81347.4",
+      "markPx": "81342.8",
+      "midPx": "81348.5",
+      "impactPxs": [
+        "81348.0",
+        "81349.0"
+      ],
+      "dayBaseVlm": "43433.17322"
+    }
+  ]
+]

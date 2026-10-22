@@ -20,6 +20,7 @@ import {
   HYPERLIQUID_WS_PING,
   HYPERLIQUID_WS_PING_INTERVAL_MS,
   HYPERLIQUID_WS_PING_MAX_MS,
+  buildAssetCtxSubscribeMessage,
   buildSubscribeMessage,
   buildUnsubscribeMessage,
   parseHyperliquidWsMessage,
@@ -132,6 +133,21 @@ export function createHyperliquidCandleStream(
       return;
     }
 
+    if (parsed.kind === 'subscribed-ctx') {
+      emit({ kind: 'subscribedCtx', symbol: parsed.symbol });
+      return;
+    }
+
+    if (parsed.kind === 'asset-ctx') {
+      emit({
+        kind: 'assetCtx',
+        symbol: parsed.symbol,
+        funding: parsed.funding,
+        openInterest: parsed.openInterest,
+      });
+      return;
+    }
+
     if (parsed.kind === 'error') {
       emit({ kind: 'rejected', arg: null, code: 'error', message: parsed.message });
       return;
@@ -173,6 +189,11 @@ export function createHyperliquidCandleStream(
     subscribe(symbol, timeframe) {
       stateFor(symbol, timeframe);
       socket.subscribe(seriesKey(symbol, timeframe), buildSubscribeMessage(symbol, timeframe));
+    },
+
+    subscribeAssetCtx(symbol) {
+      // Va por el mismo socket que las velas: la suscripcion es otro mensaje, no otra conexion.
+      socket.subscribe(`ctx|${symbol}`, buildAssetCtxSubscribeMessage(symbol));
     },
 
     unsubscribe(symbol, timeframe) {

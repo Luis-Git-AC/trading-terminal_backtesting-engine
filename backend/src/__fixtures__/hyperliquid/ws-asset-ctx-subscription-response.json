@@ -1,0 +1,7 @@
+{
+  "channel": "subscriptionResponse",
+  "data": {
+    "method": "subscribe",
+    "subscription": { "type": "activeAssetCtx", "coin": "BTC" }
+  }
+}
