@@ -55,7 +55,7 @@ describe('Runs', () => {
 
     const row = await rowFor(ID_A);
     expect(within(row).getByText('ema-cross')).toBeDefined();
-    expect(within(row).getByText('BTCUSDT 15m')).toBeDefined();
+    expect(within(row).getByText('binance BTCUSDT 15m')).toBeDefined();
     expect(within(row).getByText('42')).toBeDefined();
     expect(within(row).getByText('Completado')).toBeDefined();
   });

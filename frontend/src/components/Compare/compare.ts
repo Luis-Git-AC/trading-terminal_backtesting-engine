@@ -77,6 +77,13 @@ export function mismatchWarnings(runs: readonly RunSummary[]): string[] {
 
   const warnings: string[] = [];
 
+  const exchanges = uniqueValues(runs.map((run) => run.exchange));
+  if (exchanges.length > 1) {
+    warnings.push(
+      `Exchanges distintos (${exchanges.join(', ')}): cada run ha visto su propia serie de velas.`,
+    );
+  }
+
   const symbols = uniqueValues(runs.map((run) => run.symbol));
   if (symbols.length > 1) {
     warnings.push(`Simbolos distintos (${symbols.join(', ')}): las cifras no son comparables.`);

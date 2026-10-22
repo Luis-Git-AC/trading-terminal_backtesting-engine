@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Candle, Timeframe } from '@tt/shared';
+import type { Candle, Exchange, Timeframe } from '@tt/shared';
 import { candleStreamUrl, type SseConnectionCtor } from '@/api/event-source';
 import { candlePayloadSchema, type CandlePayload } from '@/api/sse-events';
 import { sseEvent, useEventSource, type ConnectionState } from '@/hooks/useEventSource';
@@ -21,6 +21,7 @@ export interface UseLiveCandlesOptions {
 }
 
 export function useLiveCandles(
+  exchange: Exchange | undefined,
   symbol: string | undefined,
   timeframe: Timeframe | undefined,
   options: UseLiveCandlesOptions = {},
@@ -28,8 +29,8 @@ export function useLiveCandles(
   const [forming, setForming] = useState<Candle | undefined>(undefined);
   const [lastClosed, setLastClosed] = useState<Candle | undefined>(undefined);
 
-  const [tracked, setTracked] = useState(`${symbol ?? ''}:${timeframe ?? ''}`);
-  const series = `${symbol ?? ''}:${timeframe ?? ''}`;
+  const [tracked, setTracked] = useState(`${exchange ?? ''}:${symbol ?? ''}:${timeframe ?? ''}`);
+  const series = `${exchange ?? ''}:${symbol ?? ''}:${timeframe ?? ''}`;
 
   if (tracked !== series) {
     setTracked(series);
@@ -55,9 +56,9 @@ export function useLiveCandles(
   };
 
   const url =
-    symbol === undefined || timeframe === undefined
+    exchange === undefined || symbol === undefined || timeframe === undefined
       ? undefined
-      : candleStreamUrl(symbol, timeframe);
+      : candleStreamUrl(exchange, symbol, timeframe);
 
   const { connectionState } = useEventSource(url, handlers, {
     enabled: options.enabled ?? true,

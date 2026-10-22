@@ -16,7 +16,7 @@ function tick(overrides: Partial<Candle> & { closed: boolean }) {
 
 describe('useLiveCandles', () => {
   it('abre el stream de velas con simbolo y timeframe en la query', () => {
-    renderHook(() => useLiveCandles('BTCUSDT', '1m', { ctor: FakeEventSource }));
+    renderHook(() => useLiveCandles('binance', 'BTCUSDT', '1m', { ctor: FakeEventSource }));
 
     const url = FakeEventSource.last().url;
     expect(url).toContain('/api/stream/candles');
@@ -25,7 +25,7 @@ describe('useLiveCandles', () => {
   });
 
   it('una vela en formacion actualiza forming y no toca lastClosed', async () => {
-    const { result } = renderHook(() => useLiveCandles('BTCUSDT', '1m', { ctor: FakeEventSource }));
+    const { result } = renderHook(() => useLiveCandles('binance', 'BTCUSDT', '1m', { ctor: FakeEventSource }));
 
     act(() => {
       FakeEventSource.last().emit('candle', tick({ closed: false, c: 101 }));
@@ -45,7 +45,7 @@ describe('useLiveCandles', () => {
   });
 
   it('una vela cerrada pasa a lastClosed y limpia la que se estaba formando', async () => {
-    const { result } = renderHook(() => useLiveCandles('BTCUSDT', '1m', { ctor: FakeEventSource }));
+    const { result } = renderHook(() => useLiveCandles('binance', 'BTCUSDT', '1m', { ctor: FakeEventSource }));
 
     act(() => {
       FakeEventSource.last().emit('candle', tick({ closed: false, c: 101 }));
@@ -64,7 +64,7 @@ describe('useLiveCandles', () => {
     const seen: [number, boolean][] = [];
 
     renderHook(() =>
-      useLiveCandles('BTCUSDT', '1m', {
+      useLiveCandles('binance', 'BTCUSDT', '1m', {
         ctor: FakeEventSource,
         onTick: (candle, closed) => seen.push([candle.c, closed]),
       }),
@@ -87,7 +87,7 @@ describe('useLiveCandles', () => {
     const seen: Candle[] = [];
 
     renderHook(() =>
-      useLiveCandles('BTCUSDT', '1m', {
+      useLiveCandles('binance', 'BTCUSDT', '1m', {
         ctor: FakeEventSource,
         onTick: (candle) => seen.push(candle),
       }),
@@ -102,7 +102,7 @@ describe('useLiveCandles', () => {
   });
 
   it('un tick que no cumple el esquema se descarta sin romper el estado', async () => {
-    const { result } = renderHook(() => useLiveCandles('BTCUSDT', '1m', { ctor: FakeEventSource }));
+    const { result } = renderHook(() => useLiveCandles('binance', 'BTCUSDT', '1m', { ctor: FakeEventSource }));
 
     act(() => {
       FakeEventSource.last().emit('candle', tick({ closed: false, c: 101 }));
@@ -119,8 +119,8 @@ describe('useLiveCandles', () => {
   });
 
   it('sin simbolo o timeframe no abre nada', () => {
-    renderHook(() => useLiveCandles(undefined, '1m', { ctor: FakeEventSource }));
-    renderHook(() => useLiveCandles('BTCUSDT', undefined, { ctor: FakeEventSource }));
+    renderHook(() => useLiveCandles('binance', undefined, '1m', { ctor: FakeEventSource }));
+    renderHook(() => useLiveCandles('binance', 'BTCUSDT', undefined, { ctor: FakeEventSource }));
 
     expect(FakeEventSource.openCount).toBe(0);
   });
@@ -128,7 +128,7 @@ describe('useLiveCandles', () => {
   it('cambiar de serie cierra el stream anterior y limpia el estado', async () => {
     const { result, rerender } = renderHook(
       ({ timeframe }: { timeframe: '1m' | '15m' }) =>
-        useLiveCandles('BTCUSDT', timeframe, { ctor: FakeEventSource }),
+        useLiveCandles('binance', 'BTCUSDT', timeframe, { ctor: FakeEventSource }),
       { initialProps: { timeframe: '1m' } },
     );
 
@@ -149,7 +149,7 @@ describe('useLiveCandles', () => {
 
   it('desmontar cierra el stream', () => {
     const { unmount } = renderHook(() =>
-      useLiveCandles('BTCUSDT', '1m', { ctor: FakeEventSource }),
+      useLiveCandles('binance', 'BTCUSDT', '1m', { ctor: FakeEventSource }),
     );
 
     const connection = FakeEventSource.last();

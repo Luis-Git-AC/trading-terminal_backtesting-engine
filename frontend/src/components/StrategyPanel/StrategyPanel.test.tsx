@@ -45,7 +45,7 @@ const CATALOG = {
 function renderPanel(onSubmit: (body: CreateBacktestBody) => void = vi.fn()) {
   server.use(
     http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-    http.get(`${API_BASE}/api/markets/:symbol/coverage`, () =>
+    http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, () =>
       HttpResponse.json({
         ...fixtures.coverage,
         from: '2026-01-01T00:00:00.000Z',
@@ -57,7 +57,7 @@ function renderPanel(onSubmit: (body: CreateBacktestBody) => void = vi.fn()) {
 
   return render(
     <QueryClientProvider client={silentQueryClient()}>
-      <StrategyPanel symbol="BTCUSDT" timeframe="15m" onSubmit={onSubmit} />
+      <StrategyPanel exchange="binance" symbol="BTCUSDT" timeframe="15m" onSubmit={onSubmit} />
     </QueryClientProvider>,
   );
 }
@@ -225,7 +225,7 @@ describe('StrategyPanel', () => {
   function renderWithEmptyCoverage() {
     server.use(
       http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, ({ request }) => {
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, ({ request }) => {
         const timeframe = new URL(request.url).searchParams.get('timeframe');
         return HttpResponse.json({
           ...fixtures.coverage,
@@ -243,7 +243,7 @@ describe('StrategyPanel', () => {
 
     return render(
       <QueryClientProvider client={silentQueryClient()}>
-        <StrategyPanel symbol="SOLUSDT" timeframe="1m" onSubmit={vi.fn()} />
+        <StrategyPanel exchange="binance" symbol="SOLUSDT" timeframe="1m" onSubmit={vi.fn()} />
       </QueryClientProvider>,
     );
   }
@@ -262,7 +262,7 @@ describe('StrategyPanel', () => {
   function renderWithCoverageByTimeframe() {
     server.use(
       http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, ({ request }) => {
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, ({ request }) => {
         const timeframe = new URL(request.url).searchParams.get('timeframe');
         return HttpResponse.json({
           ...fixtures.coverage,
@@ -277,7 +277,7 @@ describe('StrategyPanel', () => {
     const client = silentQueryClient();
     const panelFor = (timeframe: '1m' | '15m') => (
       <QueryClientProvider client={client}>
-        <StrategyPanel symbol="BTCUSDT" timeframe={timeframe} onSubmit={vi.fn()} />
+        <StrategyPanel exchange="binance" symbol="BTCUSDT" timeframe={timeframe} onSubmit={vi.fn()} />
       </QueryClientProvider>
     );
 
@@ -381,7 +381,7 @@ describe('StrategyPanel', () => {
   it('un hueco de datos en el rango avisa sin bloquear', async () => {
     server.use(
       http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, () =>
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, () =>
         HttpResponse.json({
           ...fixtures.coverage,
           from: '2026-01-01T00:00:00.000Z',
@@ -395,7 +395,7 @@ describe('StrategyPanel', () => {
 
     render(
       <QueryClientProvider client={silentQueryClient()}>
-        <StrategyPanel symbol="BTCUSDT" timeframe="15m" onSubmit={vi.fn()} />
+        <StrategyPanel exchange="binance" symbol="BTCUSDT" timeframe="15m" onSubmit={vi.fn()} />
       </QueryClientProvider>,
     );
     await waitForForm();
@@ -413,7 +413,7 @@ describe('StrategyPanel', () => {
 
     render(
       <QueryClientProvider client={silentQueryClient()}>
-        <StrategyPanel symbol="BTCUSDT" timeframe="15m" onSubmit={vi.fn()} />
+        <StrategyPanel exchange="binance" symbol="BTCUSDT" timeframe="15m" onSubmit={vi.fn()} />
       </QueryClientProvider>,
     );
 
@@ -428,7 +428,7 @@ describe('StrategyPanel', () => {
 
     server.use(
       http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, () =>
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, () =>
         HttpResponse.json({
           ...fixtures.coverage,
           from: '2026-01-01T00:00:00.000Z',
@@ -456,7 +456,7 @@ describe('StrategyPanel', () => {
 
     render(
       <QueryClientProvider client={silentQueryClient()}>
-        <StrategyPanel symbol="BTCUSDT" timeframe="15m" onSubmit={onSubmit} preset={preset} />
+        <StrategyPanel exchange="binance" symbol="BTCUSDT" timeframe="15m" onSubmit={onSubmit} preset={preset} />
       </QueryClientProvider>,
     );
 
@@ -497,7 +497,7 @@ describe('StrategyPanel', () => {
 
     server.use(
       http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, () =>
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, () =>
         HttpResponse.json({
           ...fixtures.coverage,
           from: '2026-01-01T00:00:00.000Z',
@@ -510,6 +510,7 @@ describe('StrategyPanel', () => {
     render(
       <QueryClientProvider client={silentQueryClient()}>
         <StrategyPanel
+          exchange="binance"
           symbol="BTCUSDT"
           timeframe="15m"
           onSubmit={vi.fn()}

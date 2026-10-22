@@ -42,13 +42,13 @@ describe('useCoverage', () => {
   it('no lanza la peticion mientras falte simbolo o timeframe', async () => {
     let requests = 0;
     server.use(
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, () => {
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, () => {
         requests += 1;
         return HttpResponse.json(fixtures.coverage);
       }),
     );
 
-    const { result } = renderHookWithQuery(() => useCoverage(undefined, '15m'));
+    const { result } = renderHookWithQuery(() => useCoverage('binance', undefined, '15m'));
 
     await waitFor(() => {
       expect(result.current.fetchStatus).toBe('idle');
@@ -58,7 +58,7 @@ describe('useCoverage', () => {
   });
 
   it('pide la cobertura del simbolo y timeframe seleccionados', async () => {
-    const { result } = renderHookWithQuery(() => useCoverage('ETHUSDT', '1h'));
+    const { result } = renderHookWithQuery(() => useCoverage('binance', 'ETHUSDT', '1h'));
 
     await waitForSuccess(result);
 
@@ -69,7 +69,7 @@ describe('useCoverage', () => {
   it('cachea por simbolo y timeframe: cambiar de timeframe refetchea', async () => {
     const seen: string[] = [];
     server.use(
-      http.get(`${API_BASE}/api/markets/:symbol/coverage`, ({ request }) => {
+      http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, ({ request }) => {
         const timeframe = new URL(request.url).searchParams.get('timeframe') ?? '';
         seen.push(timeframe);
         return HttpResponse.json({ ...fixtures.coverage, timeframe });
@@ -77,7 +77,7 @@ describe('useCoverage', () => {
     );
 
     const { result, rerender } = renderHookWithQuery(
-      ({ timeframe }: { timeframe: '15m' | '1h' }) => useCoverage('BTCUSDT', timeframe),
+      ({ timeframe }: { timeframe: '15m' | '1h' }) => useCoverage('binance', 'BTCUSDT', timeframe),
       undefined,
       { timeframe: '15m' },
     );

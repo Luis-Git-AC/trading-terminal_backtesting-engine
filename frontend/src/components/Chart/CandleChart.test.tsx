@@ -56,6 +56,7 @@ beforeEach(() => {
 function renderChart(props: Partial<Parameters<typeof CandleChart>[0]> = {}) {
   return render(
     <CandleChart
+      exchange="binance"
       symbol="BTCUSDT"
       timeframe="1m"
       candles={props.candles ?? makeCandles(3)}
@@ -102,6 +103,7 @@ describe('CandleChart', () => {
 
     rerender(
       <CandleChart
+        exchange="binance"
         symbol="BTCUSDT"
         timeframe="1m"
         candles={makeCandles(3)}
@@ -110,14 +112,14 @@ describe('CandleChart', () => {
     );
     expect(primitive.span?.edge).toBe('crimson');
 
-    rerender(<CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(3)} />);
+    rerender(<CandleChart exchange="binance" symbol="BTCUSDT" timeframe="1m" candles={makeCandles(3)} />);
     expect(primitive.span).toBeNull();
   });
 
   it('publica el ultimo cierre de la ventana como precio en vivo', () => {
     render(
       <LivePriceProvider>
-        <CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(3)} />
+        <CandleChart exchange="binance" symbol="BTCUSDT" timeframe="1m" candles={makeCandles(3)} />
         <LivePriceProbe />
       </LivePriceProvider>,
     );
@@ -268,7 +270,7 @@ describe('CandleChart', () => {
 
   it('prepender una pagina desplaza el rango visible para no dar un salto', () => {
     const { rerender } = render(
-      <CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(10, START)} />,
+      <CandleChart exchange="binance" symbol="BTCUSDT" timeframe="1m" candles={makeCandles(10, START)} />,
     );
 
     const chart = fake.lastChart();
@@ -277,6 +279,7 @@ describe('CandleChart', () => {
     const older = makeCandles(5, START - 5 * STEP);
     rerender(
       <CandleChart
+        exchange="binance"
         symbol="BTCUSDT"
         timeframe="1m"
         candles={[...older, ...makeCandles(10, START)]}
@@ -288,13 +291,13 @@ describe('CandleChart', () => {
 
   it('anadir velas nuevas al final no toca el rango visible', () => {
     const { rerender } = render(
-      <CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(10, START)} />,
+      <CandleChart exchange="binance" symbol="BTCUSDT" timeframe="1m" candles={makeCandles(10, START)} />,
     );
 
     const chart = fake.lastChart();
     chart.timeScale().visibleLogicalRange = { from: 0, to: 9 };
 
-    rerender(<CandleChart symbol="BTCUSDT" timeframe="1m" candles={makeCandles(12, START)} />);
+    rerender(<CandleChart exchange="binance" symbol="BTCUSDT" timeframe="1m" candles={makeCandles(12, START)} />);
 
     expect(chart.timeScale().setVisibleLogicalRangeCalls).toEqual([]);
   });

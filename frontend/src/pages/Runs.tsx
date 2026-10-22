@@ -173,7 +173,7 @@ export function Runs() {
                     <td className={styles.mono}>{formatDay(run.timings.createdAt)}</td>
                     <td>{run.strategyId}</td>
                     <td className={styles.mono}>
-                      {run.symbol} {run.timeframe}
+                      {run.exchange} {run.symbol} {run.timeframe}
                     </td>
                     <td className={styles.mono}>
                       {formatDay(run.range.from)} → {formatDay(run.range.to)}

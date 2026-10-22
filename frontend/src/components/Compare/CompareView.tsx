@@ -205,7 +205,7 @@ export function CompareView({ ids }: CompareViewProps) {
                   {runTitle(run)}
                 </span>
                 <span className={styles.runMeta}>
-                  {run.symbol} · {run.timeframe} · seed {run.seed}
+                  {run.exchange} · {run.symbol} · {run.timeframe} · seed {run.seed}
                 </span>
               </th>
             ))}

@@ -26,7 +26,7 @@ const CATALOG = {
 function renderPanel() {
   server.use(
     http.get(`${API_BASE}/api/strategies`, () => HttpResponse.json(CATALOG)),
-    http.get(`${API_BASE}/api/markets/:symbol/coverage`, () =>
+    http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, () =>
       HttpResponse.json({
         ...fixtures.coverage,
         from: '2026-01-01T00:00:00.000Z',
@@ -38,7 +38,7 @@ function renderPanel() {
 
   render(
     <QueryClientProvider client={silentQueryClient()}>
-      <StrategyPanel symbol="BTCUSDT" timeframe="15m" onSubmit={vi.fn()} />
+      <StrategyPanel exchange="binance" symbol="BTCUSDT" timeframe="15m" onSubmit={vi.fn()} />
     </QueryClientProvider>,
   );
 }

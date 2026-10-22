@@ -131,6 +131,11 @@ export function RunProgress({
         </dl>
 
         <div className={styles.identity}>
+          {run.data !== undefined && (
+            <span className={styles.market}>
+              {run.data.exchange} · {run.data.symbol} · {run.data.timeframe}
+            </span>
+          )}
           {run.data?.label !== null && run.data?.label !== undefined && (
             <span className={styles.label}>{run.data.label}</span>
           )}

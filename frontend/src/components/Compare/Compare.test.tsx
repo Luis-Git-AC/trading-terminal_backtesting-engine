@@ -129,6 +129,12 @@ describe('mismatchWarnings', () => {
     expect(mismatchWarnings([runOf(ID_A), runOf(ID_B)])).toEqual([]);
   });
 
+  it('avisa de exchanges distintos', () => {
+    const warnings = mismatchWarnings([runOf(ID_A), runOf(ID_B, { exchange: 'hyperliquid' })]);
+
+    expect(warnings.some((w) => w.includes('Exchanges distintos'))).toBe(true);
+  });
+
   it('avisa de simbolos distintos', () => {
     const warnings = mismatchWarnings([runOf(ID_A), runOf(ID_B, { symbol: 'ETHUSDT' })]);
 

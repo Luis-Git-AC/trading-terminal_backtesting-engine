@@ -27,14 +27,14 @@ export const FOCUS_PAD_MS = 30 * 60 * 1000;
 type ChartPhase = 'error' | 'loading' | 'empty' | 'chart';
 
 export function Terminal() {
-  const { symbol, timeframe } = useMarketSelection();
+  const { exchange, symbol, timeframe } = useMarketSelection();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const runId = searchParams.get(RUN_PARAM) ?? undefined;
   const duplicateId = searchParams.get(DUPLICATE_PARAM) ?? undefined;
 
   const { candles, isPending, error, bars, canLoadOlder, loadOlder, isRefetching, refetch } =
-    useCandleWindow(symbol, timeframe);
+    useCandleWindow(exchange, symbol, timeframe);
 
   const [focused, setFocused] = useState<BacktestTrade | null>(null);
 
@@ -88,6 +88,7 @@ export function Terminal() {
     <div className={styles.workspace}>
       <Panel title="Parametros" className={styles.params}>
         <StrategyPanel
+          exchange={exchange}
           symbol={symbol}
           timeframe={timeframe}
           submitting={createBacktest.isPending}
@@ -135,10 +136,11 @@ export function Terminal() {
               centered
               title={`Aun no hay datos para ${timeframe}`}
               hint={`La base de datos no tiene ninguna vela de ${symbol} en ${timeframe}. Rellena el historico y vuelve a esta vista.`}
-              command={`npm run backfill -- --symbol ${symbol} --timeframe ${timeframe}`}
+              command={`npm run backfill -- --exchange ${exchange} --symbol ${symbol} --timeframe ${timeframe}`}
             />
           ) : (
             <CandleChart
+              exchange={exchange}
               symbol={symbol}
               timeframe={timeframe}
               candles={candles}

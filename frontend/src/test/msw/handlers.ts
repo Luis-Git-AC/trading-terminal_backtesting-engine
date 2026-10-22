@@ -21,10 +21,11 @@ export const handlers: HttpHandler[] = [
 
   http.get(url('/markets'), () => HttpResponse.json(fixtures.markets)),
 
-  http.get(url('/markets/:symbol/coverage'), ({ params, request }) => {
+  http.get(url('/markets/:exchange/:symbol/coverage'), ({ params, request }) => {
     const timeframe = new URL(request.url).searchParams.get('timeframe');
     return HttpResponse.json({
       ...fixtures.coverage,
+      exchange: String(params.exchange),
       symbol: String(params.symbol),
       timeframe: timeframe ?? fixtures.coverage.timeframe,
     });
@@ -34,6 +35,7 @@ export const handlers: HttpHandler[] = [
     const query = new URL(request.url).searchParams;
     return HttpResponse.json({
       ...fixtures.candles,
+      exchange: query.get('exchange') ?? fixtures.candles.exchange,
       symbol: query.get('symbol') ?? fixtures.candles.symbol,
       timeframe: query.get('timeframe') ?? fixtures.candles.timeframe,
     });

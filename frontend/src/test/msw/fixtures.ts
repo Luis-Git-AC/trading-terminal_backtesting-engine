@@ -36,14 +36,25 @@ export const health: HealthResponse = frozen(healthResponseSchema, {
 });
 
 export const markets: MarketsResponse = frozen(marketsResponseSchema, {
-  exchange: 'bitget',
-  symbols: [
-    { symbol: 'BTCUSDT', timeframes: ['1m', '15m', '1h'], pricePrecision: 1, qtyPrecision: 4 },
-    { symbol: 'ETHUSDT', timeframes: ['1m', '15m', '1h'], pricePrecision: 2, qtyPrecision: 3 },
+  exchanges: [
+    {
+      exchange: 'binance',
+      symbols: [
+        { symbol: 'BTCUSDT', timeframes: ['1m', '15m', '1h'], pricePrecision: 1, qtyPrecision: 4 },
+        { symbol: 'ETHUSDT', timeframes: ['1m', '15m', '1h'], pricePrecision: 2, qtyPrecision: 3 },
+      ],
+    },
+    {
+      exchange: 'hyperliquid',
+      symbols: [
+        { symbol: 'BTC', timeframes: ['1m', '15m', '1h'], pricePrecision: 1, qtyPrecision: 4 },
+      ],
+    },
   ],
 });
 
 export const coverage: CoverageResponse = frozen(coverageResponseSchema, {
+  exchange: 'binance',
   symbol: 'BTCUSDT',
   timeframe: '15m',
   from: '2026-01-01T00:00:00.000Z',
@@ -56,6 +67,7 @@ export const coverage: CoverageResponse = frozen(coverageResponseSchema, {
 });
 
 export const candles: CandlesResponse = frozen(candlesResponseSchema, {
+  exchange: 'binance',
   symbol: 'BTCUSDT',
   timeframe: '15m',
   count: 3,
@@ -106,6 +118,7 @@ const metrics = {
 export const run: RunDetail = frozen(runDetailSchema, {
   id: RUN_ID,
   status: 'completed',
+  exchange: 'binance',
   symbol: 'BTCUSDT',
   timeframe: '15m',
   strategyId: 'ema-cross',

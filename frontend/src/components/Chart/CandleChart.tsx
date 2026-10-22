@@ -16,7 +16,7 @@ import {
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type { BacktestTrade, Candle, Timeframe } from '@tt/shared';
+import type { BacktestTrade, Candle, Exchange, Timeframe } from '@tt/shared';
 import type { SseConnectionCtor } from '@/api/event-source';
 import type { ConnectionState } from '@/hooks/useEventSource';
 import { useLiveCandles } from '@/hooks/useLiveCandles';
@@ -36,6 +36,7 @@ export interface TradeHighlight {
 }
 
 export interface CandleChartProps {
+  readonly exchange: Exchange;
   readonly symbol: string;
   readonly timeframe: Timeframe;
   readonly candles: readonly Candle[];
@@ -142,6 +143,7 @@ export function watermarkOptions(
 }
 
 export function CandleChart({
+  exchange,
   symbol,
   timeframe,
   candles,
@@ -352,6 +354,7 @@ export function CandleChart({
   }, [focus]);
 
   const { connectionState } = useLiveCandles(
+    live ? exchange : undefined,
     live ? symbol : undefined,
     live ? timeframe : undefined,
     {

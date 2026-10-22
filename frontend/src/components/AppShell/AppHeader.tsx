@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router';
+import { isExchange } from '@tt/shared';
 import { BrandMark } from '@/components/AppShell/BrandMark';
 import { ThemeIcon } from '@/components/AppShell/ThemeIcon';
 import { ConnectionBadge } from '@/components/ConnectionBadge/ConnectionBadge';
@@ -52,7 +53,17 @@ function ThemeToggle() {
 }
 
 export function AppHeader() {
-  const { symbol, symbols, timeframe, timeframes, setSymbol, setTimeframe } = useMarketSelection();
+  const {
+    exchange,
+    exchanges,
+    symbol,
+    symbols,
+    timeframe,
+    timeframes,
+    setExchange,
+    setSymbol,
+    setTimeframe,
+  } = useMarketSelection();
 
   return (
     <header className={styles.header}>
@@ -79,6 +90,24 @@ export function AppHeader() {
       <LiveTicker />
 
       <div className={styles.market}>
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>Exchange</span>
+          <select
+            className={styles.select}
+            value={exchange}
+            onChange={(event) => {
+              const picked = event.target.value;
+              if (isExchange(picked)) setExchange(picked);
+            }}
+          >
+            {exchanges.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
         <label className={styles.field}>
           <span className={styles.fieldLabel}>Simbolo</span>
           <select

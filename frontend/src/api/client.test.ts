@@ -161,7 +161,7 @@ describe('errores del API', () => {
   it('una respuesta que no cumple el esquema compartido falla nombrando el campo', async () => {
     server.use(
       http.get(`${API_BASE}/api/markets`, () =>
-        HttpResponse.json({ exchange: 'bitget', symbols: [{ symbol: 'BTCUSDT' }] }),
+        HttpResponse.json({ exchanges: [{ exchange: 'binance', symbols: [{ symbol: 'BTCUSDT' }] }] }),
       ),
     );
 

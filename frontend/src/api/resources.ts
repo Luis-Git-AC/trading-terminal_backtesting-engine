@@ -18,6 +18,7 @@ import {
   type CreateBacktestBody,
   type CreateBacktestResponse,
   type EquityResponse,
+  type Exchange,
   type HealthResponse,
   type ListBacktestsQuery,
   type ListBacktestsResponse,
@@ -32,6 +33,7 @@ import {
 import { apiClient, type ApiClient } from '@/api/client';
 
 export interface CandlesRequest {
+  readonly exchange: Exchange;
   readonly symbol: string;
   readonly timeframe: Timeframe;
   readonly from: number;
@@ -66,13 +68,14 @@ export function getMarkets(
 }
 
 export function getCoverage(
+  exchange: Exchange,
   symbol: string,
   timeframe: Timeframe,
   client: ApiClient = apiClient,
   signal?: AbortSignal,
 ): Promise<CoverageResponse> {
   return client.request({
-    path: `/markets/${encodeURIComponent(symbol)}/coverage`,
+    path: `/markets/${encodeURIComponent(exchange)}/${encodeURIComponent(symbol)}/coverage`,
     query: { timeframe },
     schema: coverageResponseSchema,
     signal,
@@ -87,6 +90,7 @@ export function getCandles(
   return client.request({
     path: '/candles',
     query: {
+      exchange: request.exchange,
       symbol: request.symbol,
       timeframe: request.timeframe,
       from: request.from,

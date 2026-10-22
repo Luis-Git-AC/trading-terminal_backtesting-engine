@@ -3,6 +3,7 @@ import {
   expectedCandleCount,
   type CoverageResponse,
   type CreateBacktestBody,
+  type Exchange,
   type StrategyMeta,
   type StrategyParam,
   type Timeframe,
@@ -245,6 +246,7 @@ export function validateForm(
   state: FormState,
   strategy: StrategyMeta | undefined,
   coverage: CoverageResponse | undefined,
+  exchange: Exchange,
   symbol: string,
   timeframe: Timeframe,
 ): ValidationResult {
@@ -295,6 +297,7 @@ export function validateForm(
     errors,
     warnings,
     body: {
+      exchange,
       symbol,
       timeframe,
       from: range.from,

@@ -8,7 +8,7 @@ import { API_BASE, errorResponse } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { renderHookWithQuery, waitForSuccess } from '@/test/query-wrapper';
 
-const REQUEST = { symbol: 'BTCUSDT', timeframe: '15m', from: 1_785_000_000_000 } as const;
+const REQUEST = { exchange: 'binance', symbol: 'BTCUSDT', timeframe: '15m', from: 1_785_000_000_000 } as const;
 
 describe('useCandles', () => {
   it('pasa loading -> success con las velas del contrato', async () => {

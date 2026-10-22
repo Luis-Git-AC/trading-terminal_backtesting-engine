@@ -61,7 +61,7 @@ describe('App', () => {
         within(symbol)
           .getAllByRole('option')
           .map((option) => option.textContent),
-      ).toEqual(fixtures.markets.symbols.map((market) => market.symbol));
+      ).toEqual((fixtures.markets.exchanges[0]?.symbols ?? []).map((market) => market.symbol));
     });
     expect(symbol).toHaveProperty('value', DEFAULT_SYMBOL);
 
@@ -73,9 +73,13 @@ describe('App', () => {
     server.use(
       http.get(`${API_BASE}/api/markets`, () =>
         HttpResponse.json({
-          exchange: 'bitget',
-          symbols: [
-            { symbol: 'SOLUSDT', timeframes: ['1m', '1h'], pricePrecision: 2, qtyPrecision: 2 },
+          exchanges: [
+            {
+              exchange: 'binance',
+              symbols: [
+                { symbol: 'SOLUSDT', timeframes: ['1m', '1h'], pricePrecision: 2, qtyPrecision: 2 },
+              ],
+            },
           ],
         }),
       ),

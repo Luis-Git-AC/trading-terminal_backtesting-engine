@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CreateBacktestBody, RunDetail, StrategyMeta, Timeframe } from '@tt/shared';
+import type { CreateBacktestBody, Exchange, RunDetail, StrategyMeta, Timeframe } from '@tt/shared';
 import type { ApiError } from '@/api/errors';
 import { EmptyState } from '@/components/Feedback/EmptyState';
 import { ErrorState } from '@/components/Feedback/ErrorState';
@@ -26,6 +26,7 @@ import { formatCount } from '@/lib/format';
 import styles from './StrategyPanel.module.css';
 
 export interface StrategyPanelProps {
+  readonly exchange: Exchange;
   readonly symbol: string;
   readonly timeframe: Timeframe;
   readonly onSubmit: (body: CreateBacktestBody) => void;
@@ -165,6 +166,7 @@ function DiceIcon() {
 }
 
 export function StrategyPanel({
+  exchange,
   symbol,
   timeframe,
   onSubmit,
@@ -173,7 +175,7 @@ export function StrategyPanel({
   preset,
 }: StrategyPanelProps) {
   const catalog = useStrategies();
-  const coverage = useCoverage(symbol, timeframe);
+  const coverage = useCoverage(exchange, symbol, timeframe);
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -194,7 +196,7 @@ export function StrategyPanel({
     setForm((current) => presetForm(current, selected, preset, coverage.data));
   }
 
-  const result = validateForm(form, selected, coverage.data, symbol, timeframe);
+  const result = validateForm(form, selected, coverage.data, exchange, symbol, timeframe);
   const fromServer = serverFieldErrors(submitError);
   const errors = { ...result.errors, ...fromServer };
   const blocked = result.body === null || submitting;

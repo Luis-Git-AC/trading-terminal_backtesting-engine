@@ -26,6 +26,7 @@ const STRATEGY: StrategyMeta = {
 };
 
 const COVERAGE: CoverageResponse = {
+  exchange: 'binance',
   symbol: 'BTCUSDT',
   timeframe: '15m',
   from: '2026-01-01T00:00:00.000Z',
@@ -51,7 +52,7 @@ function form(overrides: Partial<FormState> = {}): FormState {
 }
 
 function validate(overrides: Partial<FormState> = {}, coverage = COVERAGE) {
-  return validateForm(form(overrides), STRATEGY, coverage, 'BTCUSDT', '15m');
+  return validateForm(form(overrides), STRATEGY, coverage, 'binance', 'BTCUSDT', '15m');
 }
 
 describe('defaultParams', () => {
@@ -107,6 +108,7 @@ describe('validateForm', () => {
 
     expect(result.errors).toEqual({});
     expect(result.body).toEqual({
+      exchange: 'binance',
       symbol: 'BTCUSDT',
       timeframe: '15m',
       from: dayStartMs('2026-02-01'),
@@ -201,7 +203,7 @@ describe('validateForm', () => {
   });
 
   it('sin estrategia no hay cuerpo', () => {
-    expect(validateForm(form(), undefined, COVERAGE, 'BTCUSDT', '15m').body).toBeNull();
+    expect(validateForm(form(), undefined, COVERAGE, 'binance', 'BTCUSDT', '15m').body).toBeNull();
   });
 });
 

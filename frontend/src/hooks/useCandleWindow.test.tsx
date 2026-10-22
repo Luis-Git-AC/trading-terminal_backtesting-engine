@@ -9,7 +9,7 @@ import { renderHookWithQuery } from '@/test/query-wrapper';
 
 function emptyCoverage(): void {
   server.use(
-    http.get(`${API_BASE}/api/markets/:symbol/coverage`, ({ params, request }) => {
+    http.get(`${API_BASE}/api/markets/:exchange/:symbol/coverage`, ({ params, request }) => {
       const timeframe = new URL(request.url).searchParams.get('timeframe');
       return HttpResponse.json({
         ...fixtures.coverage,
@@ -29,7 +29,7 @@ function emptyCoverage(): void {
 
 describe('useCandleWindow', () => {
   it('ancla la ventana en el ultimo dato de la cobertura', async () => {
-    const { result } = renderHookWithQuery(() => useCandleWindow('BTCUSDT', '15m'));
+    const { result } = renderHookWithQuery(() => useCandleWindow('binance', 'BTCUSDT', '15m'));
 
     await waitFor(() => {
       expect(result.current.isPending).toBe(false);
@@ -42,7 +42,7 @@ describe('useCandleWindow', () => {
   it('una serie sin velas deja de cargar en vez de quedarse pendiente para siempre', async () => {
     emptyCoverage();
 
-    const { result } = renderHookWithQuery(() => useCandleWindow('SOLUSDT', '1m'));
+    const { result } = renderHookWithQuery(() => useCandleWindow('binance', 'SOLUSDT', '1m'));
 
     await waitFor(() => {
       expect(result.current.isPending).toBe(false);
@@ -62,7 +62,7 @@ describe('useCandleWindow', () => {
       }),
     );
 
-    const { result } = renderHookWithQuery(() => useCandleWindow('SOLUSDT', '1m'));
+    const { result } = renderHookWithQuery(() => useCandleWindow('binance', 'SOLUSDT', '1m'));
 
     await waitFor(() => {
       expect(result.current.isPending).toBe(false);
@@ -72,7 +72,7 @@ describe('useCandleWindow', () => {
   });
 
   it('sin simbolo ni timeframe tampoco se queda pendiente', async () => {
-    const { result } = renderHookWithQuery(() => useCandleWindow(undefined, undefined));
+    const { result } = renderHookWithQuery(() => useCandleWindow('binance', undefined, undefined));
 
     await waitFor(() => {
       expect(result.current.isPending).toBe(false);

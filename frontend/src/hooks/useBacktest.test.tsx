@@ -11,6 +11,7 @@ import { server } from '@/test/msw/server';
 import { renderHookWithQuery, silentQueryClient, waitForSuccess } from '@/test/query-wrapper';
 
 const BODY: CreateBacktestBody = {
+  exchange: 'binance',
   symbol: 'BTCUSDT',
   timeframe: '15m',
   from: Date.parse('2026-01-01T00:00:00.000Z'),
