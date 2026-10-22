@@ -19,6 +19,7 @@ import { createRunsRepository } from '../db/repositories/runs.repo.js';
 import { createBacktestQueue } from '../queue/backtest.queue.js';
 import { createRedisCancelFlags } from '../queue/cancel-flags.js';
 import { SEED_MAX, type Timeframe } from '@tt/shared';
+import type { MarketExchangeDeps } from '../api/services/market.service.js';
 
 export interface StartApiOptions {
   readonly pool: Pool;
@@ -31,8 +32,7 @@ export interface StartApiOptions {
   readonly version: string;
   readonly migrate?: boolean;
   readonly ingestHealth?: ApiDeps['ingestHealth'];
-  readonly exchange: string;
-  readonly symbols: readonly string[];
+  readonly exchanges: readonly MarketExchangeDeps[];
   readonly timeframes: readonly Timeframe[];
   readonly maxBars: number;
   readonly maxActiveRuns?: number;
@@ -86,8 +86,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
     ingestState,
     cache,
     logger,
-    exchange: options.exchange,
-    symbols: options.symbols,
+    exchanges: options.exchanges,
     timeframes: options.timeframes,
     now: () => Date.now(),
   };
@@ -106,7 +105,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
     ...(options.ingestHealth === undefined ? {} : { ingestHealth: options.ingestHealth }),
     registerRoutes: (router) => {
       router.use(marketsRouter(marketDeps));
-      router.use(candlesRouter({ ...marketDeps, symbols: options.symbols }));
+      router.use(candlesRouter({ ...marketDeps, markets: marketDeps }));
       router.use(strategiesRouter());
       router.use(
         backtestsRouter(
@@ -116,8 +115,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
             queue: backtests,
             cancelFlags,
             logger,
-            exchange: options.exchange,
-            symbols: options.symbols,
+            markets: marketDeps,
             timeframes: options.timeframes,
             maxBars: options.maxBars,
             ...(options.maxActiveRuns === undefined
@@ -133,7 +131,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
           runs,
           hub,
           logger,
-          symbols: options.symbols,
+          markets: marketDeps,
           timeframes: options.timeframes,
         }),
       );

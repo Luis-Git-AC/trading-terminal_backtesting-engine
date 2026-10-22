@@ -50,6 +50,7 @@ const PARAMS = {
 
 function body(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
+    exchange: 'bitget',
     symbol: SYMBOL,
     timeframe: TIMEFRAME,
     from: new Date(START).toISOString(),
@@ -182,8 +183,7 @@ describe('API de backtests', () => {
             queue,
             cancelFlags,
             logger,
-            exchange: 'bitget',
-            symbols: [SYMBOL],
+            markets: { exchanges: [{ exchange: 'bitget', symbols: [SYMBOL] }] },
             timeframes: ['1m', '15m', '1h'],
             maxBars: MAX_BARS,
             ...(overrides.maxActiveRuns === undefined
@@ -362,6 +362,31 @@ describe('API de backtests', () => {
 
       expect(response.status).toBe(404);
       expect(response.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('sin exchange da 400 con path body.exchange', async () => {
+      const { exchange: _exchange, ...rest } = body();
+      const response = await request(makeApp()).post('/api/backtests').send(rest);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.details[0].path).toBe('body.exchange');
+    });
+
+    it('un exchange no servido da 404 con code UNKNOWN_EXCHANGE', async () => {
+      const response = await request(makeApp())
+        .post('/api/backtests')
+        .send(body({ exchange: 'hyperliquid' }));
+
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe('UNKNOWN_EXCHANGE');
+    });
+
+    it('el run persiste el exchange con el que se lanzo', async () => {
+      const response = await request(makeApp()).post('/api/backtests').send(body());
+      const detail = await request(makeApp()).get(`/api/backtests/${response.body.runId}`);
+
+      expect(detail.body.exchange).toBe('bitget');
     });
 
     it('un simbolo no servido da 404', async () => {

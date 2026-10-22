@@ -117,6 +117,7 @@ export {
   coverageParamsSchema,
   coverageQuerySchema,
   coverageResponseSchema,
+  marketExchangeSchema,
   marketSymbolSchema,
   marketsResponseSchema,
   SYMBOL_ERROR,
@@ -126,6 +127,7 @@ export {
   type CandlesQuery,
   type CandlesResponse,
   type CoverageResponse,
+  type MarketExchange,
   type MarketSymbol,
   type MarketsResponse,
 } from './api-schemas.js';

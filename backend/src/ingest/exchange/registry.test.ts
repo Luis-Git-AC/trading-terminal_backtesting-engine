@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { EXCHANGES } from '@tt/shared';
+import { getAdapter, IMPLEMENTED_EXCHANGES } from './registry.js';
 import { AppError } from '../../api/errors.js';
-import { getAdapter } from './registry.js';
+
 
 describe('registry de exchanges', () => {
   it('devuelve un adapter funcional por cada id conocido', () => {
-    for (const id of EXCHANGES) {
+    for (const id of IMPLEMENTED_EXCHANGES) {
       const adapter = getAdapter(id);
       expect(adapter.id).toBe(id);
       expect(adapter.maxPageLimit).toBeGreaterThan(0);
@@ -13,7 +13,7 @@ describe('registry de exchanges', () => {
     }
   });
 
-  it('lanza AppError con code UNKNOWN_EXCHANGE si el id no existe', () => {
+  it('lanza AppError con code UNKNOWN_EXCHANGE si el adapter no existe', () => {
     expect(() => getAdapter('nope')).toThrowError(AppError);
     try {
       getAdapter('nope');

@@ -43,6 +43,16 @@ const exchangesSchema = z
  * Claves de entorno por exchange. Anadir un exchange al registry anade su fila aqui.
  */
 const EXCHANGE_ENV_KEYS = {
+  binance: {
+    restUrl: 'BINANCE_REST_URL',
+    wsUrl: 'BINANCE_WS_URL',
+    symbols: 'BINANCE_SYMBOLS',
+  },
+  hyperliquid: {
+    restUrl: 'HYPERLIQUID_REST_URL',
+    wsUrl: 'HYPERLIQUID_WS_URL',
+    symbols: 'HYPERLIQUID_SYMBOLS',
+  },
   bitget: {
     restUrl: 'BITGET_REST_URL',
     wsUrl: 'BITGET_WS_URL',
@@ -92,6 +102,14 @@ export const envSchema = z.object({
   WEB_ORIGIN: z.url().prefault('http://localhost:5173'),
 
   EXCHANGES: exchangesSchema,
+
+  BINANCE_REST_URL: z.url().prefault('https://fapi.binance.com'),
+  BINANCE_WS_URL: z.url().prefault('wss://fstream.binance.com/stream'),
+  BINANCE_SYMBOLS: symbolsSchema('BTCUSDT'),
+
+  HYPERLIQUID_REST_URL: z.url().prefault('https://api.hyperliquid.xyz'),
+  HYPERLIQUID_WS_URL: z.url().prefault('wss://api.hyperliquid.xyz/ws'),
+  HYPERLIQUID_SYMBOLS: symbolsSchema('BTC'),
 
   BITGET_REST_URL: z.url().prefault('https://api.bitget.com'),
   BITGET_WS_URL: z.url().prefault('wss://ws.bitget.com/v2/ws/public'),

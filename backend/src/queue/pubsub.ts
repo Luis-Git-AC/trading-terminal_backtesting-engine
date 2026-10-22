@@ -11,8 +11,8 @@ export const CANDLE_CHANNEL_PREFIX = 'ch:candles';
 
 export type { CandleTick };
 
-export function candleChannel(symbol: string, timeframe: Timeframe): string {
-  return `${CANDLE_CHANNEL_PREFIX}:${symbol}:${timeframe}`;
+export function candleChannel(exchange: string, symbol: string, timeframe: Timeframe): string {
+  return `${CANDLE_CHANNEL_PREFIX}:${exchange}:${symbol}:${timeframe}`;
 }
 
 export interface RedisPublisher {
@@ -22,6 +22,7 @@ export interface RedisPublisher {
 
 export interface CandlePublisher {
   publishCandle(
+    exchange: string,
     symbol: string,
     timeframe: Timeframe,
     candle: Candle,
@@ -86,9 +87,12 @@ export function createCandlePublisher(options: CandlePublisherOptions): CandlePu
   const onError = options.onError ?? ((): void => undefined);
 
   return {
-    async publishCandle(symbol, timeframe, candle, closed) {
+    async publishCandle(exchange, symbol, timeframe, candle, closed) {
       try {
-        await redis.publish(candleChannel(symbol, timeframe), JSON.stringify(toCandleTick(candle, closed)));
+        await redis.publish(
+          candleChannel(exchange, symbol, timeframe),
+          JSON.stringify(toCandleTick(candle, closed)),
+        );
       } catch (error) {
         onError(error instanceof Error ? error : new Error(String(error)));
       }

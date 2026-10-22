@@ -28,6 +28,7 @@ import type { AppLogger } from '../../observability/logger.js';
 import type { CancelFlagStore } from '../../queue/cancel-flags.js';
 import { getStrategy, StrategyNotFoundError } from '../../strategies/registry.js';
 import { AppError, type ErrorDetail } from '../errors.js';
+import { assertServed, type MarketCatalog } from './market.service.js';
 
 export interface BacktestQueuePort {
   enqueue(job: BacktestJob): Promise<string>;
@@ -40,8 +41,7 @@ export interface BacktestsServiceDeps {
   readonly queue: BacktestQueuePort;
   readonly cancelFlags: CancelFlagStore;
   readonly logger: AppLogger;
-  readonly exchange: string;
-  readonly symbols: readonly string[];
+  readonly markets: MarketCatalog;
   readonly timeframes: readonly Timeframe[];
   readonly maxBars: number;
   readonly maxActiveRuns?: number;
@@ -88,6 +88,7 @@ export function toRunSummary(run: RunRecord): RunSummary {
   return {
     id: run.id,
     status: run.status,
+    exchange: run.exchange,
     symbol: run.symbol,
     timeframe: run.timeframe,
     strategyId: run.strategyId,
@@ -161,7 +162,7 @@ function validateParams(
 
 async function coverageWarnings(
   deps: BacktestsServiceDeps,
-  series: { symbol: string; timeframe: Timeframe },
+  series: { exchange: string; symbol: string; timeframe: Timeframe },
   from: number,
   to: number,
 ): Promise<BacktestWarning[]> {
@@ -187,9 +188,7 @@ export async function createBacktest(
   deps: BacktestsServiceDeps,
   body: CreateBacktestBody,
 ): Promise<CreateBacktestResponse> {
-  if (!deps.symbols.includes(body.symbol)) {
-    throw AppError.notFound(`Simbolo no disponible: ${body.symbol}`);
-  }
+  assertServed(deps.markets, body.exchange, body.symbol);
   if (!deps.timeframes.includes(body.timeframe)) {
     throw AppError.notFound(`Timeframe no disponible: ${body.timeframe}`);
   }
@@ -229,13 +228,13 @@ export async function createBacktest(
   const seed = body.seed ?? deps.generateSeed();
   const warnings = await coverageWarnings(
     deps,
-    { symbol: body.symbol, timeframe: body.timeframe },
+    { exchange: body.exchange, symbol: body.symbol, timeframe: body.timeframe },
     body.from,
     body.to,
   );
 
   const run = await deps.runs.createRun({
-    exchange: deps.exchange,
+    exchange: body.exchange,
     symbol: body.symbol,
     timeframe: body.timeframe,
     strategyId: strategy.id,

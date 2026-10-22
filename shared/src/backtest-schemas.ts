@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { symbolSchema, timestampParamSchema } from './api-schemas.js';
+import { exchangeSchema } from './exchange.js';
 import { execConfigSchema, exitReasonSchema, sideSchema } from './execution.js';
 import { runStatusSchema } from './jobs.js';
 import { timeframeSchema } from './timeframe.js';
@@ -47,6 +48,7 @@ export const runIdParamsSchema = z.object({
 });
 
 export const createBacktestBodySchema = z.object({
+  exchange: exchangeSchema,
   symbol: symbolSchema,
   timeframe: timeframeSchema,
   from: timestampBodySchema,
@@ -139,6 +141,7 @@ export const runTimingsSchema = z.object({
 export const runSummarySchema = z.object({
   id: z.uuid(),
   status: runStatusSchema,
+  exchange: z.string(),
   symbol: z.string(),
   timeframe: timeframeSchema,
   strategyId: z.string(),

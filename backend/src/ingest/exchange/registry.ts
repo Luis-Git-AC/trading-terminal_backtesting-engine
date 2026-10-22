@@ -3,17 +3,23 @@ import { AppError } from '../../api/errors.js';
 import type { ExchangeAdapter } from './adapter.js';
 import { createBitgetAdapter } from './bitget/adapter.js';
 
-const FACTORIES: Record<Exchange, () => ExchangeAdapter> = {
+/** Un id de `EXCHANGES` sin entrada aqui es un exchange cuyo adapter aun no existe. */
+const FACTORIES: Partial<Record<Exchange, () => ExchangeAdapter>> = {
   bitget: createBitgetAdapter,
 };
 
+export const IMPLEMENTED_EXCHANGES: readonly Exchange[] = EXCHANGES.filter(
+  (id) => FACTORIES[id] !== undefined,
+);
+
 export function getAdapter(id: string): ExchangeAdapter {
-  const factory = EXCHANGES.find((known) => known === id);
+  const known = EXCHANGES.find((candidate) => candidate === id);
+  const factory = known === undefined ? undefined : FACTORIES[known];
   if (factory === undefined) {
     throw new AppError(
       'UNKNOWN_EXCHANGE',
-      `Exchange desconocido: ${id}. Conocidos: ${EXCHANGES.join(', ')}`,
+      `Exchange sin adapter: ${id}. Disponibles: ${IMPLEMENTED_EXCHANGES.join(', ')}`,
     );
   }
-  return FACTORIES[factory]();
+  return factory();
 }

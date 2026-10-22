@@ -37,7 +37,6 @@ export interface StartWorkerOptions {
   readonly equityMaxPoints?: number | undefined;
   readonly progressEveryBars?: number | undefined;
   readonly cancelPollMs?: number | undefined;
-  readonly exchange?: string | undefined;
   readonly migrate?: boolean;
   readonly closePool?: boolean;
   readonly signals?: readonly NodeJS.Signals[];
@@ -98,7 +97,6 @@ export async function startWorker(options: StartWorkerOptions): Promise<WorkerHa
     publisher,
     logger,
     ...(options.getStrategy === undefined ? {} : { getStrategy: options.getStrategy }),
-    ...(options.exchange === undefined ? {} : { exchange: options.exchange }),
     ...(options.chunkBars === undefined ? {} : { chunkBars: options.chunkBars }),
     ...(options.equityMaxPoints === undefined
       ? {}

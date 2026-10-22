@@ -1,4 +1,4 @@
-import type { Candle, Timeframe } from '@tt/shared';
+import type { Candle, Exchange, Timeframe } from '@tt/shared';
 import type { CandlesRepository, SeriesRef } from '../db/repositories/candles.repo.js';
 import type { IngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import type { CandlePublisher } from '../queue/pubsub.js';
@@ -33,7 +33,7 @@ export interface LiveIngestorOptions {
   state: IngestStateRepository;
   publisher: CandlePublisher;
   series: readonly LiveSeries[];
-  exchange?: string | undefined;
+  exchange: Exchange;
   flushIntervalMs?: number;
   wsTouchIntervalMs?: number;
   signals?: readonly NodeJS.Signals[];
@@ -69,7 +69,7 @@ export function createLiveIngestor(options: LiveIngestorOptions): LiveIngestor {
   const wsTouchIntervalMs = options.wsTouchIntervalMs ?? DEFAULT_WS_TOUCH_INTERVAL_MS;
   const signals = options.signals ?? DEFAULT_SHUTDOWN_SIGNALS;
   const now = options.now ?? Date.now;
-  const exchange = options.exchange;
+  const exchangeId = options.exchange;
 
   const listeners = new Set<LiveIngestorListener>();
   const buffers = new Map<string, SeriesBuffer>();
@@ -85,7 +85,7 @@ export function createLiveIngestor(options: LiveIngestorOptions): LiveIngestor {
   }
 
   function seriesRef(buffer: SeriesBuffer): SeriesRef {
-    return { exchange, symbol: buffer.symbol, timeframe: buffer.timeframe };
+    return { exchange: exchangeId, symbol: buffer.symbol, timeframe: buffer.timeframe };
   }
 
   function bufferFor(symbol: string, timeframe: Timeframe): SeriesBuffer {
@@ -177,7 +177,7 @@ export function createLiveIngestor(options: LiveIngestorOptions): LiveIngestor {
     void touchWs(buffer, at);
 
     void publisher
-      .publishCandle(event.symbol, event.timeframe, event.candle, event.closed)
+      .publishCandle(exchangeId, event.symbol, event.timeframe, event.candle, event.closed)
       .catch((error: unknown) => {
         emit({ kind: 'error', stage: 'publish', error: toError(error) });
       });

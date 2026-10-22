@@ -34,3 +34,7 @@ Thumbs.db
 
 # claude code: ajustes y permisos locales de la maquina
 .claude/settings.local.json
+
+# documentacion de trabajo viva (no se commitea)
+Documentacion/
+docs/ROADMAP-v2-multi-exchange.md

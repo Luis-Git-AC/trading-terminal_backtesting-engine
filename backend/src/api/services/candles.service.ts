@@ -2,6 +2,7 @@ import {
   CANDLES_MAX_LIMIT,
   timeframeToMs,
   type CandlesResponse,
+  type Exchange,
   type Timeframe,
 } from '@tt/shared';
 import type { CandlesRepository } from '../../db/repositories/candles.repo.js';
@@ -23,6 +24,7 @@ export interface CandlesServiceDeps {
 }
 
 export interface CandlesRequest {
+  readonly exchange: Exchange;
   readonly symbol: string;
   readonly timeframe: Timeframe;
   readonly from: number;
@@ -60,11 +62,12 @@ export async function getCandles(
   return cached<CandlesResponse>({
     cache: deps.cache,
     logger: deps.logger,
-    key: candlesKey(request.symbol, request.timeframe, request.from, to, limit),
+    key: candlesKey(request.exchange, request.symbol, request.timeframe, request.from, to, limit),
     ttlSec: ttlForRange(to, deps.now(), request.timeframe),
     parse: (raw) => JSON.parse(raw) as CandlesResponse,
     load: async () => {
       const rows = await deps.candles.getCandles({
+        exchange: request.exchange,
         symbol: request.symbol,
         timeframe: request.timeframe,
         from: request.from,
@@ -76,6 +79,7 @@ export async function getCandles(
       const nextFrom = rows.length === limit && last !== undefined ? last.t + step : null;
 
       return {
+        exchange: request.exchange,
         symbol: request.symbol,
         timeframe: request.timeframe,
         count: rows.length,

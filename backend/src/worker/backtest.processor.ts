@@ -86,7 +86,6 @@ export interface BacktestProcessorDeps {
   readonly publisher: RunEventPublisher;
   readonly logger: AppLogger;
   readonly createWatch: (runId: string) => AbortWatch;
-  readonly exchange?: string | undefined;
   readonly chunkBars?: number | undefined;
   readonly equityMaxPoints?: number | undefined;
   readonly progressEveryBars?: number | undefined;
@@ -258,7 +257,7 @@ async function execute(
 
   const candles = await loadCandles({
     candles: deps.candles,
-    ...(deps.exchange === undefined ? {} : { exchange: deps.exchange }),
+    exchange: run.exchange,
     symbol: run.symbol,
     timeframe: run.timeframe,
     from: run.rangeFrom,

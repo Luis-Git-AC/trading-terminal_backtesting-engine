@@ -1,4 +1,4 @@
-import { allSymbols, defaultExchange, env, exchangeConfigs } from './config/env.js';
+import { env, exchangeConfigs } from './config/env.js';
 import { resolveStartMode } from './config/start-mode.js';
 
 const APP_VERSION = '0.1.0';
@@ -124,8 +124,10 @@ async function runApi(logger: AppLogger): Promise<void> {
     port: env.PORT,
     webOrigin: env.WEB_ORIGIN,
     version: APP_VERSION,
-    exchange: defaultExchange(env),
-    symbols: allSymbols(env),
+    exchanges: exchangeConfigs(env).map((config) => ({
+      exchange: config.exchange,
+      symbols: config.symbols,
+    })),
     timeframes: env.TIMEFRAMES,
     maxBars: env.BACKTEST_MAX_BARS,
     maxActiveRuns: env.BACKTEST_MAX_ACTIVE_RUNS,
@@ -166,7 +168,6 @@ async function runWorker(logger: AppLogger): Promise<void> {
     concurrency: env.BACKTEST_CONCURRENCY,
     chunkBars: env.ENGINE_CHUNK_BARS,
     equityMaxPoints: env.EQUITY_MAX_POINTS,
-    exchange: defaultExchange(env),
     migrate: false,
   });
 

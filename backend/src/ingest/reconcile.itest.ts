@@ -382,6 +382,7 @@ describe('reconcileSeries', () => {
         state,
         publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
         series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+        exchange: 'bitget',
         flushIntervalMs: 50,
       });
       ingestor = created;

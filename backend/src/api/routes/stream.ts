@@ -1,5 +1,6 @@
 import {
   candleTickSchema,
+  exchangeSchema,
   runChannel,
   runEventSchema,
   runIdParamsSchema,
@@ -15,12 +16,14 @@ import type { AppLogger } from '../../observability/logger.js';
 import { candleChannel } from '../../queue/pubsub.js';
 import { AppError } from '../errors.js';
 import { withValidation } from '../middleware/validate.js';
+import { assertServed, type MarketCatalog } from '../services/market.service.js';
 import { sseChannel, type SseChannel, type SseChannelOptions } from '../sse/channel.js';
 import type { SseHub } from '../sse/hub.js';
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'] as const;
 
 export const candleStreamQuerySchema = z.object({
+  exchange: exchangeSchema,
   symbol: symbolSchema,
   timeframe: timeframeSchema,
 });
@@ -29,7 +32,7 @@ export interface StreamRouterDeps {
   readonly runs: RunsRepository;
   readonly hub: SseHub;
   readonly logger: AppLogger;
-  readonly symbols: readonly string[];
+  readonly markets: MarketCatalog;
   readonly timeframes: readonly Timeframe[];
   readonly sse?: SseChannelOptions | undefined;
 }
@@ -163,8 +166,10 @@ export function streamRouter(deps: StreamRouterDeps): Router {
   router.get(
     '/stream/candles',
     withValidation({ query: candleStreamQuerySchema }, ({ query }, _req, res, next) => {
-      if (!deps.symbols.includes(query.symbol)) {
-        next(AppError.notFound(`Simbolo no disponible: ${query.symbol}`));
+      try {
+        assertServed(deps.markets, query.exchange, query.symbol);
+      } catch (error) {
+        next(error);
         return;
       }
       if (!deps.timeframes.includes(query.timeframe)) {
@@ -177,12 +182,12 @@ export function streamRouter(deps: StreamRouterDeps): Router {
       void attach(
         deps,
         channel,
-        candleChannel(query.symbol, query.timeframe),
+        candleChannel(query.exchange, query.symbol, query.timeframe),
         (message) => {
           const parsed = candleTickSchema.safeParse(safeJson(message));
           if (!parsed.success) {
             deps.logger.warn(
-              { symbol: query.symbol, timeframe: query.timeframe },
+              { exchange: query.exchange, symbol: query.symbol, timeframe: query.timeframe },
               'tick ilegible, se descarta',
             );
             return;

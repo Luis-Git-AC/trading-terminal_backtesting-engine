@@ -5,9 +5,13 @@ import {
   type MarketsResponse,
 } from '@tt/shared';
 import { Router, type Request, type Response } from 'express';
-import { AppError } from '../errors.js';
 import { withValidation } from '../middleware/validate.js';
-import { getCoverage, listMarkets, type MarketServiceDeps } from '../services/market.service.js';
+import {
+  assertServed,
+  getCoverage,
+  listMarkets,
+  type MarketServiceDeps,
+} from '../services/market.service.js';
 
 export function marketsRouter(deps: MarketServiceDeps): Router {
   const router = Router();
@@ -17,16 +21,18 @@ export function marketsRouter(deps: MarketServiceDeps): Router {
   });
 
   router.get(
-    '/markets/:symbol/coverage',
+    '/markets/:exchange/:symbol/coverage',
     withValidation(
       { params: coverageParamsSchema, query: coverageQuerySchema },
       ({ params, query }, _req, res, next) => {
-        if (!deps.symbols.includes(params.symbol)) {
-          next(AppError.notFound(`Simbolo no disponible: ${params.symbol}`));
+        try {
+          assertServed(deps, params.exchange, params.symbol);
+        } catch (error) {
+          next(error);
           return;
         }
 
-        getCoverage(deps, params.symbol, query.timeframe)
+        getCoverage(deps, params.exchange, params.symbol, query.timeframe)
           .then((coverage: CoverageResponse) => {
             res.json(coverage);
           })

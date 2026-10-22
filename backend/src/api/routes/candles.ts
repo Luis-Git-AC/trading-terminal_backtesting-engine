@@ -1,11 +1,11 @@
 import { candlesQuerySchema, type CandlesResponse } from '@tt/shared';
 import { Router } from 'express';
-import { AppError } from '../errors.js';
 import { withValidation } from '../middleware/validate.js';
 import { getCandles, type CandlesServiceDeps } from '../services/candles.service.js';
+import { assertServed, type MarketCatalog } from '../services/market.service.js';
 
 export interface CandlesRouterDeps extends CandlesServiceDeps {
-  readonly symbols: readonly string[];
+  readonly markets: MarketCatalog;
 }
 
 export function candlesRouter(deps: CandlesRouterDeps): Router {
@@ -14,12 +14,15 @@ export function candlesRouter(deps: CandlesRouterDeps): Router {
   router.get(
     '/candles',
     withValidation({ query: candlesQuerySchema }, ({ query }, _req, res, next) => {
-      if (!deps.symbols.includes(query.symbol)) {
-        next(AppError.notFound(`Simbolo no disponible: ${query.symbol}`));
+      try {
+        assertServed(deps.markets, query.exchange, query.symbol);
+      } catch (error) {
+        next(error);
         return;
       }
 
       getCandles(deps, {
+        exchange: query.exchange,
         symbol: query.symbol,
         timeframe: query.timeframe,
         from: query.from,

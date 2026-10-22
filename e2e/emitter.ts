@@ -165,7 +165,7 @@ export async function startEmitter(): Promise<void> {
     shouldStop: () => stopping,
     wait: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     publish: (candle, closed) =>
-      publisher.publishCandle(series.symbol, options.timeframe, candle, closed),
+      publisher.publishCandle(fixture.exchange, series.symbol, options.timeframe, candle, closed),
     persist: async (candle) => {
       await candles.upsertCandles({
         exchange: fixture.exchange,

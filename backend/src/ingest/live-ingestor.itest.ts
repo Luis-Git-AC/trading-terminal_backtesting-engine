@@ -26,7 +26,7 @@ const SYMBOL = 'BTCUSDT';
 const TIMEFRAME: Timeframe = '1m';
 const STEP = timeframeToMs(TIMEFRAME);
 const START = Date.UTC(2026, 6, 1, 0, 0, 0);
-const CHANNEL = candleChannel(SYMBOL, TIMEFRAME);
+const CHANNEL = candleChannel('bitget', SYMBOL, TIMEFRAME);
 
 function makeCandle(index: number): Candle {
   const base = 64_000 + index;
@@ -124,6 +124,7 @@ describe('createLiveIngestor', () => {
       state,
       publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
       series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      exchange: 'bitget',
       flushIntervalMs,
       wsTouchIntervalMs: 0,
     });
@@ -343,6 +344,7 @@ describe('createLiveIngestor', () => {
         close: () => Promise.resolve(),
       },
       series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      exchange: 'bitget',
       flushIntervalMs: 50,
       wsTouchIntervalMs: 60_000,
     });
@@ -389,6 +391,7 @@ describe('createLiveIngestor', () => {
       state: brokenState,
       publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
       series: [{ symbol: SYMBOL, timeframe: TIMEFRAME }],
+      exchange: 'bitget',
       flushIntervalMs: 50,
       wsTouchIntervalMs: 0,
     });

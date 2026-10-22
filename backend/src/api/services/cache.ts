@@ -20,17 +20,18 @@ export interface RedisLike {
 }
 
 export function candlesKey(
+  exchange: string,
   symbol: string,
   timeframe: Timeframe,
   from: number,
   to: number,
   limit: number,
 ): string {
-  return `candles:${CACHE_VERSION}:${symbol}:${timeframe}:${from}:${to}:${limit}`;
+  return `candles:${CACHE_VERSION}:${exchange}:${symbol}:${timeframe}:${from}:${to}:${limit}`;
 }
 
-export function coverageKey(symbol: string, timeframe: Timeframe): string {
-  return `coverage:${CACHE_VERSION}:${symbol}:${timeframe}`;
+export function coverageKey(exchange: string, symbol: string, timeframe: Timeframe): string {
+  return `coverage:${CACHE_VERSION}:${exchange}:${symbol}:${timeframe}`;
 }
 
 export function createRedisCache(redis: RedisLike): CacheStore {

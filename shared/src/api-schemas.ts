@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { exchangeSchema } from './exchange.js';
 import { timeframeSchema } from './timeframe.js';
 
 export const CANDLES_MAX_LIMIT = 5000;
@@ -66,14 +67,23 @@ export const marketSymbolSchema = z.object({
 
 export type MarketSymbol = z.infer<typeof marketSymbolSchema>;
 
-export const marketsResponseSchema = z.object({
-  exchange: z.string(),
+export const marketExchangeSchema = z.object({
+  exchange: exchangeSchema,
   symbols: z.array(marketSymbolSchema),
+});
+
+export type MarketExchange = z.infer<typeof marketExchangeSchema>;
+
+export const marketsResponseSchema = z.object({
+  exchanges: z.array(marketExchangeSchema),
 });
 
 export type MarketsResponse = z.infer<typeof marketsResponseSchema>;
 
-export const coverageParamsSchema = z.object({ symbol: symbolSchema });
+export const coverageParamsSchema = z.object({
+  exchange: exchangeSchema,
+  symbol: symbolSchema,
+});
 
 export const coverageQuerySchema = z.object({ timeframe: timeframeSchema });
 
@@ -84,6 +94,7 @@ export const coverageGapSchema = z.object({
 });
 
 export const coverageResponseSchema = z.object({
+  exchange: exchangeSchema,
   symbol: z.string(),
   timeframe: timeframeSchema,
   from: z.string().nullable(),
@@ -101,6 +112,7 @@ export const coverageResponseSchema = z.object({
 export type CoverageResponse = z.infer<typeof coverageResponseSchema>;
 
 export const candlesQuerySchema = z.object({
+  exchange: exchangeSchema,
   symbol: symbolSchema,
   timeframe: timeframeSchema,
   from: timestampParamSchema,
@@ -125,6 +137,7 @@ export const compactCandleSchema = z.object({
 });
 
 export const candlesResponseSchema = z.object({
+  exchange: exchangeSchema,
   symbol: z.string(),
   timeframe: timeframeSchema,
   count: z.number().int().nonnegative(),
