@@ -15,6 +15,10 @@ import {
 } from '../queue/pubsub.js';
 import { startFakeBinanceWs, type FakeBinanceWs } from '../testing/fake-binance-ws.js';
 import {
+  startFakeHyperliquidWs,
+  type FakeHyperliquidWs,
+} from '../testing/fake-hyperliquid-ws.js';
+import {
   startFakeBitgetWs,
   updateFrame as buildUpdateFrame,
   type FakeBitgetWs,
@@ -22,6 +26,7 @@ import {
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { createBinanceCandleStream } from './exchange/binance/ws.js';
 import { createBitgetCandleStream, type BitgetStreamEvent } from './exchange/bitget/ws.js';
+import { createHyperliquidCandleStream } from './exchange/hyperliquid/ws.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 
 const SYMBOL = 'BTCUSDT';
@@ -540,6 +545,126 @@ describe('createLiveIngestor con Binance', () => {
     expect(await storedTimestamps()).toEqual([]);
 
     exchange.pushCandle(candle, SYMBOL, TIMEFRAME, true);
+
+    await vi.waitFor(
+      async () => {
+        expect(await storedTimestamps()).toEqual([START]);
+      },
+      { timeout: 10_000 },
+    );
+  });
+});
+
+describe('createLiveIngestor con Hyperliquid', () => {
+  const COIN = 'BTC';
+  let db: ScratchDatabase;
+  let candles: CandlesRepository;
+  let state: IngestStateRepository;
+  let exchange: FakeHyperliquidWs;
+  let spy: RedisSpy;
+  let ingestor: LiveIngestor | undefined;
+  const redisUrl = requireRedisUrl();
+
+  beforeAll(async () => {
+    db = await createScratchDatabase({ applicationName: 'tt-itest-live-hyperliquid' });
+    await runMigrations({ pool: db.pool });
+    candles = createCandlesRepository(db.pool);
+    state = createIngestStateRepository(db.pool);
+  });
+
+  afterAll(async () => {
+    await db.drop();
+  });
+
+  beforeEach(async () => {
+    await db.pool.query('TRUNCATE candles');
+    await db.pool.query('TRUNCATE ingest_state');
+    await state.ensure({
+      exchange: 'hyperliquid',
+      symbol: COIN,
+      timeframe: TIMEFRAME,
+      targetTs: START,
+    });
+    exchange = await startFakeHyperliquidWs();
+    spy = await subscribeRedis(redisUrl, candleChannel('hyperliquid', COIN, TIMEFRAME));
+    ingestor = undefined;
+  });
+
+  afterEach(async () => {
+    await ingestor?.stop();
+    await spy.stop();
+    await exchange.stop();
+  });
+
+  async function launch(series: readonly string[] = [COIN]): Promise<LiveIngestor> {
+    const stream = createHyperliquidCandleStream({
+      url: exchange.url,
+      staleTimeoutMs: 0,
+      heartbeatIntervalMs: 0,
+      // Las velas del fixture son de 2026-07: sin esto el reloj real las cerraria al instante.
+      now: () => START + 1000,
+      reconnectBaseMs: 20,
+      reconnectMaxMs: 50,
+    });
+
+    const created = createLiveIngestor({
+      stream,
+      candles,
+      state,
+      publisher: createCandlePublisher({ redis: createRedisClient(redisUrl) }),
+      series: series.map((symbol) => ({ symbol, timeframe: TIMEFRAME })),
+      exchange: 'hyperliquid',
+      flushIntervalMs: 50,
+      wsTouchIntervalMs: 0,
+    });
+
+    ingestor = created;
+    created.start();
+
+    await vi.waitFor(() => {
+      expect(exchange.subscriptions).toHaveLength(series.length);
+    });
+
+    return created;
+  }
+
+  async function storedTimestamps(): Promise<number[]> {
+    const { rows } = await db.pool.query<{ ts: Date }>(
+      'SELECT ts FROM candles WHERE exchange = $1 AND symbol = $2 AND timeframe = $3 ORDER BY ts ASC',
+      ['hyperliquid', COIN, TIMEFRAME],
+    );
+    return rows.map((row) => row.ts.getTime());
+  }
+
+  it('un solo socket para varios simbolos', async () => {
+    await launch([COIN, 'ETH', 'SOL']);
+
+    expect(exchange.connections()).toBe(1);
+    expect(exchange.subscriptions.map((raw) => JSON.parse(raw).coin as string)).toEqual([
+      COIN,
+      'ETH',
+      'SOL',
+    ]);
+  });
+
+  it('la vela en formacion no se persiste; se cierra cuando el ts salta', async () => {
+    await launch();
+
+    const candle = makeCandle(0);
+    for (let tick = 0; tick < 3; tick += 1) {
+      exchange.pushCandle({ ...candle, c: candle.c + tick }, COIN, TIMEFRAME);
+    }
+
+    await vi.waitFor(() => {
+      expect(spy.messages).toHaveLength(3);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    expect(spy.messages.every((tick) => !tick.closed)).toBe(true);
+    expect(await storedTimestamps()).toEqual([]);
+
+    // Hyperliquid no marca el cierre: la vela anterior se cierra al llegar la siguiente.
+    exchange.pushCandle(makeCandle(1), COIN, TIMEFRAME);
 
     await vi.waitFor(
       async () => {
