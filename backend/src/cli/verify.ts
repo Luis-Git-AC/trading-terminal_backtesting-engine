@@ -1,14 +1,15 @@
 import { parseArgs } from 'node:util';
-import { isTimeframe, timeframeToMs, type Timeframe } from '@tt/shared';
-import { allSymbols, env } from '../config/env.js';
+import { isExchange, isTimeframe, timeframeToMs, type Exchange, type Timeframe } from '@tt/shared';
+import { env, exchangeConfigs } from '../config/env.js';
 import { closePool, getPool } from '../db/pool.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { verifyIntegrity, type IntegrityReport } from '../ingest/integrity.js';
 
 const USAGE = `
-Uso: npm run verify -- --symbol BTCUSDT --timeframe 15m [--from ISO] [--to ISO]
+Uso: npm run verify -- --exchange binance --symbol BTCUSDT --timeframe 15m [--from ISO] [--to ISO]
      npm run verify -- --all [--from ISO] [--to ISO]
 
+  --exchange   Exchange a verificar. Por defecto, el primero de EXCHANGES
   --symbol     Par a verificar. Obligatorio salvo con --all
   --timeframe  1m | 15m | 1h. Obligatorio salvo con --all
   --from       Inicio del rango en ISO 8601 UTC. Por defecto, la vela mas antigua guardada
@@ -35,24 +36,37 @@ function iso(ts: number): string {
   return new Date(ts).toISOString();
 }
 
+interface SeriesToVerify {
+  exchange: Exchange;
+  symbol: string;
+  timeframe: Timeframe;
+}
+
 function seriesToVerify(values: {
   all?: boolean | undefined;
+  exchange?: string | undefined;
   symbol?: string | undefined;
   timeframe?: string | undefined;
-}): { symbol: string; timeframe: Timeframe }[] {
+}): SeriesToVerify[] {
   if (values.all === true) {
-    return allSymbols(env).flatMap((symbol) =>
-      env.TIMEFRAMES.map((timeframe) => ({ symbol, timeframe })),
+    return exchangeConfigs(env).flatMap((config) =>
+      config.symbols.flatMap((symbol) =>
+        env.TIMEFRAMES.map((timeframe) => ({ exchange: config.exchange, symbol, timeframe })),
+      ),
     );
   }
 
+  const exchange = values.exchange ?? env.EXCHANGES[0];
+  if (exchange === undefined || !isExchange(exchange)) {
+    fail(`--exchange invalido: ${String(values.exchange)}. Configurados: ${env.EXCHANGES.join(', ')}.`);
+  }
   if (values.symbol === undefined) fail('Falta --symbol (o usa --all).');
   if (values.timeframe === undefined) fail('Falta --timeframe (o usa --all).');
   if (!isTimeframe(values.timeframe)) {
     fail(`--timeframe invalido: ${values.timeframe}. Admitidos: 1m, 15m, 1h.`);
   }
 
-  return [{ symbol: values.symbol, timeframe: values.timeframe }];
+  return [{ exchange, symbol: values.symbol, timeframe: values.timeframe }];
 }
 
 function print(report: IntegrityReport): void {
@@ -99,6 +113,7 @@ function print(report: IntegrityReport): void {
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: {
+      exchange: { type: 'string' },
       symbol: { type: 'string' },
       timeframe: { type: 'string' },
       from: { type: 'string' },
@@ -117,8 +132,8 @@ async function main(): Promise<void> {
   const reports: IntegrityReport[] = [];
 
   try {
-    for (const { symbol, timeframe } of series) {
-      const coverage = await candles.getCoverage({ symbol, timeframe });
+    for (const { exchange, symbol, timeframe } of series) {
+      const coverage = await candles.getCoverage({ exchange, symbol, timeframe });
       const from = fromArg ?? coverage.fromTs;
       const to = toArg ?? (coverage.toTs === null ? null : coverage.toTs + timeframeToMs(timeframe));
 
@@ -127,7 +142,7 @@ async function main(): Promise<void> {
         continue;
       }
 
-      reports.push(await verifyIntegrity({ db: pool, symbol, timeframe, from, to }));
+      reports.push(await verifyIntegrity({ db: pool, exchange, symbol, timeframe, from, to }));
     }
   } finally {
     await closePool();
