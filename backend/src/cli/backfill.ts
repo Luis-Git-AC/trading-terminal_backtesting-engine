@@ -136,6 +136,10 @@ async function main(): Promise<void> {
         console.warn(`  reintento ${event.attempt} en ${event.delayMs} ms: ${event.reason}`);
         return;
       }
+      if (event.kind === 'truncated') {
+        console.warn(`  ${event.symbol} ${event.timeframe}: ${event.detail}`);
+        return;
+      }
       console.warn(
         `  ${event.rows.length} vela(s) descartada(s) en ${event.symbol} ${event.timeframe}: ` +
           event.rows.map((row) => `[${row.index}] ${row.reason}`).join(', '),

@@ -47,7 +47,9 @@ export type FetchLike = (url: string, init?: HttpRequestInit) => Promise<HttpRes
 
 export type IngestEvent =
   | { kind: 'retry'; attempt: number; delayMs: number; reason: string }
-  | { kind: 'discarded'; symbol: string; timeframe: Timeframe; rows: readonly DiscardedRow[] };
+  | { kind: 'discarded'; symbol: string; timeframe: Timeframe; rows: readonly DiscardedRow[] }
+  /** Lo pedido excede el historico que guarda el exchange: se avisa en vez de devolver menos sin decirlo. */
+  | { kind: 'truncated'; symbol: string; timeframe: Timeframe; detail: string };
 
 export type IngestLogger = (event: IngestEvent) => void;
 

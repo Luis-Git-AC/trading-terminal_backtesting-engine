@@ -54,6 +54,18 @@ async function runIngestor(logger: AppLogger): Promise<void> {
           );
           return;
         }
+        if (event.kind === 'truncated') {
+          logger.warn(
+            {
+              exchange: config.exchange,
+              symbol: event.symbol,
+              timeframe: event.timeframe,
+              detail: event.detail,
+            },
+            'historico no disponible en el exchange',
+          );
+          return;
+        }
         logger.warn(
           {
             exchange: config.exchange,
