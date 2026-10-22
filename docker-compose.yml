@@ -37,6 +37,29 @@ services:
       retries: 12
       start_period: 5s
 
+  # La ingesta en un contenedor: con restart: unless-stopped vuelve sola tras un reinicio del
+  # portatil, igual que postgres y redis. La imagen es la misma que usa el stack de e2e (el
+  # fuente del backend ejecutado con tsx), asi que no hay un segundo Dockerfile que mantener.
+  ingestor:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    image: trading-terminal-backend:latest
+    container_name: tt-ingestor
+    restart: unless-stopped
+    command: ['npx', 'tsx', 'backend/src/main.ts', 'ingestor']
+    env_file: .env
+    environment:
+      START_MODE: ingestor
+      # Dentro de la red de compose los servicios se llaman por su nombre, no por localhost.
+      DATABASE_URL: postgres://tt:tt@postgres:5432/trading_terminal
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redisdata:

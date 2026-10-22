@@ -99,7 +99,13 @@ export function createCandlePublisher(options: CandlePublisherOptions): CandlePu
     },
 
     async close() {
-      await redis.quit();
+      // Un exchange por publisher pero un solo cliente de Redis: el segundo quit() lo encuentra
+      // ya cerrado y tirar aqui aborta el apagado antes de parar el resto y cerrar el pool.
+      try {
+        await redis.quit();
+      } catch (error) {
+        onError(error instanceof Error ? error : new Error(String(error)));
+      }
     },
   };
 }
