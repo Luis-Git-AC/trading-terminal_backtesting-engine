@@ -84,6 +84,10 @@ async function runIngestor(logger: AppLogger): Promise<void> {
       feed,
       wsUrl: config.wsUrl,
       series: seriesOf(config.symbols),
+      derivatives: adapter.createDerivativesClient?.({
+        baseUrl: config.restUrl,
+        rps: env.BACKFILL_RPS,
+      }),
     };
   });
 
@@ -94,6 +98,8 @@ async function runIngestor(logger: AppLogger): Promise<void> {
     exchanges,
     backfillFrom: Date.parse(env.BACKFILL_FROM),
     gapScanCron: env.GAP_SCAN_CRON,
+    derivativesCron: env.DERIVATIVES_CRON,
+    derivativesLookbackMs: env.DERIVATIVES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
     gapScanWindowMs: env.GAP_SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000,
     reconcilePageLimit: env.BACKFILL_PAGE_LIMIT,
     reconcileMaxPages: env.RECONCILE_MAX_PAGES,

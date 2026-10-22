@@ -13,6 +13,8 @@ export {
   type IngestCandle,
 } from './candle.js';
 
+export type { FundingRate, OpenInterestPoint } from './derivatives.js';
+
 export {
   ERROR_CODES,
   ERROR_STATUS,

@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrations } from '../migrate.js';
 import { createScratchDatabase, type ScratchDatabase } from '../../testing/scratch-db.js';
+import type { FundingRate, OpenInterestPoint } from '@tt/shared';
 import {
   MAX_DERIVATIVES_LIMIT,
   createDerivativesRepository,
   type DerivativesRepository,
-  type FundingRate,
-  type OpenInterestPoint,
 } from './derivatives.repo.js';
 
 const SYMBOL = 'XAUUSDT';

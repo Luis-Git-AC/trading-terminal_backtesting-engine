@@ -1,4 +1,11 @@
-import type { Candle, Exchange, IngestCandle, Timeframe } from '@tt/shared';
+import type {
+  Candle,
+  Exchange,
+  FundingRate,
+  IngestCandle,
+  OpenInterestPoint,
+  Timeframe,
+} from '@tt/shared';
 import type { RateLimiter } from '../rate-limiter.js';
 import type {
   ResilientSocket,
@@ -76,6 +83,20 @@ export interface ExchangeRestClientOptions {
   log?: IngestLogger | undefined;
 }
 
+/** Lo que el colector de F8 necesita de un exchange. Opcional en el adapter: no todos lo tienen todavia. */
+export interface ExchangeDerivativesClient {
+  getFundingHistory(query: DerivativesHistoryQuery): Promise<FundingRate[]>;
+  getOpenInterestHistory(query: DerivativesHistoryQuery): Promise<OpenInterestPoint[]>;
+  getOpenInterest(symbol: string): Promise<OpenInterestPoint>;
+}
+
+export interface DerivativesHistoryQuery {
+  symbol: string;
+  startTime?: number | undefined;
+  endTime?: number | undefined;
+  limit?: number | undefined;
+}
+
 export type ExchangeStreamEvent =
   | { kind: 'candle'; symbol: string; timeframe: Timeframe; candle: Candle; closed: boolean }
   | { kind: 'subscribed'; symbol: string; timeframe: Timeframe }
@@ -115,5 +136,7 @@ export interface ExchangeAdapter {
   readonly maxPageLimit: number;
   createRestClient(options?: ExchangeRestClientOptions): ExchangeRestClient;
   createCandleStream(options?: ExchangeCandleStreamOptions): ExchangeCandleStream;
+  /** Ausente mientras el exchange no tenga funding ni OI (Hyperliquid lo gana en F8-T4). */
+  createDerivativesClient?(options?: ExchangeRestClientOptions): ExchangeDerivativesClient;
   normalizeSymbol(raw: string): string;
 }

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { IngestCandle } from '@tt/shared';
-import { createRateLimiter, sleep } from '../../rate-limiter.js';
+import { createRateLimiter, sleep, type RateLimiter } from '../../rate-limiter.js';
 import type {
   ExchangeRestClient,
   ExchangeRestClientOptions,
@@ -85,26 +85,20 @@ function readError(payload: unknown): string | null {
   return parsed.success ? `${parsed.data.code} ${parsed.data.msg}` : null;
 }
 
-export function createBinanceRestClient(
+export interface BinanceRequester {
+  readonly limiter: RateLimiter;
+  readonly request: (url: string) => Promise<unknown>;
+}
+
+/** El reintento, el backoff y la pausa por peso que comparten klines y derivados. */
+export function createBinanceRequester(
   options: ExchangeRestClientOptions = {},
-): ExchangeRestClient {
-  const baseUrl = options.baseUrl ?? BINANCE_DEFAULT_BASE_URL;
-  const pageLimit = assertPageLimit(options.pageLimit ?? BINANCE_MAX_PAGE_LIMIT);
+): BinanceRequester {
   const maxAttempts = Math.max(1, options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
   const doFetch = options.fetch ?? ((url: string) => globalThis.fetch(url));
   const random = options.random ?? Math.random;
   const log = options.log ?? ((): void => undefined);
   const limiter = createRateLimiter({ rps: options.rps ?? DEFAULT_RPS });
-
-  function buildUrl(query: HistoryCandlesQuery): string {
-    const url = new URL(BINANCE_KLINES_PATH, baseUrl);
-    url.searchParams.set('symbol', query.symbol);
-    url.searchParams.set('interval', toInterval(query.timeframe));
-    url.searchParams.set('limit', String(assertPageLimit(query.limit ?? pageLimit)));
-    if (query.startTime !== undefined) url.searchParams.set('startTime', String(query.startTime));
-    if (query.endTime !== undefined) url.searchParams.set('endTime', String(query.endTime));
-    return url.toString();
-  }
 
   async function request(url: string): Promise<unknown> {
     let lastReason = 'sin intentos';
@@ -162,6 +156,27 @@ export function createBinanceRestClient(
       `Binance no respondio correctamente tras ${maxAttempts} intento(s). Ultimo fallo: ${lastReason}`,
       { attempts: maxAttempts, status: lastStatus, retryable: true, cause: lastCause },
     );
+  }
+
+  return { limiter, request };
+}
+
+export function createBinanceRestClient(
+  options: ExchangeRestClientOptions = {},
+): ExchangeRestClient {
+  const baseUrl = options.baseUrl ?? BINANCE_DEFAULT_BASE_URL;
+  const pageLimit = assertPageLimit(options.pageLimit ?? BINANCE_MAX_PAGE_LIMIT);
+  const log = options.log ?? ((): void => undefined);
+  const { limiter, request } = createBinanceRequester(options);
+
+  function buildUrl(query: HistoryCandlesQuery): string {
+    const url = new URL(BINANCE_KLINES_PATH, baseUrl);
+    url.searchParams.set('symbol', query.symbol);
+    url.searchParams.set('interval', toInterval(query.timeframe));
+    url.searchParams.set('limit', String(assertPageLimit(query.limit ?? pageLimit)));
+    if (query.startTime !== undefined) url.searchParams.set('startTime', String(query.startTime));
+    if (query.endTime !== undefined) url.searchParams.set('endTime', String(query.endTime));
+    return url.toString();
   }
 
   return {

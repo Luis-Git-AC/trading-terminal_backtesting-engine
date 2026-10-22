@@ -1,0 +1,42 @@
+[
+  {
+    "symbol": "XAUUSDT",
+    "adjustedFundingRateCap": "0.00500000",
+    "adjustedFundingRateFloor": "-0.00500000",
+    "fundingIntervalHours": 4,
+    "disclaimer": false,
+    "updateTime": 1769796333728
+  },
+  {
+    "symbol": "XAGUSDT",
+    "adjustedFundingRateCap": "0.00500000",
+    "adjustedFundingRateFloor": "-0.00500000",
+    "fundingIntervalHours": 4,
+    "disclaimer": false,
+    "updateTime": 1769796311587
+  },
+  {
+    "symbol": "CLUSDT",
+    "adjustedFundingRateCap": "0.00500000",
+    "adjustedFundingRateFloor": "-0.00500000",
+    "fundingIntervalHours": 4,
+    "disclaimer": false,
+    "updateTime": 1774959060359
+  },
+  {
+    "symbol": "BZUSDT",
+    "adjustedFundingRateCap": "0.00500000",
+    "adjustedFundingRateFloor": "-0.00500000",
+    "fundingIntervalHours": 4,
+    "disclaimer": false,
+    "updateTime": 1774959072169
+  },
+  {
+    "symbol": "BTCUSDT",
+    "adjustedFundingRateCap": "0.00300",
+    "adjustedFundingRateFloor": "-0.00300",
+    "fundingIntervalHours": 8,
+    "disclaimer": true,
+    "updateTime": null
+  }
+]

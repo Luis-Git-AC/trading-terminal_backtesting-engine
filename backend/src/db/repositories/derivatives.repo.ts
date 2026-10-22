@@ -1,4 +1,4 @@
-import type { CandleSource } from '@tt/shared';
+import type { CandleSource, FundingRate, OpenInterestPoint } from '@tt/shared';
 import { defaultExchange, env } from '../../config/env.js';
 import type { Queryable } from './candles.repo.js';
 
@@ -14,18 +14,6 @@ export interface RangeQuery extends MarketRef {
   from: number;
   to: number;
   limit?: number;
-}
-
-export interface FundingRate {
-  t: number;
-  rate: number;
-  intervalHours: number;
-}
-
-export interface OpenInterestPoint {
-  t: number;
-  base: number;
-  quote: number | null;
 }
 
 export interface UpsertFundingInput extends MarketRef {

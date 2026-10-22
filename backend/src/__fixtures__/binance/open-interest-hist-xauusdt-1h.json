@@ -1,0 +1,44 @@
+[
+  {
+    "symbol": "XAUUSDT",
+    "sumOpenInterest": "209537.78700000",
+    "sumOpenInterestValue": "852267128.88770270",
+    "CMCCirculatingSupply": "0.00000000",
+    "timestamp": 1792681200000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "sumOpenInterest": "210538.38100000",
+    "sumOpenInterestValue": "854722665.34570000",
+    "CMCCirculatingSupply": "0.00000000",
+    "timestamp": 1792684800000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "sumOpenInterest": "212152.89900000",
+    "sumOpenInterestValue": "858527622.49926000",
+    "CMCCirculatingSupply": "0.00000000",
+    "timestamp": 1792688400000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "sumOpenInterest": "211709.97500000",
+    "sumOpenInterestValue": "858310346.44550000",
+    "CMCCirculatingSupply": "0.00000000",
+    "timestamp": 1792692000000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "sumOpenInterest": "202801.20500000",
+    "sumOpenInterestValue": "819010817.81490020",
+    "CMCCirculatingSupply": "0.00000000",
+    "timestamp": 1792695600000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "sumOpenInterest": "202232.49000000",
+    "sumOpenInterestValue": "816158147.77868150",
+    "CMCCirculatingSupply": "0.00000000",
+    "timestamp": 1792699200000
+  }
+]

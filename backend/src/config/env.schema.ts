@@ -128,6 +128,13 @@ export const envSchema = z.object({
     .prefault('*/15 * * * *'),
   GAP_SCAN_WINDOW_DAYS: intIn(1, 365).prefault('7'),
 
+  DERIVATIVES_CRON: z
+    .string()
+    .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
+    .prefault('7 * * * *'),
+  // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
+  DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
+
   BACKTEST_CONCURRENCY: intIn(1, 32).prefault('2'),
   BACKTEST_MAX_ACTIVE_RUNS: intIn(1, 10_000).prefault('25'),
   RATE_LIMIT_WINDOW_MS: intIn(1_000, 3_600_000).prefault('60000'),

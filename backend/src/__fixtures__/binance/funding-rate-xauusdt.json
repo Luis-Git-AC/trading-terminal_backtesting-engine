@@ -1,0 +1,86 @@
+[
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790812800002,
+    "fundingRate": "0.00001938",
+    "markPrice": "4161.04000000",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790827200001,
+    "fundingRate": "0.00000000",
+    "markPrice": "4179.69302005",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790841600002,
+    "fundingRate": "0.00000000",
+    "markPrice": "4168.04000000",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790856000001,
+    "fundingRate": "0.00001329",
+    "markPrice": "4186.31000000",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790870400001,
+    "fundingRate": "0.00002799",
+    "markPrice": "4173.49000000",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790884800001,
+    "fundingRate": "0.00000907",
+    "markPrice": "4180.27896899",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790899200001,
+    "fundingRate": "0.00000329",
+    "markPrice": "4185.98000000",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790913600002,
+    "fundingRate": "0.00002853",
+    "markPrice": "4181.69545500",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790928000001,
+    "fundingRate": "0.00000000",
+    "markPrice": "4190.06937135",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790942400001,
+    "fundingRate": "0.00007853",
+    "markPrice": "4185.14000000",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790956800001,
+    "fundingRate": "0.00015177",
+    "markPrice": "4132.35690181",
+    "rateType": "Regular"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingTime": 1790971200001,
+    "fundingRate": "0.00014416",
+    "markPrice": "4151.31000000",
+    "rateType": "Regular"
+  }
+]
