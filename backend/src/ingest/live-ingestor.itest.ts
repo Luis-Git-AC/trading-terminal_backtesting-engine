@@ -26,7 +26,7 @@ import type { ExchangeStreamEvent } from './exchange/adapter.js';
 import { createHyperliquidCandleStream } from './exchange/hyperliquid/ws.js';
 import { createLiveIngestor, type LiveIngestor } from './live-ingestor.js';
 
-const SYMBOL = 'BTCUSDT';
+const SYMBOL = 'LIVEUSDT';
 const TIMEFRAME: Timeframe = '1m';
 const STEP = timeframeToMs(TIMEFRAME);
 const START = Date.UTC(2026, 6, 1, 0, 0, 0);
@@ -511,7 +511,7 @@ describe('createLiveIngestor con Binance', () => {
     created.start();
 
     await vi.waitFor(() => {
-      expect(exchange.subscriptions).toEqual(['btcusdt@kline_1m']);
+      expect(exchange.subscriptions).toEqual([`${SYMBOL.toLowerCase()}@kline_1m`]);
     });
 
     return created;
@@ -553,7 +553,7 @@ describe('createLiveIngestor con Binance', () => {
 });
 
 describe('createLiveIngestor con Hyperliquid', () => {
-  const COIN = 'BTC';
+  const COIN = 'LIVE';
   let db: ScratchDatabase;
   let candles: CandlesRepository;
   let state: IngestStateRepository;
