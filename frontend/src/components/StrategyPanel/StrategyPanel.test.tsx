@@ -202,16 +202,17 @@ describe('StrategyPanel', () => {
     expect(screen.getByLabelText('EMA rapida').getAttribute('aria-invalid')).toBe('true');
   });
 
-  it('un rango fuera de cobertura bloquea y explica por que', async () => {
+  it('un rango fuera de cobertura avisa de la causa y deja lanzar', async () => {
     renderPanel();
     await waitForForm();
 
     fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2020-01-01' } });
 
     await waitFor(() => {
-      expect(screen.getAllByText(/fuera de la cobertura/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/se sale de lo guardado/i).length).toBeGreaterThan(0);
     });
-    expect(screen.getByRole('button', { name: /ejecutar/i })).toHaveProperty('disabled', true);
+    expect(screen.getByText(/5000 velas de cada serie/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /ejecutar/i })).toHaveProperty('disabled', false);
   });
 
   it('el rango por defecto sale de la cobertura real', async () => {

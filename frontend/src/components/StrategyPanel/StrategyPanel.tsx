@@ -453,8 +453,6 @@ export function StrategyPanel({
                 errors.range !== undefined && styles.controlInvalid,
               )}
               value={form.from}
-              min={firstDay}
-              max={lastDay}
               aria-invalid={errors.range !== undefined}
               aria-describedby={errors.range === undefined ? undefined : 'range-error'}
               onChange={(event) => {
@@ -475,8 +473,6 @@ export function StrategyPanel({
                 errors.range !== undefined && styles.controlInvalid,
               )}
               value={form.to}
-              min={firstDay}
-              max={lastDay}
               aria-invalid={errors.range !== undefined}
               aria-describedby={errors.range === undefined ? undefined : 'range-error'}
               onChange={(event) => {

@@ -222,9 +222,13 @@ function validateRange(
   const firstDay = isoDay(coverage.from);
   const lastDay = isoDay(coverage.to);
 
+  // Pedir mas de lo guardado no es un error: el backtest corre con lo que haya. El exchange
+  // solo sirve un numero limitado de velas de historico, asi que lo anterior no se descargara.
   if (state.from < firstDay || state.to > lastDay) {
-    errors.range = `Fuera de la cobertura disponible (${firstDay} a ${lastDay})`;
-    return null;
+    warnings.push(
+      `El rango se sale de lo guardado (${firstDay} a ${lastDay}): el backtest solo vera las velas que hay. ` +
+        'El exchange no sirve mas historico que las ultimas 5000 velas de cada serie, asi que lo anterior no se puede descargar.',
+    );
   }
 
   const overlapping = coverage.gaps.filter((gap) => {

@@ -159,12 +159,16 @@ describe('validateForm', () => {
     expect(validate({ seed: String(SEED_MAX + 1) }).errors.seed).toContain(String(SEED_MAX));
   });
 
-  it('un rango fuera de la cobertura se bloquea nombrando la disponible', () => {
+  it('un rango fuera de la cobertura avisa, nombra la disponible y deja lanzar', () => {
     const result = validate({ from: '2025-01-01', to: '2025-02-01' });
 
-    expect(result.body).toBeNull();
-    expect(result.errors.range).toContain('2026-01-01');
-    expect(result.errors.range).toContain('2026-06-30');
+    expect(result.body).not.toBeNull();
+    expect(result.errors.range).toBeUndefined();
+    const warning = result.warnings.join(' ');
+    expect(warning).toContain('2026-01-01');
+    expect(warning).toContain('2026-06-30');
+    // El aviso dice la causa, no solo que falta dato.
+    expect(warning).toContain('5000 velas');
   });
 
   it('la fecha final debe ser posterior a la inicial', () => {
