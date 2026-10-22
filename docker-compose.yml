@@ -60,6 +60,31 @@ services:
       redis:
         condition: service_healthy
 
+  # El collector trae lo que no viene por WebSocket (funding, OI y, desde F9-T3, macro) con jobs
+  # repeatable de BullMQ. Mismo artefacto y misma imagen que el ingestor: solo cambia el rol.
+  collector:
+    # Mismo build que el ingestor a proposito: sin el, `docker compose build` no refresca este
+    # servicio y se queda con una imagen vieja sin darse cuenta.
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    image: trading-terminal-backend:latest
+    container_name: tt-collector
+    restart: unless-stopped
+    command: ['npx', 'tsx', 'backend/src/main.ts', 'collector']
+    env_file: .env
+    environment:
+      START_MODE: collector
+      DATABASE_URL: postgres://tt:tt@postgres:5432/trading_terminal
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ingestor:
+        condition: service_started
+
 volumes:
   pgdata:
   redisdata:

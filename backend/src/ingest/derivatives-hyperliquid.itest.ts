@@ -6,7 +6,8 @@ import { createFakeSocketFactory, type FakeSocketFactory } from '../testing/fake
 import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-db.js';
 import { createLogger } from '../observability/logger.js';
 import { startIngestor, type IngestorHandle } from '../roles/ingestor.js';
-import { collectDerivatives } from './derivatives-collector.js';
+import { toRunnable } from '../sources/adapter.js';
+import { createDerivativesSource } from '../sources/derivatives.source.js';
 import { createRateLimiter } from './rate-limiter.js';
 import type { ExchangeAdapter, FetchLike, HttpResponse } from './exchange/adapter.js';
 import { createHyperliquidDerivativesClient } from './exchange/hyperliquid/derivatives.js';
@@ -55,16 +56,18 @@ describe('derivados de Hyperliquid contra la base de datos', () => {
   it('el funding historico se persiste con interval_hours = 1', async () => {
     const client = createHyperliquidDerivativesClient({ fetch: fakeFetch, rps: 1000 });
 
-    const report = await collectDerivatives({
+    const source = createDerivativesSource({
       pool: db.pool,
-      client,
-      exchange: 'hyperliquid',
-      symbols: [SYMBOL],
+      markets: [{ exchange: 'hyperliquid', symbol: SYMBOL, client }],
+      schedule: '7 * * * *',
+    });
+    const report = await toRunnable(source).run(null, {
+      limiter: createRateLimiter({ rps: 1000 }),
+      now: Date.now,
     });
 
-    expect(report.funding).toBe(6);
-    // Sin OI historico upstream: la unica fila es el ctx actual.
-    expect(report.openInterest).toBe(1);
+    // 6 tasas de funding y, sin OI historico upstream, una unica fila de OI: el ctx actual.
+    expect(report.written).toBe(7);
 
     const { rows } = await db.pool.query<{ interval_hours: number; count: string }>(
       'SELECT interval_hours, count(*)::text AS count FROM funding_rates GROUP BY interval_hours',
@@ -84,12 +87,24 @@ describe('derivados de Hyperliquid contra la base de datos', () => {
 
   it('repetir la recogida no escribe funding de nuevo', async () => {
     const client = createHyperliquidDerivativesClient({ fetch: fakeFetch, rps: 1000 });
-    const options = { pool: db.pool, client, exchange: 'hyperliquid', symbols: [SYMBOL] };
+    const source = toRunnable(
+      createDerivativesSource({
+        pool: db.pool,
+        markets: [{ exchange: 'hyperliquid', symbol: SYMBOL, client }],
+        schedule: '7 * * * *',
+      }),
+    );
+    const context = { limiter: createRateLimiter({ rps: 1000 }), now: Date.now };
 
-    await collectDerivatives(options);
-    const second = await collectDerivatives(options);
+    await source.run(null, context);
+    const second = await source.run(null, context);
 
-    expect(second.funding).toBe(0);
+    // El OI vuelve a traer el ctx actual con otro `ts`; el funding no se reescribe.
+    const { rows } = await db.pool.query<{ n: string }>(
+      'SELECT count(*)::text AS n FROM funding_rates',
+    );
+    expect(rows[0]?.n).toBe('6');
+    expect(second.written).toBeLessThanOrEqual(1);
   });
 
   describe('OI vivo por el socket', () => {

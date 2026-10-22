@@ -74,7 +74,14 @@ const timeframesSchema = z
 
 const intIn = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
 
-export const startModeSchema = z.enum(['api', 'worker', 'ingestor']);
+/** Clave opcional: vacia cuenta como ausente, que es lo que desactiva la fuente que la necesita. */
+const optionalSecret = () =>
+  z.preprocess(
+    (value) => (typeof value === 'string' && value.length === 0 ? undefined : value),
+    z.string().min(1).optional(),
+  );
+
+export const startModeSchema = z.enum(['api', 'worker', 'ingestor', 'collector']);
 
 export type StartMode = z.infer<typeof startModeSchema>;
 
@@ -132,6 +139,11 @@ export const envSchema = z.object({
     .string()
     .regex(/^(\S+\s+){4}\S+$/, 'debe ser una expresion cron de 5 campos')
     .prefault('7 * * * *'),
+  COLLECTOR_SOURCE_RPS: z.coerce.number().positive().max(100).prefault('2'),
+  COLLECTOR_CONCURRENCY: intIn(1, 32).prefault('1'),
+  // Sin la clave de una fuente, esa fuente se omite con un aviso: el proceso no muere.
+  FRED_API_KEY: optionalSecret(),
+  EIA_API_KEY: optionalSecret(),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 

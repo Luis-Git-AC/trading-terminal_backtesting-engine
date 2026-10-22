@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { exchangeSchema } from './exchange.js';
+import { sourcesHealthSchema } from './sources.js';
 import { timeframeSchema } from './timeframe.js';
 
 export const CANDLES_MAX_LIMIT = 5000;
@@ -53,6 +54,7 @@ export const healthResponseSchema = z.object({
     db: checkStateSchema,
     redis: checkStateSchema,
     ingest: z.union([ingestHealthSchema, checkStateSchema]).optional(),
+    sources: z.union([sourcesHealthSchema, checkStateSchema]).optional(),
   }),
 });
 

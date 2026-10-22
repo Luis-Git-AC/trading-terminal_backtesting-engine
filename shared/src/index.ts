@@ -120,6 +120,19 @@ export {
 } from './jobs.js';
 
 export {
+  COLLECTOR_QUEUE_NAME,
+  SOURCE_STATES,
+  collectorJobSchema,
+  sourceHealthSchema,
+  sourceStateKey,
+  sourcesHealthSchema,
+  type CollectorJob,
+  type SourceHealth,
+  type SourceState,
+  type SourcesHealth,
+} from './sources.js';
+
+export {
   CANDLES_MAX_LIMIT,
   CHECK_STATES,
   candlesQuerySchema,

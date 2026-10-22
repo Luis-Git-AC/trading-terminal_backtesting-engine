@@ -34,6 +34,7 @@ export interface StartApiOptions {
   readonly version: string;
   readonly migrate?: boolean;
   readonly ingestHealth?: ApiDeps['ingestHealth'];
+  readonly sourcesHealth?: ApiDeps['sourcesHealth'];
   readonly exchanges: readonly MarketExchangeDeps[];
   readonly timeframes: readonly Timeframe[];
   readonly maxBars: number;
@@ -106,6 +107,7 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
       await redis.ping();
     },
     ...(options.ingestHealth === undefined ? {} : { ingestHealth: options.ingestHealth }),
+    ...(options.sourcesHealth === undefined ? {} : { sourcesHealth: options.sourcesHealth }),
     registerRoutes: (router) => {
       router.use(marketsRouter(marketDeps));
       router.use(candlesRouter({ ...marketDeps, markets: marketDeps }));

@@ -1,3 +1,4 @@
+import type { SourcesHealth } from '@tt/shared';
 import { Router, type Request, type Response } from 'express';
 
 export const CHECK_STATES = ['ok', 'error'] as const;
@@ -13,6 +14,8 @@ export interface HealthDeps {
   readonly checkDb: () => Promise<void>;
   readonly checkRedis: () => Promise<void>;
   readonly ingestHealth?: () => Promise<IngestHealthSummary>;
+  /** Estado por fuente del collector; lo escribe otro proceso y viaja por Redis. */
+  readonly sourcesHealth?: () => Promise<SourcesHealth>;
   readonly uptimeSec: () => number;
   readonly version: string;
 }
@@ -25,6 +28,7 @@ export interface HealthBody {
     readonly db: CheckState;
     readonly redis: CheckState;
     readonly ingest?: IngestHealthSummary | CheckState;
+    readonly sources?: SourcesHealth | CheckState;
   };
 }
 
@@ -53,9 +57,20 @@ export function healthRouter(deps: HealthDeps): Router {
         }
       }
 
+      let sources: SourcesHealth | CheckState | undefined;
+      if (deps.sourcesHealth !== undefined) {
+        try {
+          sources = await deps.sourcesHealth();
+        } catch {
+          sources = 'error';
+        }
+      }
+
       const ingestDegraded =
         ingest !== undefined && (typeof ingest === 'string' || ingest.status !== 'ok');
-      const healthy = db === 'ok' && redis === 'ok' && !ingestDegraded;
+      const sourcesDegraded =
+        sources !== undefined && (typeof sources === 'string' || sources.status !== 'ok');
+      const healthy = db === 'ok' && redis === 'ok' && !ingestDegraded && !sourcesDegraded;
 
       res.status(db === 'ok' ? 200 : 503).json({
         status: healthy ? 'ok' : 'degraded',
@@ -65,6 +80,7 @@ export function healthRouter(deps: HealthDeps): Router {
           db,
           redis,
           ...(ingest === undefined ? {} : { ingest }),
+          ...(sources === undefined ? {} : { sources }),
         },
       });
     })();

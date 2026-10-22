@@ -44,6 +44,84 @@ describe('GET /api/health', () => {
     });
   });
 
+  it('refleja el estado por fuente del collector', async () => {
+    const app = makeApp({
+      sourcesHealth: () =>
+        Promise.resolve({
+          status: 'ok' as const,
+          sources: [
+            {
+              id: 'derivatives',
+              state: 'ok' as const,
+              lastOkAt: 1_700,
+              lastErrorAt: null,
+              lastError: null,
+              items: 42,
+            },
+          ],
+        }),
+    });
+
+    const response = await request(app).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.checks.sources).toEqual({
+      status: 'ok',
+      sources: [
+        {
+          id: 'derivatives',
+          state: 'ok',
+          lastOkAt: 1_700,
+          lastErrorAt: null,
+          lastError: null,
+          items: 42,
+        },
+      ],
+    });
+  });
+
+  it('una fuente en error degrada el health sin tumbar el 200', async () => {
+    const app = makeApp({
+      sourcesHealth: () =>
+        Promise.resolve({
+          status: 'degraded' as const,
+          sources: [
+            {
+              id: 'derivatives',
+              state: 'error' as const,
+              lastOkAt: null,
+              lastErrorAt: 2_000,
+              lastError: 'el exchange devolvio 500',
+              items: null,
+            },
+          ],
+        }),
+    });
+
+    const response = await request(app).get('/api/health');
+
+    expect(response.status).toBe(200);
+    expect(response.body.status).toBe('degraded');
+    expect(response.body.checks.sources.sources[0].lastError).toBe('el exchange devolvio 500');
+  });
+
+  it('si no se puede leer el estado de las fuentes, checks.sources = error', async () => {
+    const app = makeApp({ sourcesHealth: () => Promise.reject(new Error('redis caido')) });
+
+    const response = await request(app).get('/api/health');
+
+    expect(response.body.status).toBe('degraded');
+    expect(response.body.checks.sources).toBe('error');
+  });
+
+  it('sin collector configurado no aparece la clave sources', async () => {
+    const response = await request(makeApp()).get('/api/health');
+
+    expect(response.body.checks).not.toHaveProperty('sources');
+    expect(response.body.status).toBe('ok');
+  });
+
   it('con la BD caida devuelve 503 y checks.db = error', async () => {
     const app = makeApp({
       checkDb: () => Promise.reject(new Error('connection refused')),

@@ -4,12 +4,7 @@ import { alignTs, type Exchange, type Timeframe } from '@tt/shared';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { createGapsRepository } from '../db/repositories/gaps.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
-import type {
-  ExchangeAdapter,
-  ExchangeCandleStream,
-  ExchangeDerivativesClient,
-} from '../ingest/exchange/adapter.js';
-import { collectDerivatives } from '../ingest/derivatives-collector.js';
+import type { ExchangeAdapter, ExchangeCandleStream } from '../ingest/exchange/adapter.js';
 import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
 import { fillGaps } from '../ingest/gap-filler.js';
 import { getIngestHealth, type SeriesHealth } from '../ingest/health.js';
@@ -38,7 +33,6 @@ export interface IngestorExchangeConfig {
   feed: CandleFeed;
   wsUrl?: string | undefined;
   series: readonly IngestorSeries[];
-  derivatives?: ExchangeDerivativesClient | undefined;
 }
 
 export interface IngestorOptions {
@@ -49,8 +43,6 @@ export interface IngestorOptions {
   backfillFrom: number;
   gapScanCron?: string | undefined;
   gapScanWindowMs?: number;
-  derivativesCron?: string | undefined;
-  derivativesLookbackMs?: number | undefined;
   liveOpenInterestIntervalMs?: number | undefined;
   reconcilePageLimit?: number | undefined;
   reconcileMaxPages?: number | undefined;
@@ -121,7 +113,6 @@ export interface IngestorHandle {
   metrics(): Promise<IngestorMetrics>;
   health(): Promise<IngestorHealth>;
   runGapCycle(): Promise<void>;
-  runDerivativesCycle(): Promise<void>;
   stop(reason: string): Promise<void>;
 }
 
@@ -178,7 +169,6 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
   let stopping: Promise<void> | undefined;
   let metricsTimer: ReturnType<typeof setInterval> | undefined;
   let scanTask: ScheduledTask | undefined;
-  let derivativesTask: ScheduledTask | undefined;
 
   const runtimes: Runtime[] = [];
 
@@ -282,41 +272,6 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
           { exchange: runtime.config.exchange, err: error },
           'la auditoria de huecos fallo',
         );
-      }
-    }
-  }
-
-  async function runDerivativesCycle(): Promise<void> {
-    for (const config of exchanges) {
-      const client = config.derivatives;
-      if (client === undefined) continue;
-
-      try {
-        const report = await collectDerivatives({
-          pool,
-          client,
-          exchange: config.exchange,
-          symbols: [...new Set(config.series.map((item) => item.symbol))],
-          ...(options.derivativesLookbackMs === undefined
-            ? {}
-            : { lookbackMs: options.derivativesLookbackMs }),
-          now,
-        });
-
-        logger.info(
-          {
-            exchange: config.exchange,
-            funding: report.funding,
-            openInterest: report.openInterest,
-            failed: report.failed,
-            errors: report.results.flatMap((result) =>
-              result.error === null ? [] : [{ symbol: result.symbol, error: result.error }],
-            ),
-          },
-          'derivados recogidos',
-        );
-      } catch (error) {
-        logger.error({ exchange: config.exchange, err: error }, 'la recogida de derivados fallo');
       }
     }
   }
@@ -579,8 +534,6 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
       metricsTimer = undefined;
       if (scanTask !== undefined) await scanTask.destroy();
       scanTask = undefined;
-      if (derivativesTask !== undefined) await derivativesTask.destroy();
-      derivativesTask = undefined;
 
       for (const runtime of runtimes) await runtime.ingestor.stop();
       await pool.end();
@@ -653,17 +606,6 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     logger.info({ cron: options.gapScanCron }, 'auditoria de huecos programada');
   }
 
-  if (
-    options.derivativesCron !== undefined &&
-    cronValidate(options.derivativesCron) &&
-    exchanges.some((config) => config.derivatives !== undefined)
-  ) {
-    derivativesTask = cronSchedule(options.derivativesCron, () => {
-      void runDerivativesCycle();
-    });
-    logger.info({ cron: options.derivativesCron }, 'recogida de derivados programada');
-  }
-
   logger.info(
     {
       exchanges: runtimes.map((runtime) => ({
@@ -683,7 +625,6 @@ export async function startIngestor(options: IngestorOptions): Promise<IngestorH
     metrics,
     health,
     runGapCycle,
-    runDerivativesCycle,
     stop,
   };
 }

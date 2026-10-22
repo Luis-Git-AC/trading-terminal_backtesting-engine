@@ -8,8 +8,20 @@ import { createLogger, type AppLogger } from './observability/logger.js';
 import { createQueueConnection } from './queue/connection.js';
 import { createCandlePublisher, createRedisClient } from './queue/pubsub.js';
 import { startApi } from './roles/api.js';
+import { startCollector } from './roles/collector.js';
 import { startIngestor } from './roles/ingestor.js';
 import { startWorker } from './roles/worker.js';
+import { toRunnable } from './sources/adapter.js';
+import {
+  DERIVATIVES_SOURCE_ID,
+  createDerivativesSource,
+  type DerivativesMarket,
+} from './sources/derivatives.source.js';
+import { buildSourceRegistry } from './sources/registry.js';
+import { createSourceStateStore } from './sources/state.js';
+
+/** Las fuentes cuyo estado refleja /api/health. Crece con cada fuente nueva de la fase 9. */
+const COLLECTOR_SOURCE_IDS = [DERIVATIVES_SOURCE_ID] as const;
 
 function seriesOf(symbols: readonly string[]): {
   symbol: string;
@@ -84,10 +96,6 @@ async function runIngestor(logger: AppLogger): Promise<void> {
       feed,
       wsUrl: config.wsUrl,
       series: seriesOf(config.symbols),
-      derivatives: adapter.createDerivativesClient?.({
-        baseUrl: config.restUrl,
-        rps: env.BACKFILL_RPS,
-      }),
     };
   });
 
@@ -98,8 +106,6 @@ async function runIngestor(logger: AppLogger): Promise<void> {
     exchanges,
     backfillFrom: Date.parse(env.BACKFILL_FROM),
     gapScanCron: env.GAP_SCAN_CRON,
-    derivativesCron: env.DERIVATIVES_CRON,
-    derivativesLookbackMs: env.DERIVATIVES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
     gapScanWindowMs: env.GAP_SCAN_WINDOW_DAYS * 24 * 60 * 60 * 1000,
     reconcilePageLimit: env.BACKFILL_PAGE_LIMIT,
     reconcileMaxPages: env.RECONCILE_MAX_PAGES,
@@ -109,6 +115,59 @@ async function runIngestor(logger: AppLogger): Promise<void> {
     wsHeartbeatIntervalMs: env.WS_HEARTBEAT_INTERVAL_MS,
     wsStableResetMs: env.WS_STABLE_RESET_MS,
     wsMaxConsecutiveFailures: env.WS_MAX_CONSECUTIVE_FAILURES,
+  });
+}
+
+async function runCollector(logger: AppLogger): Promise<void> {
+  const pool = createPool();
+  const connection = createQueueConnection(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'conexion de la cola no disponible');
+    },
+  });
+  const redis = createRedisClient(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'redis no disponible');
+    },
+  });
+
+  const markets: DerivativesMarket[] = exchangeConfigs(env).flatMap((config) => {
+    const client = getAdapter(config.exchange).createDerivativesClient?.({
+      baseUrl: config.restUrl,
+      rps: env.BACKFILL_RPS,
+    });
+    if (client === undefined) return [];
+    return config.symbols.map((symbol) => ({ exchange: config.exchange, symbol, client }));
+  });
+
+  const candidates =
+    markets.length === 0
+      ? []
+      : [
+          toRunnable(
+            createDerivativesSource({
+              pool,
+              markets,
+              schedule: env.DERIVATIVES_CRON,
+              lookbackMs: env.DERIVATIVES_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+              onMarketError: (market, error) => {
+                logger.warn(
+                  { exchange: market.exchange, symbol: market.symbol, err: error },
+                  'un mercado de derivados fallo, se sigue con los demas',
+                );
+              },
+            }),
+          ),
+        ];
+
+  await startCollector({
+    pool,
+    connection,
+    redis,
+    logger,
+    registry: buildSourceRegistry({ candidates, env: process.env }),
+    sourceRps: env.COLLECTOR_SOURCE_RPS,
+    concurrency: env.COLLECTOR_CONCURRENCY,
   });
 }
 
@@ -146,6 +205,7 @@ async function runApi(logger: AppLogger): Promise<void> {
       exchange: config.exchange,
       symbols: config.symbols,
     })),
+    sourcesHealth: () => createSourceStateStore(redis).read(COLLECTOR_SOURCE_IDS),
     timeframes: env.TIMEFRAMES,
     maxBars: env.BACKTEST_MAX_BARS,
     maxActiveRuns: env.BACKTEST_MAX_ACTIVE_RUNS,
@@ -210,6 +270,11 @@ export async function main(): Promise<void> {
 
   if (role === 'api') {
     await runApi(logger);
+    return;
+  }
+
+  if (role === 'collector') {
+    await runCollector(logger);
     return;
   }
 
