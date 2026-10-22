@@ -115,6 +115,10 @@ export function runBacktest<P, S>(input: BacktestInput<P, S>): BacktestResult {
       rejectedSignals += 1;
       return;
     }
+    if (exec.excludeOutOfSession === true && bar.x === true) {
+      rejectedSignals += 1;
+      return;
+    }
     const result = openPosition({
       side: signal.side,
       index,

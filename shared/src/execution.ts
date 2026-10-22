@@ -24,6 +24,8 @@ export const execConfigSchema = z.object({
   feeBps: z.number().min(0).max(1_000),
   slippageBps: z.number().min(0).max(1_000),
   fillModel: fillModelSchema.default('next-open'),
+  /** Con `true` no se abre posicion en una vela fuera de sesion (F8-T5). Las velas no se quitan de la serie. */
+  excludeOutOfSession: z.boolean().optional(),
 });
 
 export type ExecConfigInput = z.infer<typeof execConfigSchema>;

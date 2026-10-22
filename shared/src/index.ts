@@ -16,6 +16,19 @@ export {
 export type { FundingRate, OpenInterestPoint } from './derivatives.js';
 
 export {
+  ASSET_CLASSES,
+  ASSET_CLASS_BY_SYMBOL,
+  MINUTES_PER_WEEK,
+  SESSION_CALENDARS,
+  assetClassOf,
+  isInSession,
+  isSymbolInSession,
+  weekMinuteOf,
+  type AssetClass,
+  type SessionWindow,
+} from './sessions.js';
+
+export {
   ERROR_CODES,
   ERROR_STATUS,
   errorCodeSchema,

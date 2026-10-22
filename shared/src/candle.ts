@@ -14,6 +14,8 @@ export interface Candle {
   l: number;
   c: number;
   v: number;
+  /** Marca de vela fuera de sesion del subyacente. La pone el cargador; el motor solo la lee. */
+  x?: boolean;
 }
 
 export interface CandleRow {

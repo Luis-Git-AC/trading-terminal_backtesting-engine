@@ -23,6 +23,7 @@ export interface ExecConfig {
   readonly fillModel: FillModel;
   readonly allowShort?: boolean;
   readonly markToMarket?: boolean;
+  readonly excludeOutOfSession?: boolean | undefined;
 }
 
 export type Signal =

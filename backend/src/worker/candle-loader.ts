@@ -1,4 +1,10 @@
-import { isAligned, timeframeToMs, type Candle, type Timeframe } from '@tt/shared';
+import {
+  isAligned,
+  isSymbolInSession,
+  timeframeToMs,
+  type Candle,
+  type Timeframe,
+} from '@tt/shared';
 import {
   MAX_CANDLES_LIMIT,
   type CandlesRepository,
@@ -76,7 +82,10 @@ export async function loadCandles(options: LoadCandlesOptions): Promise<Candle[]
         throw new UnorderedCandleError(candle.t, previousTs);
       }
       previousTs = candle.t;
-      loaded.push(candle);
+      // La vela no se quita de la serie: solo se marca si el subyacente estaba cerrado.
+      loaded.push(
+        isSymbolInSession(candle.t, options.symbol) ? candle : { ...candle, x: true },
+      );
     }
 
     await options.onChunk?.(loaded.length);
