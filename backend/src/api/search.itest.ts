@@ -280,6 +280,19 @@ describe('API de busqueda de documentos', () => {
     expect(payload.results).not.toHaveLength(0);
   });
 
+  it('con el corpus sin embeddings lo declara en vez de decir que es hibrida', async () => {
+    // El caso que el gate G10 no detecto: el modelo carga, pgvector esta, y aun asi no hay un solo
+    // vector con el que fusionar (en el stack real, porque `brain` no podia cargar el modelo).
+    await db.pool.query('TRUNCATE document_embeddings');
+
+    const payload = await search('q=crude%20inventories');
+
+    expect(payload.mode).toBe('fulltext');
+    expect(payload.degradedReason).toBe(`no hay embeddings de ${MODEL} en el corpus`);
+    expect(payload.results).not.toHaveLength(0);
+    expect(payload.results.every((result) => result.vectorRank === null)).toBe(true);
+  });
+
   it('sin coincidencia lexica el ranking vectorial sigue proponiendo lo mas cercano', async () => {
     // La ANN no tiene umbral: siempre devuelve los vecinos mas proximos. Es lo que se quiere de
     // una busqueda semantica, y por eso cada resultado dice en que ranking entro.

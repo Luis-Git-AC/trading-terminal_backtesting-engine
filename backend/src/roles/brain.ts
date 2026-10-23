@@ -85,6 +85,23 @@ export interface BrainHandle {
   stop(): Promise<void>;
 }
 
+async function probeEmbedder(embedder: Embedder, logger: AppLogger): Promise<boolean> {
+  try {
+    const [vector] = await embedder.embed(['probe']);
+    if (vector?.length === embedder.dimensions) return true;
+    logger.warn(
+      { model: embedder.model, dimensions: vector?.length ?? 0, esperadas: embedder.dimensions },
+      'el modelo no devuelve las dimensiones de la columna: brain arranca sin embeddings',
+    );
+  } catch (error) {
+    logger.warn(
+      { model: embedder.model, err: error },
+      'el modelo de embeddings no carga en esta plataforma: brain arranca sin embeddings y la busqueda sera solo full-text',
+    );
+  }
+  return false;
+}
+
 export async function startBrain(options: StartBrainOptions): Promise<BrainHandle> {
   const { connection, logger } = options;
   const documentsRepo = options.documentsRepo ?? createDocumentsRepository(options.pool);
@@ -110,13 +127,30 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
   });
 
   // Mismo patron que ADR-002: se comprueba la capacidad y, si falta, se degrada con un aviso
-  // claro en vez de reventar el arranque.
-  const embeddingsEnabled = await embeddingsRepo.isAvailable();
-  if (!embeddingsEnabled) {
+  // claro en vez de reventar el arranque. Son dos capacidades distintas y las dos hacen falta:
+  // la extension en la base de datos y el modelo cargable en este proceso.
+  const pgvectorReady = await embeddingsRepo.isAvailable();
+  if (!pgvectorReady) {
     logger.warn(
       { model: options.embedder.model },
       'pgvector no disponible (migracion 009): brain arranca sin embeddings y la busqueda sera solo full-text',
     );
+  }
+
+  // El modelo se prueba al arrancar y no al primer job: si el binario no carga en esta plataforma
+  // (el caso de Alpine/musl con onnxruntime), sin esta prueba cada documento agotaria sus 5
+  // reintentos uno a uno. De paso deja el modelo caliente para el primer job de verdad.
+  const modelReady = pgvectorReady && (await probeEmbedder(options.embedder, logger));
+  const embeddingsEnabled = pgvectorReady && modelReady;
+
+  // Un job fallido conserva su `jobId` (`removeOnFail` lo guarda una semana) y BullMQ ignora en
+  // silencio cualquier `add` con un id que ya existe: con los fallos de un arranque anterior en la
+  // cola, el barrido dice que encola 50 documentos y no se procesa ninguno. Solo sirven de
+  // diagnostico, y lo que haya pendiente lo vuelve a encolar el barrido.
+  if (embeddingsEnabled) {
+    const limpiados = await queue.clean(0, 1_000, 'failed');
+    if (limpiados.length > 0)
+      logger.info({ limpiados: limpiados.length }, 'jobs fallidos de arranques anteriores retirados');
   }
 
   let shuttingDown = false;

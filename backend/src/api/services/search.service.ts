@@ -151,6 +151,14 @@ export async function searchDocuments(
           : 'la busqueda vectorial fallo';
       deps.logger.warn({ err: error, q: request.q }, 'busqueda degradada a full-text');
     }
+
+    // La ANN no tiene umbral: con vectores en el corpus siempre devuelve vecinos. Que no devuelva
+    // ninguno habiendo coincidencias lexicas con los mismos filtros significa que no hay embeddings
+    // de este modelo, y entonces la respuesta es full-text aunque el modelo haya cargado bien.
+    if (degradedReason === null && vector.length === 0 && fullText.length > 0) {
+      mode = 'fulltext';
+      degradedReason = `no hay embeddings de ${embedder.model} en el corpus`;
+    }
   }
 
   const fused = fuseRankings(fullText, vector).slice(0, scope.limit);

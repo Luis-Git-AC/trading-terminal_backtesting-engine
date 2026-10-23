@@ -1,9 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { BRAIN_QUEUE_NAME } from '@tt/shared';
-import { Queue } from 'bullmq';
+import { Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { EMBEDDING_DIMENSIONS, type Embedder } from '../brain/embeddings/embedder.js';
+import {
+  EMBEDDING_DIMENSIONS,
+  EmbedderUnavailableError,
+  type Embedder,
+} from '../brain/embeddings/embedder.js';
 import { runMigrations } from '../db/migrate.js';
 import { createDocumentsRepository } from '../db/repositories/documents.repo.js';
 import { createEmbeddingsRepository } from '../db/repositories/embeddings.repo.js';
@@ -31,6 +35,9 @@ function fakeEmbedder(
     readonly delayMs?: number;
     readonly dimensions?: number;
     readonly fails?: boolean;
+    readonly unavailable?: boolean;
+    /** Pasa la prueba del arranque y rompe despues: un modelo que cambia tras cargar. */
+    readonly rompeTrasLaPrueba?: boolean;
   } = {},
 ): Embedder & { calls: number } {
   const embedder = {
@@ -43,10 +50,18 @@ function fakeEmbedder(
         await new Promise((resolve) => setTimeout(resolve, options.delayMs));
       }
       if (options.fails === true) throw new Error('el modelo revento');
+      if (options.unavailable === true) {
+        throw new EmbedderUnavailableError('no se pudo cargar el modelo: ld-linux-x86-64.so.2');
+      }
+
+      const length =
+        options.rompeTrasLaPrueba === true && embedder.calls > 1
+          ? 10
+          : (options.dimensions ?? EMBEDDING_DIMENSIONS);
 
       return texts.map((text) =>
         Array.from(
-          { length: options.dimensions ?? EMBEDDING_DIMENSIONS },
+          { length },
           (_, index) => ((text.length + index) % 97) / 97,
         ),
       );
@@ -224,9 +239,19 @@ describe('rol brain', () => {
     expect(await created.scanNow()).toBe(0);
   });
 
-  it('un vector con dimensiones distintas a las de la columna falla antes de escribir', async () => {
-    const documentId = await insertar('https://example.test/uno', 'cuerpo corto');
+  it('el modelo con malas dimensiones no pasa la prueba del arranque', async () => {
     const created = await launch(fakeEmbedder({ dimensions: 10 }));
+
+    expect(created.embeddingsEnabled).toBe(false);
+    expect(await created.scanNow()).toBe(0);
+  });
+
+  it('un vector con dimensiones distintas a las de la columna falla antes de escribir', async () => {
+    // La prueba del arranque la pasa y es el job el que sale mal: la guarda de dentro del job sigue
+    // haciendo falta para un modelo que cambia de comportamiento despues de cargar.
+    const documentId = await insertar('https://example.test/uno', 'cuerpo corto');
+    const created = await launch(fakeEmbedder({ rompeTrasLaPrueba: true }));
+    expect(created.embeddingsEnabled).toBe(true);
 
     await created.scanNow();
     // No se espera a que la cola se vacie: el job falla y BullMQ lo reintenta con backoff de 10 s.
@@ -240,6 +265,54 @@ describe('rol brain', () => {
     await created.stop();
     await expect(created.stop()).resolves.toBeUndefined();
     handle = undefined;
+  });
+
+  it('si el modelo no carga, brain arranca degradado y no deja jobs fallando en bucle', async () => {
+    await insertar('https://example.test/uno');
+    const embedder = fakeEmbedder({ unavailable: true });
+    const created = await launch(embedder);
+
+    // Una sola llamada: la prueba del arranque. Sin ella, el barrido encolaria el documento y el
+    // job agotaria sus 5 reintentos (el caso que destapo el gate G10 en el contenedor).
+    expect(embedder.calls).toBe(1);
+    expect(created.embeddingsEnabled).toBe(false);
+    expect(created.worker).toBeNull();
+    expect(await created.scanNow()).toBe(0);
+
+    const counts = await created.queue.getJobCounts('waiting', 'active', 'failed', 'delayed');
+    expect(counts.waiting).toBe(0);
+    expect(counts.failed).toBe(0);
+  });
+
+  it('los jobs fallidos de un arranque anterior no bloquean el reencolado', async () => {
+    const documentId = await insertar('https://example.test/uno', 'cuerpo corto');
+    const jobId = `${documentId}-${MODEL.replace(/[^a-zA-Z0-9]+/gu, '-')}`;
+
+    // Lo que deja un arranque con el modelo roto: el job muerto con el id del documento. Sin
+    // limpiarlo, BullMQ ignora en silencio el `add` del barrido siguiente.
+    const previa = new Queue(BRAIN_QUEUE_NAME, {
+      connection: createQueueConnection(redisUrl),
+      prefix,
+    });
+    await previa.add(BRAIN_QUEUE_NAME, { documentId }, { jobId, attempts: 1 });
+    const roto = new Worker(
+      BRAIN_QUEUE_NAME,
+      () => Promise.reject(new Error('el modelo no cargaba')),
+      { connection: createQueueConnection(redisUrl), prefix },
+    );
+    await new Promise<void>((resolve) => roto.once('failed', () => resolve()));
+    await roto.close();
+    expect(await previa.getJobCounts('failed')).toMatchObject({ failed: 1 });
+    await previa.close();
+
+    const created = await launch(fakeEmbedder());
+    expect(await created.queue.getJobCounts('failed')).toMatchObject({ failed: 0 });
+
+    expect(await created.scanNow()).toBe(1);
+    await esperarCola(created);
+    expect(
+      await createEmbeddingsRepository(db.pool).getEmbeddings(documentId, MODEL),
+    ).not.toHaveLength(0);
   });
 
   describe('etiquetado', () => {
