@@ -82,12 +82,14 @@ describe('sesion de los perpetuos TradFi', () => {
   });
 
   it('cada minuto de la semana cae en una sola ventana', () => {
-    const open = Array.from({ length: MINUTES_PER_WEEK }, (_, minute) =>
-      metals.filter((window) =>
-        window.from <= window.to
-          ? minute >= window.from && minute < window.to
-          : minute >= window.from || minute < window.to,
-      ).length,
+    const open = Array.from(
+      { length: MINUTES_PER_WEEK },
+      (_, minute) =>
+        metals.filter((window) =>
+          window.from <= window.to
+            ? minute >= window.from && minute < window.to
+            : minute >= window.from || minute < window.to,
+        ).length,
     );
 
     expect(Math.max(...open)).toBe(1);

@@ -58,6 +58,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '007_documents.sql',
       '008_document_tags.sql',
       '009_embeddings.sql',
+      '010_search_indexes.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -389,6 +390,36 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
         [id],
       );
       expect(quedan[0]?.count).toBe('0');
+    });
+  });
+
+  describe('indices de la busqueda hibrida', () => {
+    it('raw_documents tiene el tsvector generado y su indice GIN', async () => {
+      const { rows } = await db.pool.query<{ indexdef: string }>(
+        `SELECT indexdef FROM pg_indexes WHERE indexname = 'raw_documents_search_idx'`,
+      );
+      expect(rows[0]?.indexdef).toContain('USING gin (search_tsv)');
+
+      const generado = await db.pool.query<{ generado: string }>(
+        `SELECT attgenerated::text AS generado FROM pg_attribute
+         WHERE attrelid = 'raw_documents'::regclass AND attname = 'search_tsv'`,
+      );
+      expect(generado.rows[0]?.generado).toBe('s');
+    });
+
+    it('la configuracion de idioma es por documento', async () => {
+      const { rows } = await db.pool.query<{ en: string; es: string; otro: string }>(
+        `SELECT tt_tsconfig('en')::text AS en, tt_tsconfig('es')::text AS es,
+                tt_tsconfig('zz')::text AS otro`,
+      );
+      expect(rows[0]).toEqual({ en: 'english', es: 'spanish', otro: 'simple' });
+    });
+
+    it('document_embeddings tiene el indice HNSW por coseno', async () => {
+      const { rows } = await db.pool.query<{ indexdef: string }>(
+        `SELECT indexdef FROM pg_indexes WHERE indexname = 'document_embeddings_hnsw_idx'`,
+      );
+      expect(rows[0]?.indexdef).toContain('USING hnsw (embedding vector_cosine_ops)');
     });
   });
 

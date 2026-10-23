@@ -7,6 +7,8 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  documentResponseSchema,
+  documentsSearchResponseSchema,
   eventsResponseSchema,
   fundingResponseSchema,
   healthResponseSchema,
@@ -27,9 +29,15 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z, type ZodType } from 'zod';
 import { runMigrations } from '../db/migrate.js';
-import { createCandlesRepository, type CandlesRepository } from '../db/repositories/candles.repo.js';
+import {
+  createCandlesRepository,
+  type CandlesRepository,
+} from '../db/repositories/candles.repo.js';
 import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
+import { createDocumentsRepository } from '../db/repositories/documents.repo.js';
+import { createEmbeddingsRepository } from '../db/repositories/embeddings.repo.js';
 import { createEventsRepository } from '../db/repositories/events.repo.js';
+import { createSearchRepository } from '../db/repositories/search.repo.js';
 import { createMacroRepository } from '../db/repositories/macro.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import {
@@ -47,6 +55,7 @@ import { backtestsRouter } from './routes/backtests.js';
 import { candlesRouter } from './routes/candles.js';
 import { derivativesRouter } from './routes/derivatives.js';
 import { eventsRouter } from './routes/events.js';
+import { documentsRouter } from './routes/documents.js';
 import { macroRouter } from './routes/macro.js';
 import { marketsRouter } from './routes/markets.js';
 import { strategiesRouter } from './routes/strategies.js';
@@ -120,7 +129,9 @@ function makeCandle(index: number): Candle {
 function requireRedisUrl(): string {
   const url = process.env.REDIS_URL;
   if (url === undefined || url === '') {
-    throw new Error('REDIS_URL no esta definida. Copia .env.example a .env y ejecuta npm run db:up.');
+    throw new Error(
+      'REDIS_URL no esta definida. Copia .env.example a .env y ejecuta npm run db:up.',
+    );
   }
   return url;
 }
@@ -153,6 +164,7 @@ describe('contrato del API (docs/03)', () => {
   let queue: BacktestQueue;
   let server: Server;
   let baseUrl: string;
+  let documentId: string;
 
   const logger = createLogger({ role: 'api', level: 'silent' });
   let app: ReturnType<typeof createApiApp>;
@@ -210,6 +222,28 @@ describe('contrato del API (docs/03)', () => {
       },
     ]);
 
+    // Un documento con su etiqueta: lo que dejan F10-T1 y F10-T2 para que busque F10-T4.
+    const documents = createDocumentsRepository(db.pool);
+    await documents.insertDocuments([
+      {
+        source: 'oilprice',
+        url: 'https://example.test/crude-inventories',
+        title: 'Crude inventories build again',
+        body: 'Brent slipped after the weekly petroleum report showed another crude inventory build.',
+        publishedAt: START,
+        publishedAtEstimated: false,
+        fetchedAt: START,
+        lang: 'en',
+      },
+    ]);
+    const [documento] = await documents.getDocuments({ from: 0, to: NOW });
+    documentId = documento!.id;
+    await documents.replaceTags({
+      documentId,
+      ruleIds: ['oil-nombres-v1'],
+      tags: [{ asset: 'oil', ruleId: 'oil-nombres-v1' }],
+    });
+
     const macroDeps = {
       macro,
       events,
@@ -241,6 +275,17 @@ describe('contrato del API (docs/03)', () => {
         router.use(derivativesRouter({ derivatives, markets: marketDeps, now: () => NOW }));
         router.use(macroRouter(macroDeps));
         router.use(eventsRouter(macroDeps));
+        // Sin `embedder`: el contrato se verifica en el modo degradado, que es el unico que no
+        // necesita el modelo. El modo hibrido lo cubre `search.itest.ts`.
+        router.use(
+          documentsRouter({
+            documents,
+            embeddings: createEmbeddingsRepository(db.pool),
+            search: createSearchRepository(db.pool),
+            logger,
+            now: () => NOW,
+          }),
+        );
         router.use(strategiesRouter());
         router.use(
           backtestsRouter({
@@ -361,7 +406,9 @@ describe('contrato del API (docs/03)', () => {
     });
 
     it('GET /api/markets/:exchange/:symbol/coverage', async () => {
-      const response = await request(app).get(`/api/markets/binance/${SYMBOL}/coverage?timeframe=1h`);
+      const response = await request(app).get(
+        `/api/markets/binance/${SYMBOL}/coverage?timeframe=1h`,
+      );
 
       expect(response.status).toBe(200);
       assertContract(coverageResponseSchema, response.body);
@@ -421,6 +468,27 @@ describe('contrato del API (docs/03)', () => {
       expect(response.status).toBe(200);
       const body = assertContract(eventsResponseSchema, response.body);
       expect(body.events[0]).toMatchObject({ source: 'eia', type: 'eia-wpsr' });
+    });
+
+    it('GET /api/documents/search', async () => {
+      const response = await request(app).get('/api/documents/search?q=crude%20inventories');
+
+      expect(response.status).toBe(200);
+      const body = assertContract(documentsSearchResponseSchema, response.body);
+      expect(body).toMatchObject({ mode: 'fulltext', count: 1, asOf: null });
+      expect(body.results[0]).toMatchObject({
+        source: 'oilprice',
+        assets: ['oil'],
+        vectorRank: null,
+      });
+    });
+
+    it('GET /api/documents/:id', async () => {
+      const response = await request(app).get(`/api/documents/${documentId}`);
+
+      expect(response.status).toBe(200);
+      const body = assertContract(documentResponseSchema, response.body);
+      expect(body).toMatchObject({ id: documentId, source: 'oilprice', assets: ['oil'] });
     });
 
     it('GET /api/strategies', async () => {
@@ -491,9 +559,7 @@ describe('contrato del API (docs/03)', () => {
 
     it('POST /api/backtests/:id/cancel', async () => {
       const created = await request(app).post('/api/backtests').send(createBody());
-      const response = await request(app).post(
-        `/api/backtests/${created.body.runId}/cancel`,
-      );
+      const response = await request(app).post(`/api/backtests/${created.body.runId}/cancel`);
 
       expect(response.status).toBe(200);
       assertContract(cancelBacktestResponseSchema, response.body);
@@ -555,9 +621,7 @@ describe('contrato del API (docs/03)', () => {
 
   describe('el catalogo permite reconstruir un formulario valido', () => {
     it('los defaults de cada estrategia bastan para lanzar un backtest', async () => {
-      const catalog = strategyCatalogSchema.parse(
-        (await request(app).get('/api/strategies')).body,
-      );
+      const catalog = strategyCatalogSchema.parse((await request(app).get('/api/strategies')).body);
 
       for (const strategy of catalog.strategies) {
         const response = await request(app)
@@ -569,9 +633,7 @@ describe('contrato del API (docs/03)', () => {
     });
 
     it('los defaults del catalogo son los que aplica el API si no se manda nada', async () => {
-      const catalog = strategyCatalogSchema.parse(
-        (await request(app).get('/api/strategies')).body,
-      );
+      const catalog = strategyCatalogSchema.parse((await request(app).get('/api/strategies')).body);
 
       for (const strategy of catalog.strategies) {
         const explicit = await request(app)
@@ -594,9 +656,7 @@ describe('contrato del API (docs/03)', () => {
     });
 
     it('los limites del catalogo son los que valida el API', async () => {
-      const catalog = strategyCatalogSchema.parse(
-        (await request(app).get('/api/strategies')).body,
-      );
+      const catalog = strategyCatalogSchema.parse((await request(app).get('/api/strategies')).body);
 
       for (const strategy of catalog.strategies) {
         const bounded = strategy.params.find(
@@ -625,9 +685,7 @@ describe('contrato del API (docs/03)', () => {
     });
 
     it('cada parametro declara tipo y default utilizables por un formulario', async () => {
-      const catalog = strategyCatalogSchema.parse(
-        (await request(app).get('/api/strategies')).body,
-      );
+      const catalog = strategyCatalogSchema.parse((await request(app).get('/api/strategies')).body);
 
       expect(catalog.strategies.length).toBeGreaterThan(0);
       for (const strategy of catalog.strategies) {

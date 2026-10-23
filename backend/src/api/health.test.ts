@@ -246,9 +246,7 @@ describe('middlewares transversales', () => {
   });
 
   it('respeta el x-request-id que llega del cliente', async () => {
-    const response = await request(makeApp())
-      .get('/api/health')
-      .set('x-request-id', 'trace-123');
+    const response = await request(makeApp()).get('/api/health').set('x-request-id', 'trace-123');
     expect(response.headers['x-request-id']).toBe('trace-123');
   });
 

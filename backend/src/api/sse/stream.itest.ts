@@ -54,7 +54,9 @@ const errorEnvelopeSchema = z.object({ error: z.object({ code: z.string() }) });
 function requireRedisUrl(): string {
   const url = process.env.REDIS_URL;
   if (url === undefined || url === '') {
-    throw new Error('REDIS_URL no esta definida. Copia .env.example a .env y ejecuta npm run db:up.');
+    throw new Error(
+      'REDIS_URL no esta definida. Copia .env.example a .env y ejecuta npm run db:up.',
+    );
   }
   return url;
 }
@@ -594,13 +596,17 @@ describe('sse', () => {
     });
 
     it('un simbolo no servido responde 404', async () => {
-      const response = await fetch(`${baseUrl}/stream/candles?exchange=binance&symbol=NOPEUSDT&timeframe=1m`);
+      const response = await fetch(
+        `${baseUrl}/stream/candles?exchange=binance&symbol=NOPEUSDT&timeframe=1m`,
+      );
       expect(response.status).toBe(404);
       await response.body?.cancel();
     });
 
     it('un timeframe fuera del contrato responde 400', async () => {
-      const response = await fetch(`${baseUrl}/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=5m`);
+      const response = await fetch(
+        `${baseUrl}/stream/candles?exchange=binance&symbol=${SYMBOL}&timeframe=5m`,
+      );
       expect(response.status).toBe(400);
       await response.body?.cancel();
     });

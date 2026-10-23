@@ -56,6 +56,8 @@ export interface DocumentsRepository {
   /** Reetiquetado por regla: lo que pusieron otras reglas no se toca. */
   replaceTags(input: ReplaceTagsInput): Promise<ReplaceTagsResult>;
   getTags(documentId: string): Promise<DocumentTagRow[]>;
+  /** Las etiquetas de varios documentos de una vez: la busqueda devuelve hasta 50 por consulta. */
+  getTagsForDocuments(ids: readonly string[]): Promise<Map<string, DocumentTagRow[]>>;
 }
 
 /**
@@ -123,6 +125,13 @@ const SELECT_BY_IDS_SQL = `
 const SELECT_TAGS_SQL = `
   SELECT asset, rule_id FROM document_tags WHERE document_id = $1::uuid
   ORDER BY asset, rule_id
+`;
+
+const SELECT_TAGS_BY_IDS_SQL = `
+  SELECT document_id::text AS document_id, asset, rule_id
+  FROM document_tags
+  WHERE document_id = ANY($1::uuid[])
+  ORDER BY document_id, asset, rule_id
 `;
 
 interface TagRow {
@@ -233,6 +242,22 @@ export function createDocumentsRepository(db: Queryable): DocumentsRepository {
     async getTags(documentId: string): Promise<DocumentTagRow[]> {
       const { rows } = await db.query<TagRow>(SELECT_TAGS_SQL, [documentId]);
       return rows.map((row) => ({ asset: row.asset, ruleId: row.rule_id }));
+    },
+
+    async getTagsForDocuments(ids: readonly string[]): Promise<Map<string, DocumentTagRow[]>> {
+      const byDocument = new Map<string, DocumentTagRow[]>();
+      if (ids.length === 0) return byDocument;
+
+      const { rows } = await db.query<TagRow & { document_id: string }>(SELECT_TAGS_BY_IDS_SQL, [
+        [...ids],
+      ]);
+      for (const row of rows) {
+        const tag = { asset: row.asset, ruleId: row.rule_id };
+        const group = byDocument.get(row.document_id);
+        if (group === undefined) byDocument.set(row.document_id, [tag]);
+        else group.push(tag);
+      }
+      return byDocument;
     },
   };
 }

@@ -205,11 +205,9 @@ export const EVENTS_MAX_LIMIT = 1000;
 /** Ids de serie y de fuente: lista blanca estricta, acaban en SQL parametrizado y en claves de cache. */
 export const SERIES_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-export const seriesIdSchema = z
-  .string()
-  .refine((value) => SERIES_ID_PATTERN.test(value), {
-    error: 'El id de serie debe ser alfanumerico, con guiones o guiones bajos, de 1 a 64 caracteres',
-  });
+export const seriesIdSchema = z.string().refine((value) => SERIES_ID_PATTERN.test(value), {
+  error: 'El id de serie debe ser alfanumerico, con guiones o guiones bajos, de 1 a 64 caracteres',
+});
 
 const limitParamSchema = z
   .string()
@@ -300,3 +298,83 @@ export const eventsResponseSchema = z.object({
 });
 
 export type EventsResponse = z.infer<typeof eventsResponseSchema>;
+
+export const DOCUMENTS_MAX_LIMIT = 50;
+
+/** Modo real de la respuesta: `hybrid` fusiona full-text y vectores; `fulltext` es el degradado. */
+export const SEARCH_MODES = ['hybrid', 'fulltext'] as const;
+
+export type SearchMode = (typeof SEARCH_MODES)[number];
+
+const csvSchema = z
+  .string()
+  .transform((value) =>
+    value
+      .split(',')
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0),
+  )
+  .pipe(z.array(seriesIdSchema).min(1))
+  .optional();
+
+export const documentsSearchQuerySchema = z.object({
+  /** Texto libre; se interpreta con `websearch_to_tsquery` (comillas, `or`, `-palabra`). */
+  q: z.string().trim().min(2).max(200),
+  /** Sin rango se busca en todo el corpus, que es lo normal en una busqueda. */
+  from: timestampParamSchema.optional(),
+  to: timestampParamSchema.optional(),
+  asOf: timestampParamSchema.optional(),
+  asset: csvSchema,
+  source: csvSchema,
+  limit: limitParamSchema,
+});
+
+export type DocumentsSearchQuery = z.infer<typeof documentsSearchQuerySchema>;
+
+export const documentParamsSchema = z.object({
+  id: z.uuid(),
+});
+
+export const documentSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  url: z.string(),
+  title: z.string(),
+  publishedAt: z.number().int().nonnegative(),
+  /** `true` cuando el feed no traia fecha o venia en el futuro y se uso `fetchedAt`. */
+  publishedAtEstimated: z.boolean(),
+  fetchedAt: z.number().int().nonnegative(),
+  lang: z.string().nullable(),
+  assets: z.array(z.string()),
+});
+
+export const documentSearchResultSchema = documentSchema.extend({
+  /** Principio del cuerpo ya saneado a texto: el documento completo va en `/api/documents/:id`. */
+  snippet: z.string(),
+  /** Puntuacion de la fusion (Reciprocal Rank Fusion). Mayor es mejor. */
+  score: z.number(),
+  /** Posicion en cada ranking de origen, `null` si ese ranking no lo devolvio. */
+  fullTextRank: z.number().int().positive().nullable(),
+  vectorRank: z.number().int().positive().nullable(),
+});
+
+export const documentsSearchResponseSchema = z.object({
+  query: z.string(),
+  mode: z.enum(SEARCH_MODES),
+  /** Por que se degrado a full-text, cuando se degrado. */
+  degradedReason: z.string().nullable(),
+  count: z.number().int().nonnegative(),
+  results: z.array(documentSearchResultSchema),
+  asOf: z.number().int().nonnegative().nullable(),
+});
+
+export type DocumentsSearchResponse = z.infer<typeof documentsSearchResponseSchema>;
+
+export const documentResponseSchema = documentSchema.extend({
+  body: z.string(),
+  contentHash: z.string(),
+  /** Etiquetas con la regla que las puso, para saber por que esta etiquetado asi. */
+  tags: z.array(z.object({ asset: z.string(), ruleId: z.string() })),
+});
+
+export type DocumentResponse = z.infer<typeof documentResponseSchema>;

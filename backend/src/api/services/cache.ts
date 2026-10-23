@@ -104,7 +104,10 @@ export async function cached<T>(options: CachedOptions<T>): Promise<T> {
       options.logger.debug({ key: options.key, cache: 'hit' }, 'cache');
       return value;
     } catch (error) {
-      options.logger.warn({ err: error, key: options.key }, 'entrada de cache ilegible, se recarga');
+      options.logger.warn(
+        { err: error, key: options.key },
+        'entrada de cache ilegible, se recarga',
+      );
     }
   }
 
@@ -113,7 +116,10 @@ export async function cached<T>(options: CachedOptions<T>): Promise<T> {
   try {
     await options.cache.set(options.key, JSON.stringify(value), options.ttlSec);
   } catch (error) {
-    options.logger.warn({ err: error, key: options.key }, 'no se pudo escribir en la cache, se sigue');
+    options.logger.warn(
+      { err: error, key: options.key },
+      'no se pudo escribir en la cache, se sigue',
+    );
   }
   return value;
 }

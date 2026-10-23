@@ -190,7 +190,9 @@ describe('API de mercado y velas', () => {
     });
 
     it('un simbolo desconocido da 404', async () => {
-      const response = await request(makeApp()).get('/api/markets/binance/NOPEUSDT/coverage?timeframe=1m');
+      const response = await request(makeApp()).get(
+        '/api/markets/binance/NOPEUSDT/coverage?timeframe=1m',
+      );
       expect(response.status).toBe(404);
       expect(response.body.error.code).toBe('NOT_FOUND');
     });

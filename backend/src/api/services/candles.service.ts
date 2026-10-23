@@ -44,9 +44,7 @@ export async function getCandles(
   const limit = request.limit ?? CANDLES_MAX_LIMIT;
 
   if (limit > CANDLES_MAX_LIMIT) {
-    throw AppError.rangeTooLarge(
-      `limit maximo ${CANDLES_MAX_LIMIT}, se pidieron ${limit}`,
-    );
+    throw AppError.rangeTooLarge(`limit maximo ${CANDLES_MAX_LIMIT}, se pidieron ${limit}`);
   }
 
   const to = request.to ?? deps.now();

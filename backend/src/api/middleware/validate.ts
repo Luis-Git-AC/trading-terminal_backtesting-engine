@@ -75,11 +75,6 @@ export function withValidation<P = undefined, Q = undefined, B = undefined>(
       return;
     }
 
-    handler(
-      { params: params as P, query: query as Q, body: body as B },
-      req,
-      res,
-      next,
-    );
+    handler({ params: params as P, query: query as Q, body: body as B }, req, res, next);
   };
 }

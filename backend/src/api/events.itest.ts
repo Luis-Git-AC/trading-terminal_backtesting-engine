@@ -193,8 +193,8 @@ describe('API de eventos', () => {
       (await request(makeApp()).get(`/api/events?from=${START}&to=${START - DAY}`)).status,
     ).toBe(400);
     expect((await request(makeApp()).get(`/api/events?from=${START}&asset=`)).status).toBe(400);
-    expect(
-      (await request(makeApp()).get(`/api/events?from=${START}&asset=oil;drop`)).status,
-    ).toBe(400);
+    expect((await request(makeApp()).get(`/api/events?from=${START}&asset=oil;drop`)).status).toBe(
+      400,
+    );
   });
 });

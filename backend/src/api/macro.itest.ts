@@ -39,9 +39,21 @@ describe('API de series macro', () => {
       points: [
         { t: START, value: 1.8, publishedAt: START, fetchedAt: PRIMERA, revision: 0 },
         { t: START + DAY, value: 1.82, publishedAt: START + DAY, fetchedAt: PRIMERA, revision: 0 },
-        { t: START + 2 * DAY, value: 1.79, publishedAt: START + 2 * DAY, fetchedAt: PRIMERA, revision: 0 },
+        {
+          t: START + 2 * DAY,
+          value: 1.79,
+          publishedAt: START + 2 * DAY,
+          fetchedAt: PRIMERA,
+          revision: 0,
+        },
         // La correccion del tercer punto, descargada una semana despues.
-        { t: START + 2 * DAY, value: 1.91, publishedAt: CORRECCION, fetchedAt: CORRECCION, revision: 1 },
+        {
+          t: START + 2 * DAY,
+          value: 1.91,
+          publishedAt: CORRECCION,
+          fetchedAt: CORRECCION,
+          revision: 1,
+        },
       ],
     });
 
@@ -65,7 +77,10 @@ describe('API de series macro', () => {
         router.use(
           macroRouter({
             macro: repo,
-            events: { upsertEvents: () => Promise.resolve(0), getEvents: () => Promise.resolve([]) },
+            events: {
+              upsertEvents: () => Promise.resolve(0),
+              getEvents: () => Promise.resolve([]),
+            },
             cache,
             logger: createLogger({ role: 'api', level: 'silent' }),
             now: () => NOW,
@@ -88,7 +103,13 @@ describe('API de series macro', () => {
       points: [
         { t: START, value: 1.8, publishedAt: START, fetchedAt: PRIMERA, revision: 0 },
         { t: START + DAY, value: 1.82, publishedAt: START + DAY, fetchedAt: PRIMERA, revision: 0 },
-        { t: START + 2 * DAY, value: 1.91, publishedAt: CORRECCION, fetchedAt: CORRECCION, revision: 1 },
+        {
+          t: START + 2 * DAY,
+          value: 1.91,
+          publishedAt: CORRECCION,
+          fetchedAt: CORRECCION,
+          revision: 1,
+        },
       ],
       asOf: null,
       nextFrom: null,

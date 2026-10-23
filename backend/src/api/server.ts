@@ -69,9 +69,7 @@ export function createApiApp(deps: ApiDeps): Express {
     }),
   );
   app.use(express.json({ limit: BODY_LIMIT }));
-  app.use(
-    deps.generateRequestId === undefined ? requestId() : requestId(deps.generateRequestId),
-  );
+  app.use(deps.generateRequestId === undefined ? requestId() : requestId(deps.generateRequestId));
   app.use(accessLog(deps.logger));
 
   const api = Router();

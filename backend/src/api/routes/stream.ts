@@ -85,7 +85,10 @@ function attach(
       });
     })
     .catch((error: unknown) => {
-      deps.logger.error({ err: error, channel: redisChannel }, 'no se pudo abrir la suscripcion sse');
+      deps.logger.error(
+        { err: error, channel: redisChannel },
+        'no se pudo abrir la suscripcion sse',
+      );
       channel.send('error', { code: 'INTERNAL', message: 'No se pudo abrir el stream' });
       channel.close();
     });

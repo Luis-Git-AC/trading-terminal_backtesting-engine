@@ -9,6 +9,7 @@ import { createBacktestRateLimit, type RateLimitOptions } from '../api/middlewar
 import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
 import { derivativesRouter } from '../api/routes/derivatives.js';
+import { documentsRouter } from '../api/routes/documents.js';
 import { eventsRouter } from '../api/routes/events.js';
 import { macroRouter } from '../api/routes/macro.js';
 import { marketsRouter } from '../api/routes/markets.js';
@@ -18,6 +19,9 @@ import { createSseHub } from '../api/sse/hub.js';
 import { createRedisCache } from '../api/services/cache.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
+import { createDocumentsRepository } from '../db/repositories/documents.repo.js';
+import { createEmbeddingsRepository } from '../db/repositories/embeddings.repo.js';
+import { createSearchRepository } from '../db/repositories/search.repo.js';
 import { createEventsRepository } from '../db/repositories/events.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import { createMacroRepository } from '../db/repositories/macro.repo.js';
@@ -26,6 +30,7 @@ import { createBacktestQueue } from '../queue/backtest.queue.js';
 import { createRedisCancelFlags } from '../queue/cancel-flags.js';
 import { SEED_MAX, type Timeframe } from '@tt/shared';
 import type { MarketExchangeDeps } from '../api/services/market.service.js';
+import type { SearchServiceDeps } from '../api/services/search.service.js';
 
 export interface StartApiOptions {
   readonly pool: Pool;
@@ -44,6 +49,11 @@ export interface StartApiOptions {
   readonly maxBars: number;
   readonly maxActiveRuns?: number;
   readonly rateLimit?: RateLimitOptions;
+  /**
+   * Modelo con el que se vectoriza la consulta de `/api/documents/search`. Sin el, la busqueda
+   * funciona igual pero solo con full-text y la respuesta lo dice.
+   */
+  readonly embedder?: SearchServiceDeps['embedder'];
 }
 
 export interface ApiHandle {
@@ -85,6 +95,9 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
   const derivatives = createDerivativesRepository(pool);
   const ingestState = createIngestStateRepository(pool);
   const macro = createMacroRepository(pool);
+  const documents = createDocumentsRepository(pool);
+  const embeddings = createEmbeddingsRepository(pool);
+  const search = createSearchRepository(pool);
   const events = createEventsRepository(pool);
   const runs = createRunsRepository(pool);
   const cache = createRedisCache(redis);
@@ -120,6 +133,16 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
       router.use(derivativesRouter({ derivatives, markets: marketDeps }));
       router.use(macroRouter({ macro, events, cache, logger, now: () => Date.now() }));
       router.use(eventsRouter({ macro, events, cache, logger, now: () => Date.now() }));
+      router.use(
+        documentsRouter({
+          documents,
+          embeddings,
+          search,
+          logger,
+          now: () => Date.now(),
+          ...(options.embedder === undefined ? {} : { embedder: options.embedder }),
+        }),
+      );
       router.use(strategiesRouter());
       router.use(
         backtestsRouter(

@@ -337,6 +337,10 @@ async function runApi(logger: AppLogger): Promise<void> {
     timeframes: env.TIMEFRAMES,
     maxBars: env.BACKTEST_MAX_BARS,
     maxActiveRuns: env.BACKTEST_MAX_ACTIVE_RUNS,
+    // El mismo modelo que usa `brain`: una consulta vectorizada con otro modelo no se puede
+    // comparar con los vectores guardados. La carga es perezosa, asi que el API no paga nada
+    // hasta la primera busqueda.
+    embedder: createTransformersEmbedder({ model: env.BRAIN_MODEL }),
     rateLimit: {
       windowMs: env.RATE_LIMIT_WINDOW_MS,
       max: env.RATE_LIMIT_MAX_BACKTESTS,
