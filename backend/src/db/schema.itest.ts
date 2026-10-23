@@ -55,6 +55,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '004_gaps_unrecoverable.sql',
       '005_derivatives.sql',
       '006_macro.sql',
+      '007_documents.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -350,6 +351,31 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
 
       await db.pool.query(insert);
       await expect(db.pool.query(insert)).rejects.toThrow(/content_hash/);
+    });
+  });
+
+  describe('raw_documents', () => {
+    it('el mismo contenido con URLs distintas no entra dos veces', async () => {
+      const insert = (url: string) => `INSERT INTO raw_documents
+        (source, url, title, body, content_hash, published_at, fetched_at)
+        VALUES ('coindesk','${url}','Gold','Spot gold held.','hash-del-cuerpo',
+                '2026-10-21T09:30:00Z','2026-10-23T07:00:00Z')`;
+
+      await db.pool.query(insert('https://a.test/x?utm_source=rss'));
+      await expect(db.pool.query(insert('https://b.test/x'))).rejects.toThrow(/content_hash/);
+    });
+
+    it('no es hypertable y tiene los indices de consulta y de corte point-in-time', async () => {
+      const { rows } = await db.pool.query<{ indexname: string; indexdef: string }>(
+        `SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'raw_documents'`,
+      );
+      const byName = new Map(rows.map((row) => [row.indexname, row.indexdef]));
+
+      expect(byName.get('raw_documents_published_idx')).toContain('(published_at DESC)');
+      expect(byName.get('raw_documents_source_published_idx')).toContain(
+        '(source, published_at DESC)',
+      );
+      expect(byName.get('raw_documents_fetched_idx')).toContain('(fetched_at)');
     });
   });
 });

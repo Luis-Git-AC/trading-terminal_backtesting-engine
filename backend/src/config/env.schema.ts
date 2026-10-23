@@ -187,6 +187,9 @@ export const envSchema = z.object({
   // Tier gratuito: limite de peticiones bajo, asi que una vez al dia y nada mas.
   COINGECKO_CRON: cronSchema('31 5 * * *'),
   COINGECKO_RPS: z.coerce.number().positive().max(10).prefault('0.2'),
+  // Noticias: la lista de feeds es un fichero versionado (`sources/rss/feeds.ts`), aqui solo
+  // va la frecuencia, que el ticket fija entre 5 y 15 minutos.
+  RSS_CRON: cronSchema('*/10 * * * *'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 

@@ -37,6 +37,7 @@ import { createFredClient } from './sources/fred/client.js';
 import { createFredSource } from './sources/fred/fred.source.js';
 import { FRED_SOURCE_ID } from './sources/fred/types.js';
 import { buildSourceRegistry } from './sources/registry.js';
+import { createRssSource, RSS_SOURCE_ID } from './sources/rss/rss.source.js';
 import { createSourceStateStore } from './sources/state.js';
 
 /** Las fuentes cuyo estado refleja /api/health. Crece con cada fuente nueva de la fase 9. */
@@ -268,6 +269,19 @@ async function runCollector(logger: AppLogger): Promise<void> {
         }),
         schedule: env.COINGECKO_CRON,
         rps: env.COINGECKO_RPS,
+      }),
+    ),
+    toRunnable(
+      createRssSource({
+        pool,
+        fetch: async (url) => {
+          const response = await globalThis.fetch(url);
+          return { status: response.status, text: () => response.text() };
+        },
+        schedule: env.RSS_CRON,
+        onDiscard: (detail) => {
+          logger.warn({ source: RSS_SOURCE_ID, detail }, 'documento o feed RSS descartado');
+        },
       }),
     ),
   );

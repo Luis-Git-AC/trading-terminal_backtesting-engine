@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SINTETICO: forma copiada de un feed RSS 2.0 real, contenido inventado. -->
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Noticias de prueba</title>
+    <language>en</language>
+    <item>
+      <title>Gold holds above 4,000</title>
+      <link>https://example.test/gold-holds?utm_source=rss&amp;utm_medium=feed</link>
+      <pubDate>Wed, 21 Oct 2026 09:30:00 GMT</pubDate>
+      <description><![CDATA[<p>Spot gold <b>held</b> above $4,000 an ounce.</p><script>alert('x')</script>]]></description>
+    </item>
+    <item>
+      <title>Gold holds above 4,000 (mirror)</title>
+      <link>https://mirror.test/gold-holds</link>
+      <pubDate>Wed, 21 Oct 2026 09:41:00 GMT</pubDate>
+      <description><![CDATA[<div>Spot gold   <i>held</i> above $4,000 an ounce.</div>]]></description>
+    </item>
+    <item>
+      <title>Sin fecha y en el futuro</title>
+      <link>https://example.test/no-date</link>
+      <pubDate>Fri, 01 Jan 2100 00:00:00 GMT</pubDate>
+      <content:encoded>Crude inventories fell by 3.1 million barrels.</content:encoded>
+    </item>
+  </channel>
+</rss>
