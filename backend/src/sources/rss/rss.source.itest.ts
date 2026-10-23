@@ -40,7 +40,7 @@ describe('fuente RSS contra la base de datos', () => {
   });
 
   beforeEach(async () => {
-    await db.pool.query('TRUNCATE raw_documents');
+    await db.pool.query('TRUNCATE raw_documents CASCADE');
   });
 
   /** Sin red: el fixture se sirve segun la URL que pida la fuente. */

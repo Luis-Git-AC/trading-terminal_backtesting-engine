@@ -56,6 +56,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '005_derivatives.sql',
       '006_macro.sql',
       '007_documents.sql',
+      '008_document_tags.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -417,11 +418,7 @@ describe('fallback sin TimescaleDB (ADR-002)', () => {
       },
     });
 
-    expect(result.applied).toEqual([
-      '001_candles.sql',
-      '005_derivatives.sql',
-      '006_macro.sql',
-    ]);
+    expect(result.applied).toEqual(['001_candles.sql', '005_derivatives.sql', '006_macro.sql']);
     expect(result.timescaleVersion).toBeNull();
     expect(warnings.join('\n')).toMatch(/particionada por rango|no esta instalada/i);
 

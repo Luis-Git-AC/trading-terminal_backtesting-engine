@@ -31,10 +31,30 @@ export interface DocumentsRangeQuery {
   limit?: number | undefined;
 }
 
+export interface DocumentTagRow {
+  asset: string;
+  ruleId: string;
+}
+
+export interface ReplaceTagsInput {
+  documentId: string;
+  /** Reglas evaluadas en esta pasada: solo se podan las etiquetas que pusieron estas. */
+  ruleIds: readonly string[];
+  tags: readonly DocumentTagRow[];
+}
+
+export interface ReplaceTagsResult {
+  added: number;
+  removed: number;
+}
+
 export interface DocumentsRepository {
   /** Inserta los nuevos y devuelve cuantos entraron; un `content_hash` repetido se ignora. */
   insertDocuments(documents: readonly RawDocumentInput[]): Promise<number>;
   getDocuments(query: DocumentsRangeQuery): Promise<StoredRawDocument[]>;
+  /** Reetiquetado por regla: lo que pusieron otras reglas no se toca. */
+  replaceTags(input: ReplaceTagsInput): Promise<ReplaceTagsResult>;
+  getTags(documentId: string): Promise<DocumentTagRow[]>;
 }
 
 /**
@@ -70,6 +90,36 @@ const SELECT_SQL = `
   ORDER BY published_at DESC, id
   LIMIT $5
 `;
+
+// Insertar antes de borrar y sin transaccion a proposito: al reves, el `DELETE` y el `INSERT` de
+// una misma sentencia comparten snapshot y el indice unico aun ve la fila borrada. Asi, si el
+// proceso se cae entre las dos, lo que queda es una etiqueta de sobra que la pasada siguiente poda.
+const INSERT_TAGS_SQL = `
+  INSERT INTO document_tags (document_id, asset, rule_id)
+  SELECT $1::uuid, tag.asset, tag.rule_id
+  FROM jsonb_to_recordset($2::jsonb) AS tag(asset text, rule_id text)
+  ON CONFLICT (document_id, asset, rule_id) DO NOTHING
+`;
+
+const PRUNE_TAGS_SQL = `
+  DELETE FROM document_tags
+  WHERE document_id = $1::uuid
+    AND rule_id = ANY($2::text[])
+    AND NOT EXISTS (
+      SELECT 1 FROM jsonb_to_recordset($3::jsonb) AS tag(asset text, rule_id text)
+      WHERE tag.asset = document_tags.asset AND tag.rule_id = document_tags.rule_id
+    )
+`;
+
+const SELECT_TAGS_SQL = `
+  SELECT asset, rule_id FROM document_tags WHERE document_id = $1::uuid
+  ORDER BY asset, rule_id
+`;
+
+interface TagRow {
+  asset: string;
+  rule_id: string;
+}
 
 interface Row {
   id: string;
@@ -145,6 +195,25 @@ export function createDocumentsRepository(db: Queryable): DocumentsRepository {
         fetchedAt: row.fetched_at.getTime(),
         lang: row.lang,
       }));
+    },
+
+    async replaceTags(input: ReplaceTagsInput): Promise<ReplaceTagsResult> {
+      const tags = JSON.stringify(
+        input.tags.map((tag) => ({ asset: tag.asset, rule_id: tag.ruleId })),
+      );
+
+      const inserted = await db.query(INSERT_TAGS_SQL, [input.documentId, tags]);
+      const pruned =
+        input.ruleIds.length === 0
+          ? { rowCount: 0 }
+          : await db.query(PRUNE_TAGS_SQL, [input.documentId, [...input.ruleIds], tags]);
+
+      return { added: inserted.rowCount ?? 0, removed: pruned.rowCount ?? 0 };
+    },
+
+    async getTags(documentId: string): Promise<DocumentTagRow[]> {
+      const { rows } = await db.query<TagRow>(SELECT_TAGS_SQL, [documentId]);
+      return rows.map((row) => ({ asset: row.asset, ruleId: row.rule_id }));
     },
   };
 }

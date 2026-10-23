@@ -32,12 +32,15 @@ export type RssDiscard =
   | { kind: 'feed'; feedId: string; reason: string }
   | { kind: 'document'; feedId: string; url: string; reason: string };
 
+/** La fuente solo escribe: el etiquetado y la lectura son de otros. */
+export type RssDocumentsRepository = Pick<DocumentsRepository, 'insertDocuments'>;
+
 export interface RssSourceOptions {
   pool: Pool;
   fetch: RssFetch;
   schedule: string;
   feeds?: readonly FeedConfig[] | undefined;
-  documentsRepo?: DocumentsRepository | undefined;
+  documentsRepo?: RssDocumentsRepository | undefined;
   onDiscard?: ((discard: RssDiscard) => void) | undefined;
 }
 

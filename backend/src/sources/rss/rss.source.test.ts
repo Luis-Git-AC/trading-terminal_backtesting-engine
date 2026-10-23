@@ -65,7 +65,6 @@ function source(
           }
           return Promise.resolve(count);
         },
-        getDocuments: () => Promise.resolve([]),
       },
       onDiscard: (discard) => discards.push(discard),
     }),

@@ -28,13 +28,14 @@ describe('runMigrations sobre una base de datos limpia', () => {
       '005_derivatives.sql',
       '006_macro.sql',
       '007_documents.sql',
+      '008_document_tags.sql',
     ]);
     expect(result.alreadyApplied).toEqual([]);
 
     const { rows } = await db.pool.query<{ version: number; name: string; checksum: string }>(
       'SELECT version, name, checksum FROM schema_migrations ORDER BY version',
     );
-    expect(rows.map((row) => row.version)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(rows.map((row) => row.version)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8]);
     expect(rows[0]?.name).toBe('init');
     expect(rows[0]?.checksum).toHaveLength(64);
   });
@@ -62,12 +63,13 @@ describe('runMigrations sobre una base de datos limpia', () => {
       '005_derivatives.sql',
       '006_macro.sql',
       '007_documents.sql',
+      '008_document_tags.sql',
     ]);
 
     const { rows } = await db.pool.query<{ count: string }>(
       'SELECT count(*)::text AS count FROM schema_migrations',
     );
-    expect(rows[0]?.count).toBe('8');
+    expect(rows[0]?.count).toBe('9');
   });
 });
 
