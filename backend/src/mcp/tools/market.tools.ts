@@ -29,6 +29,13 @@ function serviceDeps(deps: McpToolDeps) {
 
 const DAY_MS = 86_400_000;
 
+/**
+ * Ventana por defecto de `get_macro_series`. El repositorio sirve de mas antiguo a mas reciente, asi
+ * que sin `from` la serie entera devolvia sus 500 puntos mas viejos (DFF arranca en 1954): ni cabe
+ * en la respuesta de un cliente MCP ni es lo que se pregunta. Para mas historia, `from` explicito.
+ */
+const DEFAULT_SERIES_WINDOW_MS = 90 * DAY_MS;
+
 export async function getMacroSeriesTool(
   deps: McpToolDeps,
   input: unknown,
@@ -37,7 +44,7 @@ export async function getMacroSeriesTool(
 
   return getMacroSeries(serviceDeps(deps), {
     seriesId: query.seriesId,
-    from: query.from ?? 0,
+    from: query.from ?? deps.now() - DEFAULT_SERIES_WINDOW_MS,
     limit: query.limit ?? MCP_MAX_SERIES_POINTS,
     ...(query.to === undefined ? {} : { to: query.to }),
     ...(query.asOf === undefined ? {} : { asOf: query.asOf }),
@@ -50,7 +57,10 @@ export async function listEventsTool(deps: McpToolDeps, input: unknown): Promise
 
   return getMarketEvents(serviceDeps(deps), {
     from: query.from ?? 0,
-    limit: query.limit ?? MCP_MAX_RESULTS * 5,
+    // El tope del schema sigue en 100, pero 100 eventos con su payload no caben en la respuesta de
+    // un cliente MCP. Se sirven de mas reciente a mas antiguo, asi que 20 es lo que se pregunta y
+    // el resto se pagina con `nextTo`.
+    limit: query.limit ?? MCP_MAX_RESULTS,
     ...(query.to === undefined ? {} : { to: query.to }),
     ...(query.asOf === undefined ? {} : { asOf: query.asOf }),
     ...(query.asset === undefined ? {} : { asset: query.asset }),

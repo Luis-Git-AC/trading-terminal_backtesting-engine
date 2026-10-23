@@ -165,6 +165,14 @@ describe('MCP server: tools de datos', () => {
       source: 'eia',
       seriesId: 'WCESTUS1',
       points: [
+        // Punto viejo de la misma serie: con `from` por defecto no debe salir.
+        {
+          t: Date.UTC(2020, 0, 1),
+          value: 300,
+          revision: 0,
+          publishedAt: DIA + 72 * 3_600_000,
+          fetchedAt: DIA + 72 * 3_600_000,
+        },
         {
           t: DIA,
           value: 420.5,
@@ -365,6 +373,19 @@ describe('MCP server: tools de datos', () => {
       expect(points[0]?.value).toBe(420.5);
       expect(points[0]?.revision).toBe(0);
       expect(points[0]?.t).toBe(DIA);
+    });
+
+    it('sin from devuelve la ventana reciente, no el arranque de la serie', async () => {
+      const { data } = unwrap(
+        await client.callTool({
+          name: 'get_macro_series',
+          arguments: { seriesId: 'WCESTUS1' },
+        }),
+      );
+
+      const points = data.points as { t: number }[];
+      expect(points.length).toBeGreaterThan(0);
+      expect(points.every((point) => point.t >= DIA - 90 * 86_400_000)).toBe(true);
     });
 
     it('una serie inexistente da un error claro', async () => {

@@ -106,7 +106,7 @@ export function buildMcpServer(deps: McpToolDeps): McpServer {
     {
       title: 'Serie macro',
       description:
-        'Puntos de una serie macro (FRED, EIA, CFTC, DefiLlama, CoinGecko) con sus revisiones. `asOf` devuelve el valor que se conocia en ese instante, no el corregido despues.',
+        'Puntos de una serie macro (FRED, EIA, CFTC, DefiLlama, CoinGecko) con sus revisiones. Sin `from` devuelve los ultimos 90 dias; pasa `from` en epoch ms para mas historia. `asOf` devuelve el valor que se conocia en ese instante, no el corregido despues.',
       inputSchema: getMacroSeriesShape,
       annotations: { readOnlyHint: true },
     },
@@ -118,7 +118,7 @@ export function buildMcpServer(deps: McpToolDeps): McpServer {
     {
       title: 'Eventos de mercado',
       description:
-        'Eventos programados y publicaciones (FOMC, informes de la EIA, COT) filtrables por activo y rango, con corte point-in-time.',
+        'Eventos programados y publicaciones (FOMC, informes de la EIA, COT) filtrables por activo y rango, con corte point-in-time. Del mas reciente al mas antiguo, 20 por defecto; sigue con `nextTo` en `to`.',
       inputSchema: listEventsShape,
       annotations: { readOnlyHint: true },
     },
