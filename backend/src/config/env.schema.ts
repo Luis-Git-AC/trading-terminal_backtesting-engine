@@ -197,6 +197,10 @@ export const envSchema = z.object({
   BRAIN_CONCURRENCY: intIn(1, 16).prefault('1'),
   BRAIN_SCAN_CRON: cronSchema('*/5 * * * *'),
   BRAIN_SCAN_LIMIT: intIn(1, 500).prefault('50'),
+  // Sin ruta, el export a Obsidian se desactiva con un aviso y el resto de `brain` sigue igual.
+  // Obsidian es una vista, no almacenamiento (ADR-006): el vault se puede borrar y reconstruir.
+  OBSIDIAN_VAULT_PATH: z.string().optional(),
+  OBSIDIAN_EXPORT_CRON: cronSchema('*/15 * * * *'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 

@@ -403,10 +403,13 @@ async function runBrain(logger: AppLogger): Promise<void> {
     scanCron: env.BRAIN_SCAN_CRON,
     concurrency: env.BRAIN_CONCURRENCY,
     scanLimit: env.BRAIN_SCAN_LIMIT,
+    exportCron: env.OBSIDIAN_EXPORT_CRON,
+    ...(env.OBSIDIAN_VAULT_PATH === undefined ? {} : { vaultPath: env.OBSIDIAN_VAULT_PATH }),
   });
 
   // Primer barrido al arrancar: lo que entro mientras brain estaba apagado no espera al cron.
   await handle.scanNow();
+  await handle.exportNow();
 }
 
 export async function main(): Promise<void> {

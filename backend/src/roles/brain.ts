@@ -13,6 +13,10 @@ import {
   createEmbeddingsRepository,
   type EmbeddingsRepository,
 } from '../db/repositories/embeddings.repo.js';
+import { createEventsRepository, type EventsRepository } from '../db/repositories/events.repo.js';
+import { createNotesRepository, type NotesRepository } from '../db/repositories/notes.repo.js';
+import { exportVault } from '../brain/export/obsidian-export.js';
+import type { ExportReport } from '../brain/export/obsidian.js';
 import type { AppLogger } from '../observability/logger.js';
 import { DEFAULT_SHUTDOWN_TIMEOUT_MS, DEFAULT_SIGNALS } from './collector.js';
 
@@ -37,11 +41,16 @@ export interface StartBrainOptions {
   readonly logger: AppLogger;
   readonly embedder: Embedder;
   readonly scanCron: string;
+  readonly exportCron?: string | undefined;
+  /** Sin ruta el export queda desactivado con un aviso; `brain` funciona igual. */
+  readonly vaultPath?: string | undefined;
   readonly concurrency?: number | undefined;
   readonly scanLimit?: number | undefined;
   readonly prefix?: string | undefined;
   readonly documentsRepo?: DocumentsRepository | undefined;
   readonly embeddingsRepo?: EmbeddingsRepository | undefined;
+  readonly eventsRepo?: EventsRepository | undefined;
+  readonly notesRepo?: NotesRepository | undefined;
   readonly closePool?: boolean;
   readonly signals?: readonly NodeJS.Signals[];
   readonly shutdownTimeoutMs?: number;
@@ -55,6 +64,8 @@ export interface BrainHandle {
   readonly embeddingsEnabled: boolean;
   /** Encola los documentos que aun no tienen embeddings. Devuelve cuantos encolo. */
   scanNow(): Promise<number>;
+  /** Reconstruye la vista del vault de Obsidian. Sin `vaultPath` no escribe nada. */
+  exportNow(): Promise<ExportReport>;
   stop(): Promise<void>;
 }
 
@@ -63,6 +74,8 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
   const documentsRepo = options.documentsRepo ?? createDocumentsRepository(options.pool);
   const embeddingsRepo = options.embeddingsRepo ?? createEmbeddingsRepository(options.pool);
   const scanLimit = options.scanLimit ?? DEFAULT_SCAN_LIMIT;
+  const eventsRepo = options.eventsRepo ?? createEventsRepository(options.pool);
+  const notesRepo = options.notesRepo ?? createNotesRepository(options.pool);
   const shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
   const signals = options.signals ?? DEFAULT_SIGNALS;
   const exit =
@@ -196,6 +209,28 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
     logger.info({ cron: options.scanCron }, 'barrido de documentos pendientes programado');
   }
 
+  function exportNow(): Promise<ExportReport> {
+    return exportVault({
+      documents: documentsRepo,
+      events: eventsRepo,
+      notes: notesRepo,
+      logger,
+      now: () => Date.now(),
+      ...(options.vaultPath === undefined ? {} : { vaultPath: options.vaultPath }),
+    });
+  }
+
+  // El export no depende de los embeddings: con pgvector ausente el vault se sigue manteniendo.
+  let exportTask: ScheduledTask | undefined;
+  if (options.exportCron !== undefined && cronValidate(options.exportCron)) {
+    exportTask = cronSchedule(options.exportCron, () => {
+      void exportNow().catch((error: unknown) => {
+        logger.error({ err: error }, 'el export a Obsidian fallo');
+      });
+    });
+    logger.info({ cron: options.exportCron }, 'export a Obsidian programado');
+  }
+
   let stopping: Promise<void> | undefined;
 
   function stop(): Promise<void> {
@@ -207,6 +242,7 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
       handlers.clear();
 
       await scanTask?.stop();
+      await exportTask?.stop();
       await worker?.close();
       await queue.close();
       connection.disconnect();
@@ -252,5 +288,5 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
     'brain arrancado',
   );
 
-  return { queue, worker, embeddingsEnabled, scanNow, stop };
+  return { queue, worker, embeddingsEnabled, scanNow, exportNow, stop };
 }

@@ -59,6 +59,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '008_document_tags.sql',
       '009_embeddings.sql',
       '010_search_indexes.sql',
+      '011_notes.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -390,6 +391,38 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
         [id],
       );
       expect(quedan[0]?.count).toBe('0');
+    });
+  });
+
+  describe('notes', () => {
+    it('el autor es una lista cerrada en la base de datos', async () => {
+      await expect(
+        db.pool.query(`INSERT INTO notes (author, body_md) VALUES ('un-bot-cualquiera', 'hola')`),
+      ).rejects.toThrow(/notes_author/);
+
+      for (const author of ['claude', 'user']) {
+        await db.pool.query('INSERT INTO notes (author, body_md) VALUES ($1, $2)', [
+          author,
+          'nota',
+        ]);
+      }
+      const { rows } = await db.pool.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM notes',
+      );
+      expect(rows[0]?.count).toBe('2');
+      await db.pool.query('TRUNCATE notes');
+    });
+
+    it('los documentos fuente no llevan FK: el crudo puede purgarse y la nota sigue', async () => {
+      await db.pool.query(
+        `INSERT INTO notes (author, asset_tags, body_md, source_document_ids)
+         VALUES ('claude', '{oil}', 'nota', '{00000000-0000-0000-0000-000000000000}')`,
+      );
+      const { rows } = await db.pool.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM notes',
+      );
+      expect(rows[0]?.count).toBe('1');
+      await db.pool.query('TRUNCATE notes');
     });
   });
 

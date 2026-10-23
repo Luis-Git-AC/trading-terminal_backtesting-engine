@@ -38,3 +38,6 @@ Thumbs.db
 # documentacion de trabajo viva (no se commitea)
 Documentacion/
 docs/ROADMAP-v2-multi-exchange.md
+
+# Vault de Obsidian local cuando OBSIDIAN_VAULT_PATH no apunta a otro sitio (F10-T5)
+.obsidian-vault/

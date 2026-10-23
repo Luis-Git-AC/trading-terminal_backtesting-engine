@@ -102,8 +102,13 @@ services:
       DATABASE_URL: postgres://tt:tt@postgres:5432/trading_terminal
       REDIS_URL: redis://redis:6379
       HF_HOME: /cache/huggingface
+      # Dentro del contenedor la ruta es fija; lo que cambia es que carpeta del host se monta.
+      OBSIDIAN_VAULT_PATH: /vault
     volumes:
       - hfcache:/cache/huggingface
+      # El vault del usuario. Sin `OBSIDIAN_VAULT_PATH` en el `.env` se monta una carpeta local
+      # del repositorio (ignorada por git), asi que el servicio arranca igual sin decidir nada.
+      - ${OBSIDIAN_VAULT_PATH:-./.obsidian-vault}:/vault
     depends_on:
       postgres:
         condition: service_healthy
