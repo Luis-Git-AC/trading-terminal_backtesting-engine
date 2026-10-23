@@ -11,6 +11,7 @@ import { createTransformersEmbedder } from './brain/embeddings/embedder.js';
 import { startApi } from './roles/api.js';
 import { startBrain } from './roles/brain.js';
 import { startCollector } from './roles/collector.js';
+import { startMcp } from './roles/mcp.js';
 import { startIngestor } from './roles/ingestor.js';
 import { startWorker } from './roles/worker.js';
 import { toRunnable, type RunnableSource } from './sources/adapter.js';
@@ -412,8 +413,27 @@ async function runBrain(logger: AppLogger): Promise<void> {
   await handle.exportNow();
 }
 
+async function runMcp(): Promise<void> {
+  // El log va a stderr a la fuerza: stdout es el canal JSON-RPC del transporte stdio y una sola
+  // linea de log ahi rompe la sesion con el cliente.
+  const logger = createLogger({ role: 'mcp', level: env.LOG_LEVEL, destination: process.stderr });
+
+  await startMcp({
+    pool: createPool(),
+    logger,
+    embedder: createTransformersEmbedder({ model: env.BRAIN_MODEL }),
+    ...(env.OBSIDIAN_VAULT_PATH === undefined ? {} : { vaultPath: env.OBSIDIAN_VAULT_PATH }),
+  });
+}
+
 export async function main(): Promise<void> {
   const role = resolveStartMode(process.argv, env.START_MODE);
+
+  if (role === 'mcp') {
+    await runMcp();
+    return;
+  }
+
   const logger = createLogger({ role, level: env.LOG_LEVEL });
 
   process.on('unhandledRejection', (reason) => {

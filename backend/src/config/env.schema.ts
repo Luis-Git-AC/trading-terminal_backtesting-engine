@@ -104,7 +104,7 @@ const optionalSecret = () =>
     z.string().min(1).optional(),
   );
 
-export const startModeSchema = z.enum(['api', 'worker', 'ingestor', 'collector', 'brain']);
+export const startModeSchema = z.enum(['api', 'worker', 'ingestor', 'collector', 'brain', 'mcp']);
 
 export type StartMode = z.infer<typeof startModeSchema>;
 
