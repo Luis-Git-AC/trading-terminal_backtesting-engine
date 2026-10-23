@@ -48,6 +48,18 @@ export interface ReplaceTagsResult {
   removed: number;
 }
 
+export interface PendingTaggingQuery {
+  /** Huella de las reglas vigentes (ver `rulesHash`): lo marcado con otra huella vuelve a entrar. */
+  rulesHash: string;
+  limit?: number | undefined;
+}
+
+export interface UntaggedDocument {
+  id: string;
+  title: string;
+  body: string;
+}
+
 export interface DocumentsRepository {
   /** Inserta los nuevos y devuelve cuantos entraron; un `content_hash` repetido se ignora. */
   insertDocuments(documents: readonly RawDocumentInput[]): Promise<number>;
@@ -58,6 +70,10 @@ export interface DocumentsRepository {
   getTags(documentId: string): Promise<DocumentTagRow[]>;
   /** Las etiquetas de varios documentos de una vez: la busqueda devuelve hasta 50 por consulta. */
   getTagsForDocuments(ids: readonly string[]): Promise<Map<string, DocumentTagRow[]>>;
+  /** Documentos sin evaluar con las reglas vigentes. Solo lo que el etiquetado necesita leer. */
+  pendingTagging(query: PendingTaggingQuery): Promise<UntaggedDocument[]>;
+  /** Deja constancia de con que reglas se evaluo cada documento. Devuelve cuantos marco. */
+  markTagged(ids: readonly string[], rulesHash: string): Promise<number>;
 }
 
 /**
@@ -112,6 +128,19 @@ const PRUNE_TAGS_SQL = `
       SELECT 1 FROM jsonb_to_recordset($3::jsonb) AS tag(asset text, rule_id text)
       WHERE tag.asset = document_tags.asset AND tag.rule_id = document_tags.rule_id
     )
+`;
+
+// Solo `title` y `body`: el etiquetado no mira nada mas y los cuerpos son lo mas gordo de la tabla.
+const PENDING_TAGGING_SQL = `
+  SELECT id::text AS id, title, body
+  FROM raw_documents
+  WHERE tagged_rules_hash IS DISTINCT FROM $1::text
+  ORDER BY published_at DESC, id
+  LIMIT $2
+`;
+
+const MARK_TAGGED_SQL = `
+  UPDATE raw_documents SET tagged_rules_hash = $2::text WHERE id = ANY($1::uuid[])
 `;
 
 const SELECT_BY_IDS_SQL = `
@@ -242,6 +271,20 @@ export function createDocumentsRepository(db: Queryable): DocumentsRepository {
     async getTags(documentId: string): Promise<DocumentTagRow[]> {
       const { rows } = await db.query<TagRow>(SELECT_TAGS_SQL, [documentId]);
       return rows.map((row) => ({ asset: row.asset, ruleId: row.rule_id }));
+    },
+
+    async pendingTagging(query: PendingTaggingQuery): Promise<UntaggedDocument[]> {
+      const { rows } = await db.query<UntaggedDocument>(PENDING_TAGGING_SQL, [
+        query.rulesHash,
+        clampLimit(query.limit),
+      ]);
+      return rows;
+    },
+
+    async markTagged(ids: readonly string[], rulesHash: string): Promise<number> {
+      if (ids.length === 0) return 0;
+      const { rowCount } = await db.query(MARK_TAGGED_SQL, [[...ids], rulesHash]);
+      return rowCount ?? 0;
     },
 
     async getTagsForDocuments(ids: readonly string[]): Promise<Map<string, DocumentTagRow[]>> {

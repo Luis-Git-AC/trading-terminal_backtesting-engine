@@ -241,4 +241,87 @@ describe('rol brain', () => {
     await expect(created.stop()).resolves.toBeUndefined();
     handle = undefined;
   });
+
+  describe('etiquetado', () => {
+    async function insertarTitulado(title: string, body: string): Promise<string> {
+      const repo = createDocumentsRepository(db.pool);
+      await repo.insertDocuments([{ ...documento(`https://example.test/${title}`, body), title }]);
+      const [stored] = await repo.getDocuments({ from: 0, to: Date.UTC(2027, 0, 1) });
+      return stored!.id;
+    }
+
+    it('un documento nuevo acaba etiquetado sin intervencion', async () => {
+      const documentId = await insertarTitulado('Gold rallies', 'Spot gold rose after the FOMC.');
+      const created = await launch(fakeEmbedder());
+
+      expect(await created.tagNow()).toEqual({
+        evaluados: 1,
+        etiquetasAnadidas: 2,
+        etiquetasRetiradas: 0,
+      });
+
+      const tags = await createDocumentsRepository(db.pool).getTags(documentId);
+      expect(tags.map((tag) => tag.asset).sort()).toEqual(['gold', 'macro']);
+      expect(tags.some((tag) => tag.asset === 'silver')).toBe(false);
+    });
+
+    it('un documento que ninguna regla toca no deja filas y no vuelve a entrar', async () => {
+      const documentId = await insertarTitulado('Tulip prices', 'Dutch tulip bulbs got cheaper.');
+      const created = await launch(fakeEmbedder());
+
+      expect((await created.tagNow()).evaluados).toBe(1);
+      expect(await createDocumentsRepository(db.pool).getTags(documentId)).toEqual([]);
+
+      // La clave del ticket: sin marca, el barrido lo reintentaria en cada pasada para siempre.
+      expect(await created.tagNow()).toEqual({
+        evaluados: 0,
+        etiquetasAnadidas: 0,
+        etiquetasRetiradas: 0,
+      });
+    });
+
+    it('la segunda pasada no toca lo ya etiquetado', async () => {
+      await insertarTitulado('Gold rallies', 'Spot gold rose after the FOMC.');
+      const created = await launch(fakeEmbedder());
+
+      await created.tagNow();
+      expect(await created.tagNow()).toEqual({
+        evaluados: 0,
+        etiquetasAnadidas: 0,
+        etiquetasRetiradas: 0,
+      });
+    });
+
+    it('cambiar una regla reetiqueta el corpus: la huella de las reglas cambia', async () => {
+      const documentId = await insertarTitulado('Gold rallies', 'Spot gold rose after the FOMC.');
+      const created = await launch(fakeEmbedder());
+      await created.tagNow();
+
+      // Lo que hace un cambio de reglas en produccion: subir la version de una regla cambia la
+      // huella, y la marca guardada deja de coincidir.
+      await db.pool.query('UPDATE raw_documents SET tagged_rules_hash = $1', ['huella-vieja']);
+
+      expect((await created.tagNow()).evaluados).toBe(1);
+      expect(
+        (await createDocumentsRepository(db.pool).getTags(documentId)).map((tag) => tag.asset).sort(),
+      ).toEqual(['gold', 'macro']);
+    });
+
+    it('etiqueta con el modelo de embeddings caido', async () => {
+      const documentId = await insertarTitulado('Gold rallies', 'Spot gold rose after the FOMC.');
+      const created = await launch(fakeEmbedder(), {
+        embeddingsRepo: {
+          isAvailable: () => Promise.resolve(false),
+          pendingDocuments: () => Promise.reject(new Error('no deberia consultarse')),
+          replaceEmbeddings: () => Promise.reject(new Error('no deberia escribirse')),
+          getEmbeddings: () => Promise.resolve([]),
+        },
+      });
+
+      expect(created.embeddingsEnabled).toBe(false);
+      expect((await created.tagNow()).evaluados).toBe(1);
+      expect(await createDocumentsRepository(db.pool).getTags(documentId)).toHaveLength(2);
+      expect(documentId).toBeTruthy();
+    });
+  });
 });

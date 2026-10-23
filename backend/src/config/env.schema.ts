@@ -197,6 +197,10 @@ export const envSchema = z.object({
   BRAIN_CONCURRENCY: intIn(1, 16).prefault('1'),
   BRAIN_SCAN_CRON: cronSchema('*/5 * * * *'),
   BRAIN_SCAN_LIMIT: intIn(1, 500).prefault('50'),
+  // El etiquetado es determinista y barato, asi que va mas seguido y con mas documentos por pasada
+  // que el barrido de embeddings.
+  BRAIN_TAG_CRON: cronSchema('*/2 * * * *'),
+  BRAIN_TAG_LIMIT: intIn(1, 500).prefault('200'),
   // Sin ruta, el export a Obsidian se desactiva con un aviso y el resto de `brain` sigue igual.
   // Obsidian es una vista, no almacenamiento (ADR-006): el vault se puede borrar y reconstruir.
   OBSIDIAN_VAULT_PATH: z.string().optional(),

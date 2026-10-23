@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { RULES, type Asset, type TagRule } from './rules.js';
 
 export interface DocumentTag {
@@ -52,4 +53,17 @@ export function tagDocument(
     .sort((a, b) =>
       a.asset === b.asset ? a.ruleId.localeCompare(b.ruleId) : a.asset < b.asset ? -1 : 1,
     );
+}
+
+/**
+ * Huella de las reglas vigentes. La marca `tagged_rules_hash` de cada documento guarda la huella
+ * con la que se evaluo: cuando una regla cambia, la huella cambia y el barrido vuelve a pasar por
+ * todo el corpus sin que nadie tenga que subir un numero a mano.
+ */
+export function rulesHash(rules: readonly TagRule[] = RULES): string {
+  const canonical = [...rules]
+    .map((rule) => ({ id: rule.id, asset: rule.asset, terms: [...rule.terms].sort() }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
+  return createHash('sha256').update(JSON.stringify(canonical), 'utf8').digest('hex').slice(0, 16);
 }

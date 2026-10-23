@@ -404,12 +404,16 @@ async function runBrain(logger: AppLogger): Promise<void> {
     scanCron: env.BRAIN_SCAN_CRON,
     concurrency: env.BRAIN_CONCURRENCY,
     scanLimit: env.BRAIN_SCAN_LIMIT,
+    tagCron: env.BRAIN_TAG_CRON,
+    tagLimit: env.BRAIN_TAG_LIMIT,
     exportCron: env.OBSIDIAN_EXPORT_CRON,
     ...(env.OBSIDIAN_VAULT_PATH === undefined ? {} : { vaultPath: env.OBSIDIAN_VAULT_PATH }),
   });
 
-  // Primer barrido al arrancar: lo que entro mientras brain estaba apagado no espera al cron.
+  // Primera pasada al arrancar: lo que entro mientras brain estaba apagado no espera al cron. El
+  // etiquetado va antes del export porque el export solo escribe notas de documentos etiquetados.
   await handle.scanNow();
+  await handle.tagNow();
   await handle.exportNow();
 }
 

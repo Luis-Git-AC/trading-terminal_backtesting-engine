@@ -4,6 +4,8 @@ import { schedule as cronSchedule, validate as cronValidate, type ScheduledTask 
 import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
 import { chunkDocument } from '../brain/embeddings/chunk.js';
+import { RULES } from '../brain/tagging/rules.js';
+import { rulesHash, tagDocument } from '../brain/tagging/tag.js';
 import { EmbedderUnavailableError, type Embedder } from '../brain/embeddings/embedder.js';
 import {
   createDocumentsRepository,
@@ -21,6 +23,9 @@ import type { AppLogger } from '../observability/logger.js';
 import { DEFAULT_SHUTDOWN_TIMEOUT_MS, DEFAULT_SIGNALS } from './collector.js';
 
 export const DEFAULT_SCAN_LIMIT = 50;
+
+/** El etiquetado es una expresion regular por regla: no cuesta lo que un embedding. */
+export const DEFAULT_TAG_LIMIT = 200;
 
 export const DEFAULT_JOB_OPTIONS: JobsOptions = {
   attempts: 5,
@@ -41,11 +46,13 @@ export interface StartBrainOptions {
   readonly logger: AppLogger;
   readonly embedder: Embedder;
   readonly scanCron: string;
+  readonly tagCron?: string | undefined;
   readonly exportCron?: string | undefined;
   /** Sin ruta el export queda desactivado con un aviso; `brain` funciona igual. */
   readonly vaultPath?: string | undefined;
   readonly concurrency?: number | undefined;
   readonly scanLimit?: number | undefined;
+  readonly tagLimit?: number | undefined;
   readonly prefix?: string | undefined;
   readonly documentsRepo?: DocumentsRepository | undefined;
   readonly embeddingsRepo?: EmbeddingsRepository | undefined;
@@ -57,6 +64,13 @@ export interface StartBrainOptions {
   readonly exit?: (code: number) => void;
 }
 
+export interface TagReport {
+  /** Documentos evaluados en la pasada, con etiquetas o sin ellas. */
+  readonly evaluados: number;
+  readonly etiquetasAnadidas: number;
+  readonly etiquetasRetiradas: number;
+}
+
 export interface BrainHandle {
   readonly queue: Queue<BrainJob>;
   readonly worker: Worker<BrainJob> | null;
@@ -64,6 +78,8 @@ export interface BrainHandle {
   readonly embeddingsEnabled: boolean;
   /** Encola los documentos que aun no tienen embeddings. Devuelve cuantos encolo. */
   scanNow(): Promise<number>;
+  /** Etiqueta los documentos que no se han evaluado con las reglas vigentes. */
+  tagNow(): Promise<TagReport>;
   /** Reconstruye la vista del vault de Obsidian. Sin `vaultPath` no escribe nada. */
   exportNow(): Promise<ExportReport>;
   stop(): Promise<void>;
@@ -74,6 +90,8 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
   const documentsRepo = options.documentsRepo ?? createDocumentsRepository(options.pool);
   const embeddingsRepo = options.embeddingsRepo ?? createEmbeddingsRepository(options.pool);
   const scanLimit = options.scanLimit ?? DEFAULT_SCAN_LIMIT;
+  const tagLimit = options.tagLimit ?? DEFAULT_TAG_LIMIT;
+  const hash = rulesHash();
   const eventsRepo = options.eventsRepo ?? createEventsRepository(options.pool);
   const notesRepo = options.notesRepo ?? createNotesRepository(options.pool);
   const shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
@@ -209,6 +227,49 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
     logger.info({ cron: options.scanCron }, 'barrido de documentos pendientes programado');
   }
 
+  // El etiquetado no depende de los embeddings ni de pgvector: son dos capacidades distintas y con
+  // el modelo caido las etiquetas (y con ellas las notas del vault) se siguen manteniendo.
+  async function tagNow(): Promise<TagReport> {
+    const ruleIds = RULES.map((rule) => rule.id);
+    const report = { evaluados: 0, etiquetasAnadidas: 0, etiquetasRetiradas: 0 };
+
+    const pending = await documentsRepo.pendingTagging({ rulesHash: hash, limit: tagLimit });
+    if (pending.length === 0) return report;
+
+    const done: string[] = [];
+    for (const document of pending) {
+      if (shuttingDown) break;
+
+      const tags = tagDocument(document);
+      const { added, removed } = await documentsRepo.replaceTags({
+        documentId: document.id,
+        ruleIds,
+        tags,
+      });
+
+      report.evaluados += 1;
+      report.etiquetasAnadidas += added;
+      report.etiquetasRetiradas += removed;
+      // La marca va despues de las etiquetas: si el proceso cae en medio, el documento vuelve a
+      // entrar en la pasada siguiente y `replaceTags` es idempotente.
+      done.push(document.id);
+    }
+
+    await documentsRepo.markTagged(done, hash);
+    logger.info({ ...report, rulesHash: hash }, 'documentos etiquetados');
+    return report;
+  }
+
+  let tagTask: ScheduledTask | undefined;
+  if (options.tagCron !== undefined && cronValidate(options.tagCron)) {
+    tagTask = cronSchedule(options.tagCron, () => {
+      void tagNow().catch((error: unknown) => {
+        logger.error({ err: error }, 'el etiquetado de documentos fallo');
+      });
+    });
+    logger.info({ cron: options.tagCron, rulesHash: hash }, 'etiquetado de documentos programado');
+  }
+
   function exportNow(): Promise<ExportReport> {
     return exportVault({
       documents: documentsRepo,
@@ -242,6 +303,7 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
       handlers.clear();
 
       await scanTask?.stop();
+      await tagTask?.stop();
       await exportTask?.stop();
       await worker?.close();
       await queue.close();
@@ -288,5 +350,5 @@ export async function startBrain(options: StartBrainOptions): Promise<BrainHandl
     'brain arrancado',
   );
 
-  return { queue, worker, embeddingsEnabled, scanNow, exportNow, stop };
+  return { queue, worker, embeddingsEnabled, scanNow, tagNow, exportNow, stop };
 }

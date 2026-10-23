@@ -60,6 +60,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '009_embeddings.sql',
       '010_search_indexes.sql',
       '011_notes.sql',
+      '012_document_tagging.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });

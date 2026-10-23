@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ASSETS, RULES, type TagRule } from './rules.js';
-import { tagDocument } from './tag.js';
+import { rulesHash, tagDocument } from './tag.js';
 
 /** Casos fijos: un documento por activo, con su texto y lo que tiene que salir. */
 const CASOS: readonly { nombre: string; doc: { title: string; body: string }; assets: string[] }[] =
@@ -127,5 +127,26 @@ describe('determinismo e idempotencia', () => {
   it('una regla sin terminos no etiqueta nada', () => {
     const vacia: readonly TagRule[] = [{ id: 'vacia-v1', asset: 'gold', terms: [] }];
     expect(tagDocument({ title: 'gold', body: 'gold' }, vacia)).toEqual([]);
+  });
+
+  describe('rulesHash', () => {
+    it('es estable y no depende del orden de reglas ni de terminos', () => {
+      const unas: readonly TagRule[] = [
+        { id: 'a-v1', asset: 'gold', terms: ['gold', 'bullion'] },
+        { id: 'b-v1', asset: 'oil', terms: ['crude'] },
+      ];
+      const otras: readonly TagRule[] = [
+        { id: 'b-v1', asset: 'oil', terms: ['crude'] },
+        { id: 'a-v1', asset: 'gold', terms: ['bullion', 'gold'] },
+      ];
+      expect(rulesHash(unas)).toBe(rulesHash(otras));
+    });
+
+    it('cambia al cambiar un termino, que es lo que dispara el reetiquetado', () => {
+      const antes: readonly TagRule[] = [{ id: 'a-v1', asset: 'gold', terms: ['gold'] }];
+      const despues: readonly TagRule[] = [{ id: 'a-v2', asset: 'gold', terms: ['gold', 'gld'] }];
+      expect(rulesHash(antes)).not.toBe(rulesHash(despues));
+      expect(rulesHash()).toHaveLength(16);
+    });
   });
 });
