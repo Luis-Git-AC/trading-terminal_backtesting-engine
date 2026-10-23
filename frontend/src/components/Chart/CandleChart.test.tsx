@@ -233,6 +233,29 @@ describe('CandleChart', () => {
     expect(loserExit?.text).toContain('-1.00R');
   });
 
+  it('los eventos macro caen en su propio timestamp, junto a las marcas de operaciones', () => {
+    const eventTs = START + 3 * STEP;
+    renderChart({
+      trades: [TRADE],
+      events: [{ scheduledAt: eventTs, type: 'eia-wpsr', payload: { period: '2026-10-09' } }],
+    });
+
+    const markers = (fake.lastMarkers().setMarkersCalls.at(-1) ?? []) as {
+      time: number;
+      shape: string;
+      text: string;
+    }[];
+
+    // Tres marcas: entrada, evento y salida, ordenadas por tiempo.
+    expect(markers.map((marker) => marker.time)).toEqual([
+      (START + 2 * STEP) / 1000,
+      eventTs / 1000,
+      (START + 5 * STEP) / 1000,
+    ]);
+    const macro = markers.find((marker) => marker.shape === 'circle');
+    expect(macro?.text).toBe('EIA 2026-10-09');
+  });
+
   it('sin trades no pinta marcadores', () => {
     renderChart();
 

@@ -3,9 +3,11 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  eventsResponseSchema,
   fundingResponseSchema,
   healthResponseSchema,
   listBacktestsResponseSchema,
+  macroSeriesResponseSchema,
   marketsResponseSchema,
   openInterestResponseSchema,
   runDetailSchema,
@@ -15,9 +17,11 @@ import {
   type CoverageResponse,
   type CreateBacktestResponse,
   type EquityResponse,
+  type EventsResponse,
   type FundingResponse,
   type HealthResponse,
   type ListBacktestsResponse,
+  type MacroSeriesResponse,
   type MarketsResponse,
   type OpenInterestResponse,
   type RunDetail,
@@ -213,4 +217,45 @@ export const created: CreateBacktestResponse = frozen(createBacktestResponseSche
   paramsHash: '9ab3cafe',
   barsTotal: 17_472,
   warnings: [],
+});
+
+export const macroSeries: MacroSeriesResponse = frozen(macroSeriesResponseSchema, {
+  source: 'fred',
+  seriesId: 'DFII10',
+  count: 3,
+  points: [
+    { t: 1_784_000_000_000, value: 1.8, publishedAt: 1_784_086_400_000, fetchedAt: 1_784_086_400_000, revision: 0 },
+    { t: 1_784_086_400_000, value: 1.82, publishedAt: 1_784_172_800_000, fetchedAt: 1_784_172_800_000, revision: 0 },
+    { t: 1_784_172_800_000, value: 1.76, publishedAt: 1_784_259_200_000, fetchedAt: 1_784_259_200_000, revision: 0 },
+  ],
+  asOf: null,
+  nextFrom: null,
+});
+
+export const marketEvents: EventsResponse = frozen(eventsResponseSchema, {
+  count: 2,
+  events: [
+    {
+      id: '42',
+      source: 'cftc',
+      type: 'cftc-cot',
+      assetTags: ['gold', 'silver', 'oil'],
+      scheduledAt: 1_785_000_000_000,
+      publishedAt: 1_785_259_800_000,
+      fetchedAt: 1_785_262_380_000,
+      payload: { report: 'legacy-futures-only', reportDate: '2026-07-21' },
+    },
+    {
+      id: '41',
+      source: 'eia',
+      type: 'eia-wpsr',
+      assetTags: ['oil'],
+      scheduledAt: 1_784_900_000_000,
+      publishedAt: 1_784_900_000_000,
+      fetchedAt: 1_784_900_000_000,
+      payload: { report: 'weekly-petroleum-status', period: '2026-07-17' },
+    },
+  ],
+  asOf: null,
+  nextTo: null,
 });

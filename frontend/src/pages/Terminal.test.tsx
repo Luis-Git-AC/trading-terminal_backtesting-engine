@@ -146,6 +146,8 @@ describe('Terminal', () => {
       expect(screen.getByText('Completado')).toBeDefined();
     });
 
-    expect(fake.lastMarkers().setMarkersCalls.at(-1)).toEqual([]);
+    // Quedan las marcas de eventos macro (circulos), pero ninguna flecha de operacion.
+    const markers = fake.lastMarkers().setMarkersCalls.at(-1) ?? [];
+    expect(markers.every((marker) => (marker as { shape: string }).shape === 'circle')).toBe(true);
   });
 });

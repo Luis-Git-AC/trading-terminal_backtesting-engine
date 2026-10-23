@@ -5,9 +5,11 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  eventsResponseSchema,
   fundingResponseSchema,
   healthResponseSchema,
   listBacktestsResponseSchema,
+  macroSeriesResponseSchema,
   marketsResponseSchema,
   openInterestResponseSchema,
   runDetailSchema,
@@ -20,11 +22,13 @@ import {
   type CreateBacktestBody,
   type CreateBacktestResponse,
   type EquityResponse,
+  type EventsResponse,
   type Exchange,
   type FundingResponse,
   type HealthResponse,
   type ListBacktestsQuery,
   type ListBacktestsResponse,
+  type MacroSeriesResponse,
   type MarketsResponse,
   type OpenInterestResponse,
   type RunDetail,
@@ -50,6 +54,25 @@ export interface DerivativesRequest {
   readonly symbol: string;
   readonly from: number;
   readonly to?: number | undefined;
+  readonly limit?: number | undefined;
+}
+
+export interface MacroRequest {
+  readonly seriesId: string;
+  readonly from: number;
+  readonly to?: number | undefined;
+  /** Corte point-in-time: lo que se sabia en ese instante. */
+  readonly asOf?: number | undefined;
+  /** Solo hace falta si dos fuentes publican la serie con el mismo id. */
+  readonly source?: string | undefined;
+  readonly limit?: number | undefined;
+}
+
+export interface EventsRequest {
+  readonly from: number;
+  readonly to?: number | undefined;
+  readonly asOf?: number | undefined;
+  readonly asset?: readonly string[] | undefined;
   readonly limit?: number | undefined;
 }
 
@@ -128,6 +151,44 @@ export function getFunding(
     path: derivativesPath(request, 'funding'),
     query: { from: request.from, to: request.to, limit: request.limit },
     schema: fundingResponseSchema,
+    signal,
+  });
+}
+
+export function getMacroSeries(
+  request: MacroRequest,
+  client: ApiClient = apiClient,
+  signal?: AbortSignal,
+): Promise<MacroSeriesResponse> {
+  return client.request({
+    path: `/macro/series/${encodeURIComponent(request.seriesId)}`,
+    query: {
+      from: request.from,
+      to: request.to,
+      asOf: request.asOf,
+      source: request.source,
+      limit: request.limit,
+    },
+    schema: macroSeriesResponseSchema,
+    signal,
+  });
+}
+
+export function getMarketEvents(
+  request: EventsRequest,
+  client: ApiClient = apiClient,
+  signal?: AbortSignal,
+): Promise<EventsResponse> {
+  return client.request({
+    path: '/events',
+    query: {
+      from: request.from,
+      to: request.to,
+      asOf: request.asOf,
+      asset: request.asset === undefined ? undefined : request.asset.join(','),
+      limit: request.limit,
+    },
+    schema: eventsResponseSchema,
     signal,
   });
 }

@@ -16,11 +16,17 @@ import {
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type { BacktestTrade, Candle, Exchange, Timeframe } from '@tt/shared';
+import { timeframeToMs, type BacktestTrade, type Candle, type Exchange, type Timeframe } from '@tt/shared';
 import type { SseConnectionCtor } from '@/api/event-source';
 import type { ConnectionState } from '@/hooks/useEventSource';
 import { useLiveCandles } from '@/hooks/useLiveCandles';
-import { toChartTime, tradeMarkers } from '@/components/Chart/markers';
+import {
+  eventBucketMs,
+  eventMarkers,
+  toChartTime,
+  tradeMarkers,
+  type MarketEventView,
+} from '@/components/Chart/markers';
 import { readChartTheme, type ChartTheme } from '@/components/Chart/theme';
 import { TradeSpanPrimitive } from '@/components/Chart/trade-span';
 import { formatUsd } from '@/lib/format';
@@ -41,6 +47,8 @@ export interface CandleChartProps {
   readonly timeframe: Timeframe;
   readonly candles: readonly Candle[];
   readonly trades?: readonly BacktestTrade[] | undefined;
+  /** Eventos macro del rango visible; se agrupan por tramo si no caben. */
+  readonly events?: readonly MarketEventView[] | undefined;
   readonly live?: boolean | undefined;
   readonly onLoadOlder?: (() => void) | undefined;
   readonly focus?: { readonly from: number; readonly to: number } | undefined;
@@ -148,6 +156,7 @@ export function CandleChart({
   timeframe,
   candles,
   trades,
+  events,
   live = false,
   onLoadOlder,
   focus,
@@ -318,8 +327,19 @@ export function CandleChart({
       return;
     }
 
-    refs.markers.setMarkers(tradeMarkers(trades ?? [], theme));
-  }, [trades, theme]);
+    const first = candles[0];
+    const last = candles.at(-1);
+    const bucketMs =
+      first === undefined || last === undefined
+        ? timeframeToMs(timeframe)
+        : eventBucketMs(first.t, last.t, timeframeToMs(timeframe));
+
+    refs.markers.setMarkers(
+      [...tradeMarkers(trades ?? [], theme), ...eventMarkers(events ?? [], theme, bucketMs)].sort(
+        (left, right) => left.time - right.time,
+      ),
+    );
+  }, [trades, events, candles, timeframe, theme]);
 
   useEffect(() => {
     const refs = refsRef.current;

@@ -57,6 +57,16 @@ export const handlers: HttpHandler[] = [
     }),
   ),
 
+  http.get(url('/macro/series/:seriesId'), ({ params, request }) =>
+    HttpResponse.json({
+      ...fixtures.macroSeries,
+      seriesId: String(params.seriesId),
+      source: new URL(request.url).searchParams.get('source') ?? fixtures.macroSeries.source,
+    }),
+  ),
+
+  http.get(url('/events'), () => HttpResponse.json(fixtures.marketEvents)),
+
   http.get(url('/strategies'), () => HttpResponse.json(fixtures.strategies)),
 
   http.post(url('/backtests'), () => HttpResponse.json(fixtures.created, { status: 202 })),

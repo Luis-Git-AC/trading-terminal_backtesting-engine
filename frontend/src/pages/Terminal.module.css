@@ -19,8 +19,12 @@
   grid-area: chart;
 }
 
-.derivatives {
+.context {
+  display: grid;
   grid-area: derivatives;
+  grid-template-columns: minmax(0, 1fr) minmax(0, var(--layout-macro-width));
+  gap: var(--space-12);
+  min-height: 0;
 }
 
 .derivativesSurface {

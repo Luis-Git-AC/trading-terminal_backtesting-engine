@@ -2,6 +2,8 @@ import type { Exchange, Timeframe } from '@tt/shared';
 import type {
   CandlesRequest,
   DerivativesRequest,
+  EventsRequest,
+  MacroRequest,
   RunsRequest,
   TradesRequest,
 } from '@/api/resources';
@@ -36,6 +38,27 @@ export const queryKeys = {
       request?.symbol ?? null,
       request?.from ?? null,
       request?.to ?? null,
+      request?.limit ?? null,
+    ] as const,
+
+  macro: (request: MacroRequest | undefined) =>
+    [
+      'macro',
+      request?.seriesId ?? null,
+      request?.source ?? null,
+      request?.from ?? null,
+      request?.to ?? null,
+      request?.asOf ?? null,
+      request?.limit ?? null,
+    ] as const,
+
+  events: (request: EventsRequest | undefined) =>
+    [
+      'events',
+      request?.from ?? null,
+      request?.to ?? null,
+      request?.asOf ?? null,
+      request?.asset === undefined ? null : [...request.asset].sort().join('+'),
       request?.limit ?? null,
     ] as const,
 

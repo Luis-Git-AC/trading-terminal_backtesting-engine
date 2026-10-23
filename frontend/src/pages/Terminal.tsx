@@ -6,12 +6,15 @@ import { DerivativesPanel } from '@/components/Chart/DerivativesPanel';
 import { EmptyState } from '@/components/Feedback/EmptyState';
 import { ErrorState } from '@/components/Feedback/ErrorState';
 import { Skeleton } from '@/components/Feedback/Skeleton';
+import { MacroPanel } from '@/components/Panel/MacroPanel';
+import { eventTagsFor } from '@/components/Panel/macro-context';
 import { Panel } from '@/components/Panel/Panel';
 import { RunProgress } from '@/components/RunProgress/RunProgress';
 import { RunResults } from '@/components/Results/RunResults';
 import { tradeRange } from '@/components/Results/trades';
 import { StrategyPanel } from '@/components/StrategyPanel/StrategyPanel';
 import { useCandleWindow } from '@/hooks/useCandleWindow';
+import { useMarketEvents } from '@/hooks/useMacro';
 import { useCreateBacktest } from '@/hooks/useBacktest';
 import { useRun, useRunTrades } from '@/hooks/useRuns';
 import { cx } from '@/lib/cx';
@@ -66,6 +69,15 @@ export function Terminal() {
     first === undefined || last === undefined
       ? undefined
       : { from: first.t, to: last.t + timeframeToMs(timeframe) };
+
+  // Los eventos se piden en la misma ventana que las velas cargadas y con las etiquetas de la
+  // clase de activo: el oro ve su COT y el calendario macro, el petroleo sus inventarios.
+  const events = useMarketEvents(
+    range === undefined
+      ? undefined
+      : { from: range.from, to: range.to, asset: eventTagsFor(symbol) },
+  );
+  const eventsInRange = events.data?.events ?? [];
 
   const createBacktest = useCreateBacktest();
   const run = useRun(runId);
@@ -154,6 +166,7 @@ export function Terminal() {
               timeframe={timeframe}
               candles={candles}
               trades={showsThisSeries}
+              events={eventsInRange}
               live
               onLoadOlder={canLoadOlder ? loadOlder : undefined}
               focus={focused === null ? undefined : tradeRange(focused, FOCUS_PAD_MS)}
@@ -168,15 +181,35 @@ export function Terminal() {
         </div>
       </Panel>
 
-      <Panel title="Funding y OI" meta={symbol} className={styles.derivatives} scroll={false}>
-        <div className={styles.derivativesSurface}>
+      <div className={styles.context}>
+        <Panel title="Funding y OI" meta={symbol} scroll={false}>
+          <div className={styles.derivativesSurface}>
+            {range === undefined ? (
+              <EmptyState centered title="Elige una serie con velas para ver funding y OI" />
+            ) : (
+              <DerivativesPanel
+                exchange={exchange}
+                symbol={symbol}
+                from={range.from}
+                to={range.to}
+              />
+            )}
+          </div>
+        </Panel>
+
+        <Panel title="Macro" meta={symbol} scroll={false}>
           {range === undefined ? (
-            <EmptyState centered title="Elige una serie con velas para ver funding y OI" />
+            <EmptyState centered title="Elige una serie con velas para ver el contexto macro" />
           ) : (
-            <DerivativesPanel exchange={exchange} symbol={symbol} from={range.from} to={range.to} />
+            <MacroPanel
+              symbol={symbol}
+              to={range.to}
+              events={eventsInRange}
+              eventsPending={events.isPending}
+            />
           )}
-        </div>
-      </Panel>
+        </Panel>
+      </div>
 
       <Panel title="Resultados" className={styles.results} scroll={false}>
         <div className={styles.resultsBody}>
