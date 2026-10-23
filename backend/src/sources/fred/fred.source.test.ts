@@ -4,10 +4,15 @@ import { describe, expect, it } from 'vitest';
 import type { FetchLike, HttpResponse } from '../../ingest/exchange/adapter.js';
 import type { UpstreamError } from '../../ingest/exchange/errors.js';
 import { createRateLimiter } from '../../ingest/rate-limiter.js';
+import type { MacroPoint } from '../../db/repositories/macro.repo.js';
 import type { SourceContext } from '../adapter.js';
 import { createFredClient } from './client.js';
 import { createFredSource, type FredDiscard, type FredRaw } from './fred.source.js';
-import { FRED_RELEASE_EVENT_TYPE } from './types.js';
+import {
+  FRED_MAX_VINTAGE_DATES,
+  FRED_RELEASE_EVENT_TYPE,
+  FRED_VINTAGES_PER_REQUEST,
+} from './types.js';
 
 const NOW = Date.UTC(2026, 9, 22, 6, 23, 0);
 const CONTEXT: SourceContext = { limiter: createRateLimiter({ rps: 1000 }), now: () => NOW };
@@ -21,6 +26,26 @@ function fixture(name: string): unknown {
 const DFII10 = fixture('observations-dfii10');
 const GDPC1 = fixture('observations-gdpc1-revisada');
 const RELEASES = fixture('release-dates');
+const VINTAGES = fixture('vintage-dates-dfii10');
+
+/**
+ * Lista de vintages sintetica, dias consecutivos desde 2015-01-01. Es la unica forma de probar el
+ * troceado: el tope del FRED son 2000 y ningun fixture real de este repositorio es tan largo.
+ */
+function syntheticVintages(count: number): { vintage_dates: string[] } {
+  const day = 86_400_000;
+  const first = Date.UTC(2015, 0, 1);
+  return {
+    vintage_dates: Array.from({ length: count }, (_, index) =>
+      new Date(first + index * day).toISOString().slice(0, 10),
+    ),
+  };
+}
+
+/** Una observacion con la forma que sirve el FRED, para los raw armados a mano. */
+function obs(date: string, value: string, realtimeStart: string) {
+  return { date, value, realtime_start: realtimeStart, realtime_end: '9999-12-31' };
+}
 
 function response(status: number, body: unknown): HttpResponse {
   return { status, headers: new Headers(), json: () => Promise.resolve(body) };
@@ -31,13 +56,29 @@ function fakeFetch(
   bodies: Record<string, unknown>,
   urls: string[] = [],
   status = 200,
+  vintages: unknown = VINTAGES,
 ): FetchLike {
   return (url) => {
     urls.push(url);
-    const seriesId = new URL(url).searchParams.get('series_id');
+    const parsed = new URL(url);
+    if (parsed.pathname === '/fred/series/vintagedates') {
+      return Promise.resolve(response(status, vintages));
+    }
+    const seriesId = parsed.searchParams.get('series_id');
     const body = seriesId === null ? bodies.releases : bodies[seriesId];
     return Promise.resolve(response(status, body ?? { observations: [] }));
   };
+}
+
+/** Peticiones de observaciones, en orden, con su ventana realtime. */
+function observationWindows(urls: readonly string[]): { start: string; end: string }[] {
+  return urls
+    .map((url) => new URL(url))
+    .filter((url) => url.pathname === '/fred/series/observations')
+    .map((url) => ({
+      start: url.searchParams.get('realtime_start') ?? '',
+      end: url.searchParams.get('realtime_end') ?? '',
+    }));
 }
 
 function source(
@@ -46,6 +87,9 @@ function source(
     urls?: string[];
     discards?: FredDiscard[];
     status?: number;
+    vintages?: unknown;
+    lastPublishedAt?: number | null;
+    stored?: MacroPoint[];
   } = {},
 ) {
   const client = createFredClient({
@@ -55,13 +99,16 @@ function source(
       { DFII10, GDPC1, releases: RELEASES },
       options.urls ?? [],
       options.status ?? 200,
+      options.vintages ?? VINTAGES,
     ),
   });
 
   const written: { points: number; events: number } = { points: 0, events: 0 };
+  const stored: MacroPoint[][] = [];
 
   return {
     written,
+    stored,
     adapter: createFredSource({
       pool: undefined as never,
       client,
@@ -74,10 +121,14 @@ function source(
       macroRepo: {
         upsertPoints: ({ points }) => {
           written.points += points.length;
+          stored.push([...points]);
           return Promise.resolve(points.length);
         },
-        getPoints: () => Promise.resolve([]),
+        getPoints: () => Promise.resolve(options.stored ?? []),
         getLastTs: () => Promise.resolve(null),
+        getLastPublishedAt: () => Promise.resolve(options.lastPublishedAt ?? null),
+        getMaxRevisions: () =>
+          Promise.resolve(new Map((options.stored ?? []).map((point) => [point.t, point.revision]))),
         getSources: () => Promise.resolve([]),
       },
       eventsRepo: {
@@ -92,17 +143,80 @@ function source(
 }
 
 describe('cliente del FRED', () => {
-  it('pide la ventana realtime completa, que es la que trae las revisiones', async () => {
+  it('primero pregunta por las fechas de vintage, que son las que marcan el troceado', async () => {
     const urls: string[] = [];
     await source({ urls }).adapter.fetch(null, CONTEXT);
 
-    const observations = new URL(urls[0] ?? '');
+    const vintages = new URL(urls[0] ?? '');
+    expect(vintages.pathname).toBe('/fred/series/vintagedates');
+    expect(vintages.searchParams.get('series_id')).toBe('DFII10');
+    expect(vintages.searchParams.get('realtime_start')).toBe(OBSERVATION_START);
+    expect(vintages.searchParams.get('limit')).toBe('10000');
+    expect(vintages.searchParams.get('api_key')).toBe('clave-de-prueba');
+  });
+
+  it('la ventana realtime arranca en el primer vintage y queda abierta por el final', async () => {
+    const urls: string[] = [];
+    await source({ urls }).adapter.fetch(null, CONTEXT);
+
+    const observations = new URL(urls[1] ?? '');
     expect(observations.pathname).toBe('/fred/series/observations');
-    expect(observations.searchParams.get('realtime_start')).toBe('1776-07-04');
+    // El fixture real trae tres vintages: cabe en un solo tramo.
+    expect(observations.searchParams.get('realtime_start')).toBe('2026-10-20');
     expect(observations.searchParams.get('realtime_end')).toBe('9999-12-31');
     expect(observations.searchParams.get('observation_start')).toBe(OBSERVATION_START);
     expect(observations.searchParams.get('file_type')).toBe('json');
-    expect(observations.searchParams.get('api_key')).toBe('clave-de-prueba');
+  });
+
+  it('mas de 2000 vintages se trocean en peticiones de 1000, sin solaparse', async () => {
+    const urls: string[] = [];
+    const vintages = syntheticVintages(2500);
+    await source({ urls, vintages }).adapter.fetch(null, CONTEXT);
+
+    const windows = observationWindows(urls);
+    expect(windows).toHaveLength(3);
+    expect(windows[0]).toEqual({ start: '2015-01-01', end: vintages.vintage_dates[999] });
+    expect(windows[1]).toEqual({
+      start: vintages.vintage_dates[1000],
+      end: vintages.vintage_dates[1999],
+    });
+    // El ultimo tramo no esta completo, asi que se deja abierto.
+    expect(windows[2]).toEqual({ start: vintages.vintage_dates[2000], end: '9999-12-31' });
+    expect(windows.every((window) => window.start <= window.end)).toBe(true);
+  });
+
+  it('ningun tramo pasa del tope de vintages del FRED', async () => {
+    const urls: string[] = [];
+    await source({ urls, vintages: syntheticVintages(5117) }).adapter.fetch(null, CONTEXT);
+
+    const windows = observationWindows(urls);
+    expect(windows).toHaveLength(6);
+    expect(FRED_VINTAGES_PER_REQUEST).toBeLessThan(FRED_MAX_VINTAGE_DATES);
+  });
+
+  it('una segunda pasada arranca en el ultimo published_at y no repite el historico', async () => {
+    const urls: string[] = [];
+    await source({
+      urls,
+      lastPublishedAt: Date.UTC(2026, 9, 20),
+      vintages: { vintage_dates: ['2026-10-20', '2026-10-21'] },
+    }).adapter.fetch(null, CONTEXT);
+
+    expect(new URL(urls[0] ?? '').searchParams.get('realtime_start')).toBe('2026-10-20');
+    // Una sola peticion de observaciones, no las seis del historico completo.
+    expect(observationWindows(urls)).toEqual([{ start: '2026-10-20', end: '9999-12-31' }]);
+  });
+
+  it('sin vintages nuevos no se piden observaciones', async () => {
+    const urls: string[] = [];
+    const raw = await source({
+      urls,
+      lastPublishedAt: Date.UTC(2026, 9, 22),
+      vintages: { vintage_dates: [] },
+    }).adapter.fetch(null, CONTEXT);
+
+    expect(observationWindows(urls)).toEqual([]);
+    expect(raw.series[0]?.bodies).toEqual([]);
   });
 
   it('el calendario pide las fechas sin dato, que son las futuras', async () => {
@@ -124,13 +238,20 @@ describe('cliente del FRED', () => {
         fetch: () => Promise.resolve(response(status, fixture('error-bad-series'))),
       });
 
-    await expect(client(400).getObservations('NO_EXISTE', OBSERVATION_START)).rejects.toThrow(
+    await expect(
+      client(400).getObservations('NO_EXISTE', OBSERVATION_START, '2015-01-01', '9999-12-31'),
+    ).rejects.toThrow(
       /400: 400 Bad Request\.\s+The series does not exist\./,
     );
 
     const caught = async (status: number): Promise<UpstreamError> => {
       try {
-        await client(status).getObservations('DFII10', OBSERVATION_START);
+        await client(status).getObservations(
+          'DFII10',
+          OBSERVATION_START,
+          '2015-01-01',
+          '9999-12-31',
+        );
       } catch (error) {
         return error as UpstreamError;
       }
@@ -161,9 +282,12 @@ describe('cliente del FRED', () => {
     const urls: string[] = [];
     await source({ seriesIds: ['DFII10', 'GDPC1'], urls }).adapter.fetch(null, CONTEXT);
 
-    expect(urls).toHaveLength(3);
+    // Dos peticiones por serie (vintages y observaciones) y una final de calendario.
+    expect(urls).toHaveLength(5);
     expect(urls.map((url) => new URL(url).searchParams.get('series_id'))).toEqual([
       'DFII10',
+      'DFII10',
+      'GDPC1',
       'GDPC1',
       null,
     ]);
@@ -188,7 +312,6 @@ describe('normalizado del FRED', () => {
       value: 1.82,
       publishedAt: Date.UTC(2026, 9, 2),
       fetchedAt: NOW,
-      revision: 0,
     });
   });
 
@@ -210,22 +333,37 @@ describe('normalizado del FRED', () => {
     ).toBe(false);
   });
 
-  it('dos vintages de la misma fecha son dos revisiones, ordenadas por realtime_start', async () => {
+  it('los dos vintages de la misma fecha llegan los dos, cada uno con su published_at', async () => {
     const { batch } = await normalized({ seriesIds: ['GDPC1'] });
     const abril = batch.items.filter(
       (item) => item.kind === 'observation' && item.t === Date.UTC(2026, 3, 1),
     );
 
+    // El numero de revision ya no sale de la respuesta: lo pone `persist` contra lo guardado.
     expect(abril).toEqual([
-      expect.objectContaining({ value: 23_010.1, revision: 0, publishedAt: Date.UTC(2026, 6, 30) }),
-      expect.objectContaining({ value: 23_025.4, revision: 1, publishedAt: Date.UTC(2026, 7, 28) }),
+      expect.objectContaining({ value: 23_010.1, publishedAt: Date.UTC(2026, 6, 30) }),
+      expect.objectContaining({ value: 23_025.4, publishedAt: Date.UTC(2026, 7, 28) }),
     ]);
+  });
 
-    // Una fecha con un solo vintage sigue siendo la revision 0.
-    const julio = batch.items.filter(
-      (item) => item.kind === 'observation' && item.t === Date.UTC(2026, 6, 1),
-    );
-    expect(julio).toEqual([expect.objectContaining({ revision: 0 })]);
+  it('los tramos de una misma serie se juntan en una sola lista de observaciones', async () => {
+    const { built } = await normalized();
+    const raw: FredRaw = {
+      fetchedAt: NOW,
+      series: [
+        {
+          seriesId: 'DFII10',
+          bodies: [
+            { observations: [obs('2026-10-01', '1.82', '2026-10-02')] },
+            { observations: [obs('2026-10-02', '1.84', '2026-10-03')] },
+          ],
+        },
+      ],
+      releases: { release_dates: [] },
+    };
+
+    const items = built.adapter.normalize(raw).items.filter((item) => item.kind === 'observation');
+    expect(items.map((item) => item.value)).toEqual([1.82, 1.84]);
   });
 
   it('las fechas de release se convierten en eventos con su scheduled_at', async () => {
@@ -254,7 +392,7 @@ describe('normalizado del FRED', () => {
     const { built } = await normalized();
     const raw: FredRaw = {
       fetchedAt: NOW,
-      series: [{ seriesId: 'DFII10', body: { observations: [{ date: '2026-10-01' }] } }],
+      series: [{ seriesId: 'DFII10', bodies: [{ observations: [{ date: '2026-10-01' }] }] }],
       releases: { release_dates: [] },
     };
 
@@ -271,6 +409,45 @@ describe('persistencia del FRED', () => {
 
     expect(built.written).toEqual({ points: 6, events: 3 });
     expect(result).toEqual({ written: 9, skipped: 0 });
+  });
+
+  it('dos vintages de la misma fecha se guardan como revision 0 y 1', async () => {
+    const built = source({ seriesIds: ['GDPC1'] });
+    const batch = built.adapter.normalize(await built.adapter.fetch(null, CONTEXT));
+
+    await built.adapter.persist(batch);
+
+    const abril = built.stored
+      .flat()
+      .filter((point) => point.t === Date.UTC(2026, 3, 1))
+      .sort((a, b) => a.revision - b.revision);
+    expect(abril).toEqual([
+      expect.objectContaining({ value: 23_010.1, revision: 0 }),
+      expect.objectContaining({ value: 23_025.4, revision: 1 }),
+    ]);
+  });
+
+  it('una correccion que llega con el historico ya guardado continua la numeracion', async () => {
+    const built = source({
+      seriesIds: ['GDPC1'],
+      lastPublishedAt: Date.UTC(2026, 6, 30),
+      stored: [
+        {
+          t: Date.UTC(2026, 3, 1),
+          value: 23_010.1,
+          publishedAt: Date.UTC(2026, 6, 30),
+          fetchedAt: Date.UTC(2026, 6, 30),
+          revision: 0,
+        },
+      ],
+    });
+    const batch = built.adapter.normalize(await built.adapter.fetch(null, CONTEXT));
+
+    await built.adapter.persist(batch);
+
+    const abril = built.stored.flat().filter((point) => point.t === Date.UTC(2026, 3, 1));
+    // El valor ya guardado no se reescribe; la correccion entra como la revision siguiente.
+    expect(abril).toEqual([expect.objectContaining({ value: 23_025.4, revision: 1 })]);
   });
 
   it('el evento lleva el tipo y las etiquetas de la fuente', async () => {
@@ -296,6 +473,8 @@ describe('persistencia del FRED', () => {
         upsertPoints: () => Promise.resolve(0),
         getPoints: () => Promise.resolve([]),
         getLastTs: () => Promise.resolve(null),
+        getLastPublishedAt: () => Promise.resolve(null),
+        getMaxRevisions: () => Promise.resolve(new Map()),
         getSources: () => Promise.resolve([]),
       },
       eventsRepo: {

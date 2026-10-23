@@ -61,6 +61,8 @@ function source(options: { response?: StreamResponse; urls?: string[] } = {}) {
         },
         getPoints: () => Promise.resolve([]),
         getLastTs: () => Promise.resolve(null),
+        getLastPublishedAt: () => Promise.resolve(null),
+        getMaxRevisions: () => Promise.resolve(new Map()),
         getSources: () => Promise.resolve([]),
       },
       eventsRepo: {

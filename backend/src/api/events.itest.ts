@@ -79,6 +79,8 @@ describe('API de eventos', () => {
               upsertPoints: () => Promise.resolve(0),
               getPoints: () => Promise.resolve([]),
               getLastTs: () => Promise.resolve(null),
+              getLastPublishedAt: () => Promise.resolve(null),
+              getMaxRevisions: () => Promise.resolve(new Map()),
               getSources: () => Promise.resolve([]),
             },
             events: repo,

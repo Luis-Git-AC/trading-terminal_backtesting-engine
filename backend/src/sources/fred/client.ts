@@ -3,9 +3,10 @@ import { UpstreamError } from '../../ingest/exchange/errors.js';
 import {
   FRED_OBSERVATIONS_PATH,
   FRED_REALTIME_END,
-  FRED_REALTIME_START,
   FRED_RELEASE_DATES_LIMIT,
   FRED_RELEASE_DATES_PATH,
+  FRED_VINTAGE_DATES_LIMIT,
+  FRED_VINTAGE_DATES_PATH,
   fredErrorSchema,
 } from './types.js';
 
@@ -16,8 +17,18 @@ export interface FredClientOptions {
 }
 
 export interface FredClient {
-  /** Crudo, sin tocar: la validacion es de `normalize` (ADR-006, raw inmutable). */
-  getObservations(seriesId: string, observationStart: string): Promise<unknown>;
+  /**
+   * Crudo, sin tocar: la validacion es de `normalize` (ADR-006, raw inmutable). La ventana realtime
+   * la pone quien llama porque el tope de vintages obliga a trocearla.
+   */
+  getObservations(
+    seriesId: string,
+    observationStart: string,
+    realtimeStart: string,
+    realtimeEnd: string,
+  ): Promise<unknown>;
+  /** Fechas de vintage de la serie desde `from`: son las que marcan por donde trocear. */
+  getVintageDates(seriesId: string, from: string): Promise<unknown>;
   getReleaseDates(from: string): Promise<unknown>;
 }
 
@@ -60,12 +71,22 @@ export function createFredClient(options: FredClientOptions): FredClient {
   }
 
   return {
-    getObservations(seriesId, observationStart) {
+    getObservations(seriesId, observationStart, realtimeStart, realtimeEnd) {
       return get(FRED_OBSERVATIONS_PATH, {
         series_id: seriesId,
         observation_start: observationStart,
-        realtime_start: FRED_REALTIME_START,
+        realtime_start: realtimeStart,
+        realtime_end: realtimeEnd,
+        sort_order: 'asc',
+      });
+    },
+
+    getVintageDates(seriesId, from) {
+      return get(FRED_VINTAGE_DATES_PATH, {
+        series_id: seriesId,
+        realtime_start: from,
         realtime_end: FRED_REALTIME_END,
+        limit: String(FRED_VINTAGE_DATES_LIMIT),
         sort_order: 'asc',
       });
     },

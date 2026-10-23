@@ -36,6 +36,16 @@ export interface MacroRepository {
   upsertPoints(input: UpsertMacroInput): Promise<number>;
   getPoints(query: MacroRangeQuery): Promise<MacroPoint[]>;
   getLastTs(ref: MacroSeriesRef): Promise<number | null>;
+  /**
+   * Instante de publicacion mas reciente ya guardado. Es el que deja reanudar una fuente que sirve
+   * vintages (el FRED) sin volver a pedir todo el historico de revisiones.
+   */
+  getLastPublishedAt(ref: MacroSeriesRef): Promise<number | null>;
+  /**
+   * Revision mas alta guardada de cada una de esas fechas. Es lo que deja continuar la numeracion
+   * de una fuente que sirve vintages sin traerse la serie entera a memoria.
+   */
+  getMaxRevisions(ref: MacroSeriesRef, timestamps: readonly number[]): Promise<Map<number, number>>;
   /** Las fuentes que publican esa serie. Vacio = la serie no existe. */
   getSources(seriesId: string): Promise<string[]>;
 }
@@ -68,6 +78,17 @@ const SOURCES_SQL = `
 
 const LAST_TS_SQL = `
   SELECT max(ts) AS ts FROM macro_series WHERE source = $1 AND series_id = $2
+`;
+
+const MAX_REVISIONS_SQL = `
+  SELECT ts, max(revision) AS revision
+  FROM macro_series
+  WHERE source = $1 AND series_id = $2 AND ts = ANY($3::timestamptz[])
+  GROUP BY ts
+`;
+
+const LAST_PUBLISHED_SQL = `
+  SELECT max(published_at) AS published_at FROM macro_series WHERE source = $1 AND series_id = $2
 `;
 
 interface Row {
@@ -134,6 +155,28 @@ export function createMacroRepository(db: Queryable): MacroRepository {
     async getLastTs({ source, seriesId }: MacroSeriesRef): Promise<number | null> {
       const { rows } = await db.query<{ ts: Date | null }>(LAST_TS_SQL, [source, seriesId]);
       return rows[0]?.ts?.getTime() ?? null;
+    },
+
+    async getLastPublishedAt({ source, seriesId }: MacroSeriesRef): Promise<number | null> {
+      const { rows } = await db.query<{ published_at: Date | null }>(LAST_PUBLISHED_SQL, [
+        source,
+        seriesId,
+      ]);
+      return rows[0]?.published_at?.getTime() ?? null;
+    },
+
+    async getMaxRevisions(
+      { source, seriesId }: MacroSeriesRef,
+      timestamps: readonly number[],
+    ): Promise<Map<number, number>> {
+      if (timestamps.length === 0) return new Map();
+
+      const { rows } = await db.query<{ ts: Date; revision: number }>(MAX_REVISIONS_SQL, [
+        source,
+        seriesId,
+        timestamps.map((ts) => new Date(ts)),
+      ]);
+      return new Map(rows.map((row) => [row.ts.getTime(), row.revision]));
     },
 
     async getSources(seriesId: string): Promise<string[]> {

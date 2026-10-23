@@ -3,15 +3,29 @@ import { z } from 'zod';
 export const FRED_SOURCE_ID = 'fred';
 export const FRED_OBSERVATIONS_PATH = '/fred/series/observations';
 export const FRED_RELEASE_DATES_PATH = '/fred/releases/dates';
+export const FRED_VINTAGE_DATES_PATH = '/fred/series/vintagedates';
 
 /**
- * Ventana realtime completa. Con `output_type=1` (el de por defecto) y esta ventana, el FRED
- * devuelve **una fila por vintage** de cada fecha de observacion, cada una con su propio
- * `realtime_start`: de ahi sale `published_at` y de ahi sale la revision. Con la ventana por
- * defecto (hoy, hoy) solo llegaria la ultima, y la revision seria invisible.
+ * Fin de la ventana realtime: abierto, para que entren los vintages de hoy. El inicio lo pone la
+ * fuente troceando las fechas de vintage. Con `output_type=1` (el de por defecto) y una ventana
+ * abierta el FRED devuelve **una fila por vintage** de cada fecha de observacion, cada una con su
+ * propio `realtime_start`: de ahi sale `published_at`. Con la ventana por defecto (hoy, hoy) solo
+ * llegaria la ultima y la revision seria invisible.
  */
-export const FRED_REALTIME_START = '1776-07-04';
 export const FRED_REALTIME_END = '9999-12-31';
+
+/**
+ * Tope de fechas de vintage que el FRED admite en la ventana realtime con `file_type=json`. Pasarse
+ * es un 400, no una respuesta recortada: `DFII10` acumula mas de 2900 vintages desde 2015 porque
+ * estrena uno cada dia habil, asi que la ventana hay que trocearla.
+ */
+export const FRED_MAX_VINTAGE_DATES = 2000;
+
+/** Vintages por peticion de observaciones, con margen frente al tope. */
+export const FRED_VINTAGES_PER_REQUEST = 1000;
+
+/** El maximo que admite `limit` en `series/vintagedates`. */
+export const FRED_VINTAGE_DATES_LIMIT = 10_000;
 
 /** El maximo que admite `limit` en `releases/dates`. */
 export const FRED_RELEASE_DATES_LIMIT = 1000;
@@ -33,6 +47,10 @@ export const fredObservationSchema = z.object({
 
 export const fredObservationsSchema = z.object({
   observations: z.array(fredObservationSchema),
+});
+
+export const fredVintageDatesSchema = z.object({
+  vintage_dates: z.array(isoDate),
 });
 
 export const fredReleaseDateSchema = z.object({

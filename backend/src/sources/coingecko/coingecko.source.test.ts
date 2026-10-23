@@ -56,6 +56,8 @@ function source(options: { body?: unknown; urls?: string[] } = {}) {
         },
         getPoints: () => Promise.resolve([]),
         getLastTs: () => Promise.resolve(null),
+        getLastPublishedAt: () => Promise.resolve(null),
+        getMaxRevisions: () => Promise.resolve(new Map()),
         getSources: () => Promise.resolve([]),
       },
     }),

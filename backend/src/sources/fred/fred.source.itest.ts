@@ -27,13 +27,25 @@ const BODIES: Record<string, unknown> = {
   releases: fixture('release-dates'),
 };
 
-/** Sin red: cada petición se contesta con el fixture que corresponde a su `series_id`. */
+const VINTAGES = fixture('vintage-dates-dfii10');
+
+/** Sin red: cada petición se contesta con el fixture que corresponde a su path y `series_id`. */
+const urls: string[] = [];
 const fakeFetch: FetchLike = (url) => {
-  const seriesId = new URL(url).searchParams.get('series_id');
+  urls.push(url);
+  const parsed = new URL(url);
+  const seriesId = parsed.searchParams.get('series_id');
+  const body =
+    parsed.pathname === '/fred/series/vintagedates'
+      ? VINTAGES
+      : seriesId === null
+        ? BODIES.releases
+        : BODIES[seriesId];
+
   return Promise.resolve({
     status: 200,
     headers: new Headers(),
-    json: () => Promise.resolve(seriesId === null ? BODIES.releases : BODIES[seriesId]),
+    json: () => Promise.resolve(body),
   });
 };
 
@@ -52,6 +64,7 @@ describe('fuente FRED contra la base de datos', () => {
   beforeEach(async () => {
     await db.pool.query('DELETE FROM macro_series');
     await db.pool.query('DELETE FROM market_events');
+    urls.length = 0;
   });
 
   function run(seriesIds: readonly string[]): Promise<SourceRunReport> {
@@ -68,6 +81,20 @@ describe('fuente FRED contra la base de datos', () => {
     });
     return toRunnable(source).run(null, CONTEXT);
   }
+
+  it('la segunda pasada arranca en el ultimo published_at guardado', async () => {
+    await run(['DFII10']);
+    const primera = urls.filter((url) => new URL(url).pathname === '/fred/series/vintagedates');
+
+    urls.length = 0;
+    await run(['DFII10']);
+    const segunda = urls.filter((url) => new URL(url).pathname === '/fred/series/vintagedates');
+
+    // La primera pasada no tiene nada guardado y pide desde `observationStart`; la segunda arranca
+    // en el published_at mas alto que ya hay en la tabla, que es lo que evita repetir el historico.
+    expect(new URL(primera[0] ?? '').searchParams.get('realtime_start')).toBe('2026-01-01');
+    expect(new URL(segunda[0] ?? '').searchParams.get('realtime_start')).toBe('2026-10-07');
+  });
 
   it('persiste la serie con sus published_at y descarta el valor ausente', async () => {
     const report = await run(['DFII10']);

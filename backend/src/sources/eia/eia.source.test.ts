@@ -81,6 +81,8 @@ function source(options: SourceOptions = {}) {
         },
         getPoints: ({ seriesId }) => Promise.resolve([...(stored[seriesId] ?? [])]),
         getLastTs: () => Promise.resolve(null),
+        getLastPublishedAt: () => Promise.resolve(null),
+        getMaxRevisions: () => Promise.resolve(new Map()),
         getSources: () => Promise.resolve([]),
       },
       eventsRepo: {
