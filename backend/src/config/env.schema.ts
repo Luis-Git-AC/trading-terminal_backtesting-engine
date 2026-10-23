@@ -178,6 +178,15 @@ export const envSchema = z.object({
   CFTC_URL: z.url().prefault('https://www.cftc.gov/dea/newcot/deafut.txt'),
   // El informe sale el viernes a las 15:30 de Nueva York; diario para no depender de la hora.
   CFTC_CRON: cronSchema('13 20 * * *'),
+  DEFILLAMA_TVL_URL: z.url().prefault('https://api.llama.fi'),
+  DEFILLAMA_STABLECOINS_URL: z.url().prefault('https://stablecoins.llama.fi'),
+  DEFILLAMA_CRON: cronSchema('17 5 * * *'),
+  // La serie de TVL arranca en 2017 y sus primeros anos son ceros.
+  DEFILLAMA_FROM: z.iso.date().prefault('2020-01-01'),
+  COINGECKO_BASE_URL: z.url().prefault('https://api.coingecko.com'),
+  // Tier gratuito: limite de peticiones bajo, asi que una vez al dia y nada mas.
+  COINGECKO_CRON: cronSchema('31 5 * * *'),
+  COINGECKO_RPS: z.coerce.number().positive().max(10).prefault('0.2'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 

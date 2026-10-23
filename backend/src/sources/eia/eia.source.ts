@@ -6,9 +6,9 @@ import {
 } from '../../db/repositories/events.repo.js';
 import {
   createMacroRepository,
-  type MacroPoint,
   type MacroRepository,
 } from '../../db/repositories/macro.repo.js';
+import { withRevisions } from '../revisions.js';
 import type {
   NormalizedBatch,
   PersistResult,
@@ -160,7 +160,7 @@ export function createEiaSource(options: EiaSourceOptions): SourceAdapter<EiaRaw
         written += await macroRepo.upsertPoints({
           source: EIA_SOURCE_ID,
           seriesId,
-          points: await withRevisions(macroRepo, seriesId, group),
+          points: await withRevisions(macroRepo, { source: EIA_SOURCE_ID, seriesId }, group),
         });
       }
       written += await eventsRepo.upsertEvents(events);
@@ -168,43 +168,4 @@ export function createEiaSource(options: EiaSourceOptions): SourceAdapter<EiaRaw
       return { written, skipped: batch.items.length - written };
     },
   };
-}
-
-/**
- * La EIA solo sirve el valor vigente de cada semana, sin vintages: el numero de revision no viene
- * en la respuesta y hay que deducirlo de lo ya guardado. Un valor igual al ultimo conocido no se
- * reescribe (de ahi la idempotencia) y uno distinto entra como la revision siguiente, conviviendo
- * con el original en vez de sobrescribirlo.
- */
-async function withRevisions(
-  macroRepo: MacroRepository,
-  seriesId: string,
-  items: readonly StockItem[],
-): Promise<MacroPoint[]> {
-  const timestamps = items.map((item) => item.t);
-  const stored = new Map<number, MacroPoint>();
-
-  if (timestamps.length > 0) {
-    const points = await macroRepo.getPoints({
-      source: EIA_SOURCE_ID,
-      seriesId,
-      from: Math.min(...timestamps),
-      to: Math.max(...timestamps),
-    });
-    for (const point of points) stored.set(point.t, point);
-  }
-
-  const result: MacroPoint[] = [];
-  for (const item of items) {
-    const last = stored.get(item.t);
-    if (last?.value === item.value) continue;
-    result.push({
-      t: item.t,
-      value: item.value,
-      publishedAt: item.publishedAt,
-      fetchedAt: item.fetchedAt,
-      revision: last === undefined ? 0 : last.revision + 1,
-    });
-  }
-  return result;
 }

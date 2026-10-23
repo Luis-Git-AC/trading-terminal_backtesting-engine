@@ -32,6 +32,8 @@ export interface SourceAdapter<TRaw, TItem extends SourceItem> {
   readonly schedule: string;
   /** Claves de entorno sin las que la fuente no puede trabajar; su ausencia la desactiva. */
   readonly requiredEnv?: readonly string[];
+  /** Peticiones por segundo propias, cuando el limite de la fuente es mas estricto que el comun. */
+  readonly rps?: number | undefined;
   fetch(since: Date | null, context: SourceContext): Promise<TRaw>;
   normalize(raw: TRaw): NormalizedBatch<TItem>;
   persist(batch: NormalizedBatch<TItem>): Promise<PersistResult>;
@@ -54,6 +56,7 @@ export interface RunnableSource {
   readonly id: string;
   readonly schedule: string;
   readonly requiredEnv: readonly string[];
+  readonly rps?: number | undefined;
   run(since: Date | null, context: SourceContext): Promise<SourceRunReport>;
 }
 
@@ -68,6 +71,7 @@ export function toRunnable<TRaw, TItem extends SourceItem>(
     id: source.id,
     schedule: source.schedule,
     requiredEnv: source.requiredEnv ?? [],
+    ...(source.rps === undefined ? {} : { rps: source.rps }),
 
     async run(since: Date | null, context: SourceContext): Promise<SourceRunReport> {
       const startedAt = context.now();

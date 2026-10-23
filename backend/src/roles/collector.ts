@@ -70,11 +70,12 @@ export async function startCollector(
   const state = createSourceStateStore(redis);
   const handlers = new Map<NodeJS.Signals, () => void>();
 
-  // Un limitador por fuente: que FRED vaya al limite no debe frenar a EIA.
+  // Un limitador por fuente: que FRED vaya al limite no debe frenar a EIA. Una fuente con un
+  // limite mas estricto que el comun (CoinGecko en tier gratuito) lo declara en su `rps`.
   const limiters = new Map<string, RateLimiter>(
     registry.enabled.map((source) => [
       source.id,
-      createRateLimiter({ rps: options.sourceRps ?? DEFAULT_SOURCE_RPS }),
+      createRateLimiter({ rps: source.rps ?? options.sourceRps ?? DEFAULT_SOURCE_RPS }),
     ]),
   );
 

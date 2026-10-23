@@ -17,6 +17,16 @@ import {
   createDerivativesSource,
   type DerivativesMarket,
 } from './sources/derivatives.source.js';
+import {
+  COINGECKO_SOURCE_ID,
+  createCoingeckoClient,
+  createCoingeckoSource,
+} from './sources/coingecko/coingecko.source.js';
+import {
+  createDefillamaClient,
+  createDefillamaSource,
+  DEFILLAMA_SOURCE_ID,
+} from './sources/defillama/defillama.source.js';
 import { createCftcClient } from './sources/cftc/client.js';
 import { createCftcSource } from './sources/cftc/cftc.source.js';
 import { CFTC_SOURCE_ID } from './sources/cftc/types.js';
@@ -35,6 +45,8 @@ const COLLECTOR_SOURCE_IDS = [
   FRED_SOURCE_ID,
   EIA_SOURCE_ID,
   CFTC_SOURCE_ID,
+  DEFILLAMA_SOURCE_ID,
+  COINGECKO_SOURCE_ID,
 ] as const;
 
 function seriesOf(symbols: readonly string[]): {
@@ -227,6 +239,35 @@ async function runCollector(logger: AppLogger): Promise<void> {
           },
         }),
         schedule: env.CFTC_CRON,
+      }),
+    ),
+  );
+
+  candidates.push(
+    toRunnable(
+      createDefillamaSource({
+        pool,
+        client: createDefillamaClient({
+          tvlBaseUrl: env.DEFILLAMA_TVL_URL,
+          stablecoinsBaseUrl: env.DEFILLAMA_STABLECOINS_URL,
+          fetch: (url) => globalThis.fetch(url),
+        }),
+        schedule: env.DEFILLAMA_CRON,
+        from: Date.parse(`${env.DEFILLAMA_FROM}T00:00:00Z`),
+      }),
+    ),
+    toRunnable(
+      createCoingeckoSource({
+        pool,
+        client: createCoingeckoClient({
+          baseUrl: env.COINGECKO_BASE_URL,
+          fetch: (url) => globalThis.fetch(url),
+          onRateLimited: (detail) => {
+            logger.warn({ source: COINGECKO_SOURCE_ID, detail }, 'CoinGecko al limite de peticiones');
+          },
+        }),
+        schedule: env.COINGECKO_CRON,
+        rps: env.COINGECKO_RPS,
       }),
     ),
   );
