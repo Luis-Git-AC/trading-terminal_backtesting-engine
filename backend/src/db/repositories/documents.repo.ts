@@ -52,6 +52,7 @@ export interface DocumentsRepository {
   /** Inserta los nuevos y devuelve cuantos entraron; un `content_hash` repetido se ignora. */
   insertDocuments(documents: readonly RawDocumentInput[]): Promise<number>;
   getDocuments(query: DocumentsRangeQuery): Promise<StoredRawDocument[]>;
+  getDocumentsByIds(ids: readonly string[]): Promise<StoredRawDocument[]>;
   /** Reetiquetado por regla: lo que pusieron otras reglas no se toca. */
   replaceTags(input: ReplaceTagsInput): Promise<ReplaceTagsResult>;
   getTags(documentId: string): Promise<DocumentTagRow[]>;
@@ -111,6 +112,14 @@ const PRUNE_TAGS_SQL = `
     )
 `;
 
+const SELECT_BY_IDS_SQL = `
+  SELECT id::text AS id, source, url, title, body, content_hash, published_at,
+         published_at_estimated, fetched_at, lang
+  FROM raw_documents
+  WHERE id = ANY($1::uuid[])
+  ORDER BY published_at DESC, id
+`;
+
 const SELECT_TAGS_SQL = `
   SELECT asset, rule_id FROM document_tags WHERE document_id = $1::uuid
   ORDER BY asset, rule_id
@@ -137,6 +146,21 @@ interface Row {
 function clampLimit(limit: number | undefined): number {
   if (limit === undefined) return MAX_DOCUMENTS_LIMIT;
   return Math.min(Math.max(1, Math.trunc(limit)), MAX_DOCUMENTS_LIMIT);
+}
+
+function toStoredDocument(row: Row): StoredRawDocument {
+  return {
+    id: row.id,
+    source: row.source,
+    url: row.url,
+    title: row.title,
+    body: row.body,
+    contentHash: row.content_hash,
+    publishedAt: row.published_at.getTime(),
+    publishedAtEstimated: row.published_at_estimated,
+    fetchedAt: row.fetched_at.getTime(),
+    lang: row.lang,
+  };
 }
 
 export function createDocumentsRepository(db: Queryable): DocumentsRepository {
@@ -183,18 +207,13 @@ export function createDocumentsRepository(db: Queryable): DocumentsRepository {
         clampLimit(query.limit),
       ]);
 
-      return rows.map((row) => ({
-        id: row.id,
-        source: row.source,
-        url: row.url,
-        title: row.title,
-        body: row.body,
-        contentHash: row.content_hash,
-        publishedAt: row.published_at.getTime(),
-        publishedAtEstimated: row.published_at_estimated,
-        fetchedAt: row.fetched_at.getTime(),
-        lang: row.lang,
-      }));
+      return rows.map(toStoredDocument);
+    },
+
+    async getDocumentsByIds(ids: readonly string[]): Promise<StoredRawDocument[]> {
+      if (ids.length === 0) return [];
+      const { rows } = await db.query<Row>(SELECT_BY_IDS_SQL, [[...ids]]);
+      return rows.map(toStoredDocument);
     },
 
     async replaceTags(input: ReplaceTagsInput): Promise<ReplaceTagsResult> {

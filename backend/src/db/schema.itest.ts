@@ -57,6 +57,7 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
       '006_macro.sql',
       '007_documents.sql',
       '008_document_tags.sql',
+      '009_embeddings.sql',
     ]);
     expect(result.timescaleVersion).not.toBeNull();
   });
@@ -352,6 +353,42 @@ describe('esquema sobre PostgreSQL con TimescaleDB', () => {
 
       await db.pool.query(insert);
       await expect(db.pool.query(insert)).rejects.toThrow(/content_hash/);
+    });
+  });
+
+  describe('document_embeddings', () => {
+    it('existe con la dimension del modelo en el tipo de la columna', async () => {
+      const { rows } = await db.pool.query<{ formato: string }>(
+        `SELECT format_type(atttypid, atttypmod) AS formato
+         FROM pg_attribute
+         WHERE attrelid = 'document_embeddings'::regclass AND attname = 'embedding'`,
+      );
+      expect(rows[0]?.formato).toBe('vector(384)');
+    });
+
+    it('el modelo forma parte de la clave, asi que dos modelos conviven', async () => {
+      const insertar = `INSERT INTO raw_documents
+        (source, url, title, body, content_hash, published_at, fetched_at)
+        VALUES ('te','https://a.test/x','T','cuerpo','hash-emb',
+                '2026-10-21T09:30:00Z','2026-10-23T07:00:00Z') RETURNING id`;
+      const { rows } = await db.pool.query<{ id: string }>(insertar);
+      const id = rows[0]!.id;
+      const vector = `[${Array.from({ length: 384 }, () => '0').join(',')}]`;
+      const embedding = `INSERT INTO document_embeddings (document_id, chunk_idx, chunk_text, embedding, model)
+                         VALUES ($1, 0, 'c', $2::vector, $3)`;
+
+      await db.pool.query(embedding, [id, vector, 'modelo-a']);
+      await db.pool.query(embedding, [id, vector, 'modelo-b']);
+      await expect(db.pool.query(embedding, [id, vector, 'modelo-a'])).rejects.toThrow(
+        /document_embeddings_pkey/,
+      );
+
+      await db.pool.query('DELETE FROM raw_documents WHERE id = $1', [id]);
+      const { rows: quedan } = await db.pool.query<{ count: string }>(
+        'SELECT count(*)::text AS count FROM document_embeddings WHERE document_id = $1',
+        [id],
+      );
+      expect(quedan[0]?.count).toBe('0');
     });
   });
 

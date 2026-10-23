@@ -7,7 +7,7 @@ import {
   type LoggerOptions,
 } from 'pino';
 
-export type AppRole = 'api' | 'worker' | 'ingestor' | 'collector';
+export type AppRole = 'api' | 'worker' | 'ingestor' | 'collector' | 'brain';
 
 export type AppLogger = Logger;
 

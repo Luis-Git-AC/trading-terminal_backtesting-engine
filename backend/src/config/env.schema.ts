@@ -104,7 +104,7 @@ const optionalSecret = () =>
     z.string().min(1).optional(),
   );
 
-export const startModeSchema = z.enum(['api', 'worker', 'ingestor', 'collector']);
+export const startModeSchema = z.enum(['api', 'worker', 'ingestor', 'collector', 'brain']);
 
 export type StartMode = z.infer<typeof startModeSchema>;
 
@@ -190,6 +190,13 @@ export const envSchema = z.object({
   // Noticias: la lista de feeds es un fichero versionado (`sources/rss/feeds.ts`), aqui solo
   // va la frecuencia, que el ticket fija entre 5 y 15 minutos.
   RSS_CRON: cronSchema('*/10 * * * *'),
+  // Cerebro: el modelo se cachea en HF_HOME (volumen en el compose), asi que cambiarlo implica
+  // una descarga. La dimension vive en el tipo de la columna: cambiar de modelo es una migracion.
+  BRAIN_MODEL: z.string().min(1).prefault('Xenova/all-MiniLM-L6-v2'),
+  // El modelo come CPU y compite con el worker de backtests.
+  BRAIN_CONCURRENCY: intIn(1, 16).prefault('1'),
+  BRAIN_SCAN_CRON: cronSchema('*/5 * * * *'),
+  BRAIN_SCAN_LIMIT: intIn(1, 500).prefault('50'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 

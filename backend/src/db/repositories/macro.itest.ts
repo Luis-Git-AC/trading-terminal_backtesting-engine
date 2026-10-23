@@ -66,9 +66,9 @@ describe('macro_series y market_events', () => {
       expect(
         await repo.upsertPoints({ source: SOURCE, seriesId: SERIES, points: [ORIGINAL] }),
       ).toBe(1);
-      expect(
-        await repo.upsertPoints({ source: SOURCE, seriesId: SERIES, points: [REVISED] }),
-      ).toBe(1);
+      expect(await repo.upsertPoints({ source: SOURCE, seriesId: SERIES, points: [REVISED] })).toBe(
+        1,
+      );
 
       const { rows } = await db.pool.query<{ revision: number; value: string }>(
         'SELECT revision, value FROM macro_series ORDER BY revision',
@@ -148,7 +148,9 @@ describe('macro_series y market_events', () => {
 
     it('el mismo evento con el payload en otro orden de claves es el mismo evento', async () => {
       const repo = createEventsRepository(db.pool);
-      await repo.upsertEvents([event({ payload: { titulo: 'Decision de tipos', consenso: 3.75 } })]);
+      await repo.upsertEvents([
+        event({ payload: { titulo: 'Decision de tipos', consenso: 3.75 } }),
+      ]);
 
       expect(
         await repo.upsertEvents([

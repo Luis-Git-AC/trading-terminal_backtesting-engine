@@ -28,7 +28,9 @@ function makeCandles(count: number, from = START, step = STEP): Candle[] {
 }
 
 async function countRows(db: ScratchDatabase): Promise<number> {
-  const { rows } = await db.pool.query<{ count: string }>('SELECT count(*)::text AS count FROM candles');
+  const { rows } = await db.pool.query<{ count: string }>(
+    'SELECT count(*)::text AS count FROM candles',
+  );
   return Number(rows[0]?.count ?? 0);
 }
 
@@ -198,7 +200,12 @@ describe('candles.repo', () => {
 
     it('un rango invertido o vacio devuelve cero velas', async () => {
       await expect(
-        repo.getCandles({ symbol: SYMBOL, timeframe: TIMEFRAME, from: START + 5 * STEP, to: START }),
+        repo.getCandles({
+          symbol: SYMBOL,
+          timeframe: TIMEFRAME,
+          from: START + 5 * STEP,
+          to: START,
+        }),
       ).resolves.toEqual([]);
     });
 
@@ -310,9 +317,7 @@ describe('candles.repo', () => {
         to: START + 10 * STEP,
       });
 
-      expect(gaps).toEqual([
-        { fromTs: START + 4 * STEP, toTs: START + 6 * STEP, missing: 3 },
-      ]);
+      expect(gaps).toEqual([{ fromTs: START + 4 * STEP, toTs: START + 6 * STEP, missing: 3 }]);
     });
 
     it('detecta un hueco de una sola vela', async () => {
@@ -325,9 +330,7 @@ describe('candles.repo', () => {
         to: START + 10 * STEP,
       });
 
-      expect(gaps).toEqual([
-        { fromTs: START + 2 * STEP, toTs: START + 2 * STEP, missing: 1 },
-      ]);
+      expect(gaps).toEqual([{ fromTs: START + 2 * STEP, toTs: START + 2 * STEP, missing: 1 }]);
     });
 
     it('devuelve varios huecos ordenados por inicio', async () => {

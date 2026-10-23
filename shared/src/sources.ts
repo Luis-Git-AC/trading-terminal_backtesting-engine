@@ -8,6 +8,15 @@ export const collectorJobSchema = z.object({
 
 export type CollectorJob = z.infer<typeof collectorJobSchema>;
 
+/** Cola del rol `brain`: un job por documento a embeber. */
+export const BRAIN_QUEUE_NAME = 'brain';
+
+export const brainJobSchema = z.object({
+  documentId: z.uuid(),
+});
+
+export type BrainJob = z.infer<typeof brainJobSchema>;
+
 export const SOURCE_STATES = ['ok', 'error', 'pending'] as const;
 
 export type SourceState = (typeof SOURCE_STATES)[number];

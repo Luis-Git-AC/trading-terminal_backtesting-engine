@@ -7,7 +7,9 @@ import { getAdapter } from './ingest/exchange/registry.js';
 import { createLogger, type AppLogger } from './observability/logger.js';
 import { createQueueConnection } from './queue/connection.js';
 import { createCandlePublisher, createRedisClient } from './queue/pubsub.js';
+import { createTransformersEmbedder } from './brain/embeddings/embedder.js';
 import { startApi } from './roles/api.js';
+import { startBrain } from './roles/brain.js';
 import { startCollector } from './roles/collector.js';
 import { startIngestor } from './roles/ingestor.js';
 import { startWorker } from './roles/worker.js';
@@ -381,6 +383,28 @@ async function runWorker(logger: AppLogger): Promise<void> {
   }
 }
 
+async function runBrain(logger: AppLogger): Promise<void> {
+  const pool = createPool();
+  const connection = createQueueConnection(env.REDIS_URL, {
+    onError: (error) => {
+      logger.warn({ err: error }, 'conexion de la cola no disponible');
+    },
+  });
+
+  const handle = await startBrain({
+    pool,
+    connection,
+    logger,
+    embedder: createTransformersEmbedder({ model: env.BRAIN_MODEL }),
+    scanCron: env.BRAIN_SCAN_CRON,
+    concurrency: env.BRAIN_CONCURRENCY,
+    scanLimit: env.BRAIN_SCAN_LIMIT,
+  });
+
+  // Primer barrido al arrancar: lo que entro mientras brain estaba apagado no espera al cron.
+  await handle.scanNow();
+}
+
 export async function main(): Promise<void> {
   const role = resolveStartMode(process.argv, env.START_MODE);
   const logger = createLogger({ role, level: env.LOG_LEVEL });
@@ -401,6 +425,11 @@ export async function main(): Promise<void> {
 
   if (role === 'collector') {
     await runCollector(logger);
+    return;
+  }
+
+  if (role === 'brain') {
+    await runBrain(logger);
     return;
   }
 

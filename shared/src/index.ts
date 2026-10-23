@@ -120,12 +120,15 @@ export {
 } from './jobs.js';
 
 export {
+  BRAIN_QUEUE_NAME,
   COLLECTOR_QUEUE_NAME,
   SOURCE_STATES,
+  brainJobSchema,
   collectorJobSchema,
   sourceHealthSchema,
   sourceStateKey,
   sourcesHealthSchema,
+  type BrainJob,
   type CollectorJob,
   type SourceHealth,
   type SourceState,

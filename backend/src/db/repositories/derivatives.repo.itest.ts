@@ -261,17 +261,15 @@ describe('derivatives.repo', () => {
       expect(await repo.getLastOpenInterestTs({ exchange: 'binance', symbol: SYMBOL })).toBe(
         START + FOUR_HOURS,
       );
-      expect(await repo.getLastOpenInterestTs({ exchange: 'binance', symbol: 'XAGUSDT' })).toBeNull();
+      expect(
+        await repo.getLastOpenInterestTs({ exchange: 'binance', symbol: 'XAGUSDT' }),
+      ).toBeNull();
     });
   });
 
   it('una lista vacia no toca la base de datos', async () => {
-    expect(
-      await repo.upsertFundingRates({ symbol: SYMBOL, source: 'rest', rates: [] }),
-    ).toBe(0);
-    expect(
-      await repo.upsertOpenInterest({ symbol: SYMBOL, source: 'rest', points: [] }),
-    ).toBe(0);
+    expect(await repo.upsertFundingRates({ symbol: SYMBOL, source: 'rest', rates: [] })).toBe(0);
+    expect(await repo.upsertOpenInterest({ symbol: SYMBOL, source: 'rest', points: [] })).toBe(0);
     expect(await countRows(db, 'funding_rates')).toBe(0);
     expect(await countRows(db, 'open_interest')).toBe(0);
   });

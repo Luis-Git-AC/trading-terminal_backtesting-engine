@@ -19,7 +19,10 @@ const INTERVAL_BY_TIMEFRAME = {
 } as const satisfies Record<Timeframe, string>;
 
 export interface Queryable {
-  query<R extends QueryResultRow>(text: string, values?: readonly unknown[]): Promise<QueryResult<R>>;
+  query<R extends QueryResultRow>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<QueryResult<R>>;
 }
 
 export interface SeriesRef {

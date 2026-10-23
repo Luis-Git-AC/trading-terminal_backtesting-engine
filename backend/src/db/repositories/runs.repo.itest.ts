@@ -338,8 +338,14 @@ describe('runs.repo', () => {
       expect(await runs.deleteRun(run.id)).toBe(true);
       expect(await runs.getRun(run.id)).toBeNull();
 
-      const trades = await db.pool.query('SELECT count(*)::int AS n FROM backtest_trades WHERE run_id = $1', [run.id]);
-      const equity = await db.pool.query('SELECT count(*)::int AS n FROM backtest_equity WHERE run_id = $1', [run.id]);
+      const trades = await db.pool.query(
+        'SELECT count(*)::int AS n FROM backtest_trades WHERE run_id = $1',
+        [run.id],
+      );
+      const equity = await db.pool.query(
+        'SELECT count(*)::int AS n FROM backtest_equity WHERE run_id = $1',
+        [run.id],
+      );
       expect(trades.rows[0]?.n).toBe(0);
       expect(equity.rows[0]?.n).toBe(0);
     });

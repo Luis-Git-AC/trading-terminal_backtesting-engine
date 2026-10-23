@@ -85,6 +85,32 @@ services:
       ingestor:
         condition: service_started
 
+  # El cerebro: trocea los documentos crudos y calcula sus embeddings en local, sin coste y sin
+  # salir del portatil. El modelo se cachea en el volumen `hfcache` montado como HF_HOME: sin el,
+  # cada arranque del contenedor volveria a descargarlo y dependeria de la red para funcionar.
+  brain:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    image: trading-terminal-backend:latest
+    container_name: tt-brain
+    restart: unless-stopped
+    command: ['npx', 'tsx', 'backend/src/main.ts', 'brain']
+    env_file: .env
+    environment:
+      START_MODE: brain
+      DATABASE_URL: postgres://tt:tt@postgres:5432/trading_terminal
+      REDIS_URL: redis://redis:6379
+      HF_HOME: /cache/huggingface
+    volumes:
+      - hfcache:/cache/huggingface
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:
   redisdata:
+  hfcache:
