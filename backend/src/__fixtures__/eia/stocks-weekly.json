@@ -1,0 +1,97 @@
+{
+  "response": {
+    "total": "8",
+    "dateFormat": "YYYY-MM-DD",
+    "frequency": "weekly",
+    "data": [
+      {
+        "period": "2026-10-02",
+        "duoarea": "NUS",
+        "area-name": "NA",
+        "product": "EPC0",
+        "product-name": "Crude Oil",
+        "process": "SAE",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WCESTUS1",
+        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil, Weekly",
+        "value": 421500,
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-02",
+        "duoarea": "NUS",
+        "area-name": "NA",
+        "product": "EPM0",
+        "product-name": "Total Gasoline",
+        "process": "SAE",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WGTSTUS1",
+        "series-description": "U.S. Ending Stocks of Total Gasoline, Weekly",
+        "value": 223100,
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-09",
+        "duoarea": "NUS",
+        "area-name": "NA",
+        "product": "EPC0",
+        "product-name": "Crude Oil",
+        "process": "SAE",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WCESTUS1",
+        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil, Weekly",
+        "value": 419800,
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-09",
+        "duoarea": "NUS",
+        "area-name": "NA",
+        "product": "EPM0",
+        "product-name": "Total Gasoline",
+        "process": "SAE",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WGTSTUS1",
+        "series-description": "U.S. Ending Stocks of Total Gasoline, Weekly",
+        "value": 224650,
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-16",
+        "duoarea": "NUS",
+        "area-name": "NA",
+        "product": "EPC0",
+        "product-name": "Crude Oil",
+        "process": "SAE",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WCESTUS1",
+        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil, Weekly",
+        "value": 423275.5,
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-16",
+        "duoarea": "NUS",
+        "area-name": "NA",
+        "product": "EPD0",
+        "product-name": "Distillate Fuel Oil",
+        "process": "SAE",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WDISTUS1",
+        "series-description": "U.S. Ending Stocks of Distillate Fuel Oil, Weekly",
+        "value": null,
+        "units": "MBBL"
+      }
+    ],
+    "description": "Weekly stocks of crude oil and petroleum products.  Source: Energy Information Administration"
+  },
+  "request": {
+    "command": "/v2/petroleum/stoc/wstk/data/",
+    "params": {
+      "frequency": "weekly",
+      "data": ["value"],
+      "facets": { "series": ["WCESTUS1", "WGTSTUS1", "WDISTUS1"] }
+    }
+  },
+  "apiVersion": "2.1.8"
+}

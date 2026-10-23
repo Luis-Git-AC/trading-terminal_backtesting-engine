@@ -167,6 +167,13 @@ export const envSchema = z.object({
   // Las revisiones del FRED aterrizan sobre fechas de observacion viejas, asi que cada pasada
   // pide la serie entera desde aqui: una ventana incremental se dejaria la correccion fuera.
   FRED_OBSERVATION_START: z.iso.date().prefault('2015-01-01'),
+  EIA_BASE_URL: z.url().prefault('https://api.eia.gov'),
+  // Inventarios semanales: crudo sin la reserva estrategica, gasolina y destilados.
+  EIA_SERIES: seriesSchema('WCESTUS1,WGTSTUS1,WDISTUS1'),
+  // Diario, no semanal: el informe sale el miercoles a las 10:30 de Nueva York, pero la EIA
+  // corrige semanas ya publicadas y una pasada semanal se dejaria la correccion fuera.
+  EIA_CRON: cronSchema('41 15 * * *'),
+  EIA_START: z.iso.date().prefault('2015-01-01'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 

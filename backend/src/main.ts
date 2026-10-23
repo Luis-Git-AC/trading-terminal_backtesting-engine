@@ -17,6 +17,9 @@ import {
   createDerivativesSource,
   type DerivativesMarket,
 } from './sources/derivatives.source.js';
+import { createEiaClient } from './sources/eia/client.js';
+import { createEiaSource } from './sources/eia/eia.source.js';
+import { EIA_SOURCE_ID } from './sources/eia/types.js';
 import { createFredClient } from './sources/fred/client.js';
 import { createFredSource } from './sources/fred/fred.source.js';
 import { FRED_SOURCE_ID } from './sources/fred/types.js';
@@ -24,7 +27,7 @@ import { buildSourceRegistry } from './sources/registry.js';
 import { createSourceStateStore } from './sources/state.js';
 
 /** Las fuentes cuyo estado refleja /api/health. Crece con cada fuente nueva de la fase 9. */
-const COLLECTOR_SOURCE_IDS = [DERIVATIVES_SOURCE_ID, FRED_SOURCE_ID] as const;
+const COLLECTOR_SOURCE_IDS = [DERIVATIVES_SOURCE_ID, FRED_SOURCE_ID, EIA_SOURCE_ID] as const;
 
 function seriesOf(symbols: readonly string[]): {
   symbol: string;
@@ -180,6 +183,25 @@ async function runCollector(logger: AppLogger): Promise<void> {
         observationStart: env.FRED_OBSERVATION_START,
         onDiscard: (discard) => {
           logger.warn({ ...discard }, 'observacion del FRED descartada');
+        },
+      }),
+    ),
+  );
+
+  candidates.push(
+    toRunnable(
+      createEiaSource({
+        pool,
+        client: createEiaClient({
+          apiKey: env.EIA_API_KEY ?? '',
+          baseUrl: env.EIA_BASE_URL,
+          fetch: (url) => globalThis.fetch(url),
+        }),
+        seriesIds: env.EIA_SERIES,
+        schedule: env.EIA_CRON,
+        start: env.EIA_START,
+        onDiscard: (discard) => {
+          logger.warn({ ...discard }, 'inventario de la EIA descartado');
         },
       }),
     ),
