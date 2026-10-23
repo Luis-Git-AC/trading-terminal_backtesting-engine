@@ -81,6 +81,7 @@ function source(options: SourceOptions = {}) {
         },
         getPoints: ({ seriesId }) => Promise.resolve([...(stored[seriesId] ?? [])]),
         getLastTs: () => Promise.resolve(null),
+        getSources: () => Promise.resolve([]),
       },
       eventsRepo: {
         upsertEvents: (events) => {

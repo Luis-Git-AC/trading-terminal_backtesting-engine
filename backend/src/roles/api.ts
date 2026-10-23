@@ -9,6 +9,8 @@ import { createBacktestRateLimit, type RateLimitOptions } from '../api/middlewar
 import { backtestsRouter } from '../api/routes/backtests.js';
 import { candlesRouter } from '../api/routes/candles.js';
 import { derivativesRouter } from '../api/routes/derivatives.js';
+import { eventsRouter } from '../api/routes/events.js';
+import { macroRouter } from '../api/routes/macro.js';
 import { marketsRouter } from '../api/routes/markets.js';
 import { strategiesRouter } from '../api/routes/strategies.js';
 import { streamRouter } from '../api/routes/stream.js';
@@ -16,7 +18,9 @@ import { createSseHub } from '../api/sse/hub.js';
 import { createRedisCache } from '../api/services/cache.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
+import { createEventsRepository } from '../db/repositories/events.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
+import { createMacroRepository } from '../db/repositories/macro.repo.js';
 import { createRunsRepository } from '../db/repositories/runs.repo.js';
 import { createBacktestQueue } from '../queue/backtest.queue.js';
 import { createRedisCancelFlags } from '../queue/cancel-flags.js';
@@ -80,6 +84,8 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
   const candles = createCandlesRepository(pool);
   const derivatives = createDerivativesRepository(pool);
   const ingestState = createIngestStateRepository(pool);
+  const macro = createMacroRepository(pool);
+  const events = createEventsRepository(pool);
   const runs = createRunsRepository(pool);
   const cache = createRedisCache(redis);
   const backtests = createBacktestQueue(options.queueConnection);
@@ -112,6 +118,8 @@ export async function startApi(options: StartApiOptions): Promise<ApiHandle> {
       router.use(marketsRouter(marketDeps));
       router.use(candlesRouter({ ...marketDeps, markets: marketDeps }));
       router.use(derivativesRouter({ derivatives, markets: marketDeps }));
+      router.use(macroRouter({ macro, events, cache, logger, now: () => Date.now() }));
+      router.use(eventsRouter({ macro, events, cache, logger, now: () => Date.now() }));
       router.use(strategiesRouter());
       router.use(
         backtestsRouter(

@@ -198,3 +198,105 @@ export const openInterestResponseSchema = z.object({
 });
 
 export type OpenInterestResponse = z.infer<typeof openInterestResponseSchema>;
+
+export const MACRO_MAX_LIMIT = 5000;
+export const EVENTS_MAX_LIMIT = 1000;
+
+/** Ids de serie y de fuente: lista blanca estricta, acaban en SQL parametrizado y en claves de cache. */
+export const SERIES_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+export const seriesIdSchema = z
+  .string()
+  .refine((value) => SERIES_ID_PATTERN.test(value), {
+    error: 'El id de serie debe ser alfanumerico, con guiones o guiones bajos, de 1 a 64 caracteres',
+  });
+
+const limitParamSchema = z
+  .string()
+  .regex(/^\d+$/, { error: 'limit debe ser un entero' })
+  .transform((value) => Number(value))
+  .refine((value) => value >= 1, { error: 'limit debe ser al menos 1' })
+  .optional();
+
+export const macroParamsSchema = z.object({
+  seriesId: seriesIdSchema,
+});
+
+export const macroQuerySchema = z.object({
+  from: timestampParamSchema,
+  to: timestampParamSchema.optional(),
+  /**
+   * Corte point-in-time (ADR-006): devuelve lo que ya estaba descargado en ese instante, que es lo
+   * que se sabia entonces. Sin el, lo ultimo conocido.
+   */
+  asOf: timestampParamSchema.optional(),
+  /** Solo hace falta cuando dos fuentes publican una serie con el mismo id. */
+  source: seriesIdSchema.optional(),
+  limit: limitParamSchema,
+});
+
+export type MacroQuery = z.infer<typeof macroQuerySchema>;
+
+export const macroPointSchema = z.object({
+  t: z.number().int().nonnegative(),
+  value: z.number(),
+  publishedAt: z.number().int().nonnegative(),
+  fetchedAt: z.number().int().nonnegative(),
+  revision: z.number().int().nonnegative(),
+});
+
+export const macroSeriesResponseSchema = z.object({
+  source: z.string(),
+  seriesId: z.string(),
+  count: z.number().int().nonnegative(),
+  points: z.array(macroPointSchema),
+  asOf: z.number().int().nonnegative().nullable(),
+  nextFrom: z.number().int().nonnegative().nullable(),
+});
+
+export type MacroSeriesResponse = z.infer<typeof macroSeriesResponseSchema>;
+
+export const eventsQuerySchema = z.object({
+  from: timestampParamSchema,
+  to: timestampParamSchema.optional(),
+  asOf: timestampParamSchema.optional(),
+  /** Etiqueta de activo (`oil`, `gold`, `macro`…); varias separadas por comas. */
+  asset: z
+    .string()
+    .transform((value) =>
+      value
+        .split(',')
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0),
+    )
+    .pipe(z.array(seriesIdSchema).min(1))
+    .optional(),
+  limit: limitParamSchema,
+});
+
+export type EventsQuery = z.infer<typeof eventsQuerySchema>;
+
+export const marketEventSchema = z.object({
+  id: z.string(),
+  source: z.string(),
+  type: z.string(),
+  assetTags: z.array(z.string()),
+  /** Cuando ocurre o a que se refiere el dato (el martes del COT, el miercoles de la EIA). */
+  scheduledAt: z.number().int().nonnegative(),
+  publishedAt: z.number().int().nonnegative(),
+  fetchedAt: z.number().int().nonnegative(),
+  payload: z.record(z.string(), z.unknown()),
+});
+
+export const eventsResponseSchema = z.object({
+  count: z.number().int().nonnegative(),
+  events: z.array(marketEventSchema),
+  asOf: z.number().int().nonnegative().nullable(),
+  /**
+   * Los eventos se sirven del mas reciente al mas antiguo, asi que se pagina hacia atras: el
+   * siguiente tramo es `to = nextTo`, no `from`.
+   */
+  nextTo: z.number().int().nonnegative().nullable(),
+});
+
+export type EventsResponse = z.infer<typeof eventsResponseSchema>;

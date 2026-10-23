@@ -7,9 +7,11 @@ import {
   coverageResponseSchema,
   createBacktestResponseSchema,
   equityResponseSchema,
+  eventsResponseSchema,
   fundingResponseSchema,
   healthResponseSchema,
   listBacktestsResponseSchema,
+  macroSeriesResponseSchema,
   marketsResponseSchema,
   openInterestResponseSchema,
   runDetailSchema,
@@ -27,6 +29,8 @@ import { z, type ZodType } from 'zod';
 import { runMigrations } from '../db/migrate.js';
 import { createCandlesRepository, type CandlesRepository } from '../db/repositories/candles.repo.js';
 import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
+import { createEventsRepository } from '../db/repositories/events.repo.js';
+import { createMacroRepository } from '../db/repositories/macro.repo.js';
 import { createIngestStateRepository } from '../db/repositories/ingest-state.repo.js';
 import {
   createRunsRepository,
@@ -42,6 +46,8 @@ import { createScratchDatabase, type ScratchDatabase } from '../testing/scratch-
 import { backtestsRouter } from './routes/backtests.js';
 import { candlesRouter } from './routes/candles.js';
 import { derivativesRouter } from './routes/derivatives.js';
+import { eventsRouter } from './routes/events.js';
+import { macroRouter } from './routes/macro.js';
 import { marketsRouter } from './routes/markets.js';
 import { strategiesRouter } from './routes/strategies.js';
 import { streamRouter } from './routes/stream.js';
@@ -184,6 +190,34 @@ describe('contrato del API (docs/03)', () => {
       points: [{ t: START, base: 1_000, quote: null }],
     });
 
+    const macro = createMacroRepository(db.pool);
+    await macro.upsertPoints({
+      source: 'fred',
+      seriesId: 'DFII10',
+      points: [{ t: START, value: 1.8, publishedAt: START, fetchedAt: START, revision: 0 }],
+    });
+
+    const events = createEventsRepository(db.pool);
+    await events.upsertEvents([
+      {
+        source: 'eia',
+        type: 'eia-wpsr',
+        assetTags: ['oil'],
+        scheduledAt: START,
+        publishedAt: START,
+        fetchedAt: START,
+        payload: { report: 'weekly-petroleum-status', period: '2026-01-01' },
+      },
+    ]);
+
+    const macroDeps = {
+      macro,
+      events,
+      cache: NO_CACHE,
+      logger,
+      now: () => NOW,
+    };
+
     const marketDeps = {
       candles,
       ingestState: createIngestStateRepository(db.pool),
@@ -205,6 +239,8 @@ describe('contrato del API (docs/03)', () => {
         router.use(marketsRouter(marketDeps));
         router.use(candlesRouter({ ...marketDeps, markets: marketDeps }));
         router.use(derivativesRouter({ derivatives, markets: marketDeps, now: () => NOW }));
+        router.use(macroRouter(macroDeps));
+        router.use(eventsRouter(macroDeps));
         router.use(strategiesRouter());
         router.use(
           backtestsRouter({
@@ -359,6 +395,32 @@ describe('contrato del API (docs/03)', () => {
       expect(response.status).toBe(200);
       const body = assertContract(openInterestResponseSchema, response.body);
       expect(body.openInterest[0]?.quote).toBeNull();
+    });
+
+    it('GET /api/macro/series/:seriesId', async () => {
+      const response = await request(app).get(`/api/macro/series/DFII10?from=${START}`);
+
+      expect(response.status).toBe(200);
+      const body = assertContract(macroSeriesResponseSchema, response.body);
+      expect(body).toMatchObject({ source: 'fred', count: 1, asOf: null });
+    });
+
+    it('GET /api/macro/series/:seriesId con asOf', async () => {
+      const response = await request(app).get(
+        `/api/macro/series/DFII10?from=${START}&asOf=${START - 1}`,
+      );
+
+      expect(response.status).toBe(200);
+      const body = assertContract(macroSeriesResponseSchema, response.body);
+      expect(body).toMatchObject({ count: 0, asOf: START - 1 });
+    });
+
+    it('GET /api/events', async () => {
+      const response = await request(app).get(`/api/events?from=${START}&asset=oil`);
+
+      expect(response.status).toBe(200);
+      const body = assertContract(eventsResponseSchema, response.body);
+      expect(body.events[0]).toMatchObject({ source: 'eia', type: 'eia-wpsr' });
     });
 
     it('GET /api/strategies', async () => {

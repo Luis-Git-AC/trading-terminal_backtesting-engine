@@ -59,6 +59,7 @@ function source(options: { urls?: string[]; from?: number; stored?: readonly Mac
         },
         getPoints: () => Promise.resolve([...(options.stored ?? [])]),
         getLastTs: () => Promise.resolve(null),
+        getSources: () => Promise.resolve([]),
       },
     }),
   };

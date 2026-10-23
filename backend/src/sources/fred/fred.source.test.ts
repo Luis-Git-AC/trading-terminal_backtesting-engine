@@ -78,6 +78,7 @@ function source(
         },
         getPoints: () => Promise.resolve([]),
         getLastTs: () => Promise.resolve(null),
+        getSources: () => Promise.resolve([]),
       },
       eventsRepo: {
         upsertEvents: (events) => {
@@ -295,6 +296,7 @@ describe('persistencia del FRED', () => {
         upsertPoints: () => Promise.resolve(0),
         getPoints: () => Promise.resolve([]),
         getLastTs: () => Promise.resolve(null),
+        getSources: () => Promise.resolve([]),
       },
       eventsRepo: {
         upsertEvents: (items) => {

@@ -36,6 +36,8 @@ export interface MacroRepository {
   upsertPoints(input: UpsertMacroInput): Promise<number>;
   getPoints(query: MacroRangeQuery): Promise<MacroPoint[]>;
   getLastTs(ref: MacroSeriesRef): Promise<number | null>;
+  /** Las fuentes que publican esa serie. Vacio = la serie no existe. */
+  getSources(seriesId: string): Promise<string[]>;
 }
 
 const UPSERT_SQL = `
@@ -58,6 +60,10 @@ const SELECT_SQL = `
     AND ($5::timestamptz IS NULL OR fetched_at <= $5)
   ORDER BY ts, revision DESC
   LIMIT $6
+`;
+
+const SOURCES_SQL = `
+  SELECT DISTINCT source FROM macro_series WHERE series_id = $1 ORDER BY source
 `;
 
 const LAST_TS_SQL = `
@@ -128,6 +134,11 @@ export function createMacroRepository(db: Queryable): MacroRepository {
     async getLastTs({ source, seriesId }: MacroSeriesRef): Promise<number | null> {
       const { rows } = await db.query<{ ts: Date | null }>(LAST_TS_SQL, [source, seriesId]);
       return rows[0]?.ts?.getTime() ?? null;
+    },
+
+    async getSources(seriesId: string): Promise<string[]> {
+      const { rows } = await db.query<{ source: string }>(SOURCES_SQL, [seriesId]);
+      return rows.map((row) => row.source);
     },
   };
 }
