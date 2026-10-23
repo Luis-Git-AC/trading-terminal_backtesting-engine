@@ -25,8 +25,11 @@ const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'fecha YYYY-MM-DD');
 export const eiaRowSchema = z.object({
   period: isoDate,
   series: z.string(),
-  /** Numero, no string (al contrario que el FRED). Un dato ausente llega como `null`. */
-  value: z.number().nullable(),
+  /**
+   * La API v2 lo sirve **entre comillas** (`"424134"`), aunque algun endpoint devuelva numero. Se
+   * aceptan los dos y la conversion la hace `numericValue`. Un dato ausente llega como `null`.
+   */
+  value: z.union([z.string(), z.number()]).nullable(),
   units: z.string().optional(),
   'series-description': z.string().optional(),
 });
@@ -48,6 +51,18 @@ export const eiaErrorSchema = z.object({
 });
 
 export type EiaRow = z.infer<typeof eiaRowSchema>;
+
+/**
+ * El valor como numero, o `null` si no lo es. Un string vacio o con texto no es un 0: es un dato
+ * que se descarta con motivo, igual que el `null` de la propia EIA.
+ */
+export function numericValue(value: string | number | null): number | null {
+  if (value === null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 /** Medianoche UTC del dia. Los `period` de la EIA no llevan hora. */
 export function toTimestamp(date: string): number {

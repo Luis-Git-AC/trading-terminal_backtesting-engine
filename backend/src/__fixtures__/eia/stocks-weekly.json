@@ -1,97 +1,152 @@
 {
   "response": {
-    "total": "8",
+    "total": "9",
     "dateFormat": "YYYY-MM-DD",
     "frequency": "weekly",
     "data": [
       {
         "period": "2026-10-02",
         "duoarea": "NUS",
-        "area-name": "NA",
+        "area-name": "U.S.",
         "product": "EPC0",
         "product-name": "Crude Oil",
-        "process": "SAE",
+        "process": "SAX",
         "process-name": "Ending Stocks Excluding SPR",
         "series": "WCESTUS1",
-        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil, Weekly",
-        "value": 421500,
+        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil (Thousand Barrels)",
+        "value": "424134",
         "units": "MBBL"
       },
       {
         "period": "2026-10-02",
         "duoarea": "NUS",
-        "area-name": "NA",
+        "area-name": "U.S.",
         "product": "EPM0",
         "product-name": "Total Gasoline",
         "process": "SAE",
-        "process-name": "Ending Stocks Excluding SPR",
+        "process-name": "Ending Stocks",
         "series": "WGTSTUS1",
-        "series-description": "U.S. Ending Stocks of Total Gasoline, Weekly",
-        "value": 223100,
+        "series-description": "U.S. Ending Stocks of Total Gasoline (Thousand Barrels)",
+        "value": "204744",
         "units": "MBBL"
       },
       {
-        "period": "2026-10-09",
+        "period": "2026-10-02",
         "duoarea": "NUS",
-        "area-name": "NA",
-        "product": "EPC0",
-        "product-name": "Crude Oil",
-        "process": "SAE",
-        "process-name": "Ending Stocks Excluding SPR",
-        "series": "WCESTUS1",
-        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil, Weekly",
-        "value": 419800,
-        "units": "MBBL"
-      },
-      {
-        "period": "2026-10-09",
-        "duoarea": "NUS",
-        "area-name": "NA",
-        "product": "EPM0",
-        "product-name": "Total Gasoline",
-        "process": "SAE",
-        "process-name": "Ending Stocks Excluding SPR",
-        "series": "WGTSTUS1",
-        "series-description": "U.S. Ending Stocks of Total Gasoline, Weekly",
-        "value": 224650,
-        "units": "MBBL"
-      },
-      {
-        "period": "2026-10-16",
-        "duoarea": "NUS",
-        "area-name": "NA",
-        "product": "EPC0",
-        "product-name": "Crude Oil",
-        "process": "SAE",
-        "process-name": "Ending Stocks Excluding SPR",
-        "series": "WCESTUS1",
-        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil, Weekly",
-        "value": 423275.5,
-        "units": "MBBL"
-      },
-      {
-        "period": "2026-10-16",
-        "duoarea": "NUS",
-        "area-name": "NA",
+        "area-name": "U.S.",
         "product": "EPD0",
         "product-name": "Distillate Fuel Oil",
         "process": "SAE",
-        "process-name": "Ending Stocks Excluding SPR",
+        "process-name": "Ending Stocks",
         "series": "WDISTUS1",
-        "series-description": "U.S. Ending Stocks of Distillate Fuel Oil, Weekly",
-        "value": null,
+        "series-description": "U.S. Ending Stocks of Distillate Fuel Oil (Thousand Barrels)",
+        "value": "105138",
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-09",
+        "duoarea": "NUS",
+        "area-name": "U.S.",
+        "product": "EPC0",
+        "product-name": "Crude Oil",
+        "process": "SAX",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WCESTUS1",
+        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil (Thousand Barrels)",
+        "value": "415577",
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-09",
+        "duoarea": "NUS",
+        "area-name": "U.S.",
+        "product": "EPM0",
+        "product-name": "Total Gasoline",
+        "process": "SAE",
+        "process-name": "Ending Stocks",
+        "series": "WGTSTUS1",
+        "series-description": "U.S. Ending Stocks of Total Gasoline (Thousand Barrels)",
+        "value": "208262",
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-09",
+        "duoarea": "NUS",
+        "area-name": "U.S.",
+        "product": "EPD0",
+        "product-name": "Distillate Fuel Oil",
+        "process": "SAE",
+        "process-name": "Ending Stocks",
+        "series": "WDISTUS1",
+        "series-description": "U.S. Ending Stocks of Distillate Fuel Oil (Thousand Barrels)",
+        "value": "102611",
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-16",
+        "duoarea": "NUS",
+        "area-name": "U.S.",
+        "product": "EPC0",
+        "product-name": "Crude Oil",
+        "process": "SAX",
+        "process-name": "Ending Stocks Excluding SPR",
+        "series": "WCESTUS1",
+        "series-description": "U.S. Ending Stocks excluding SPR of Crude Oil (Thousand Barrels)",
+        "value": "412517",
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-16",
+        "duoarea": "NUS",
+        "area-name": "U.S.",
+        "product": "EPD0",
+        "product-name": "Distillate Fuel Oil",
+        "process": "SAE",
+        "process-name": "Ending Stocks",
+        "series": "WDISTUS1",
+        "series-description": "U.S. Ending Stocks of Distillate Fuel Oil (Thousand Barrels)",
+        "value": "104286",
+        "units": "MBBL"
+      },
+      {
+        "period": "2026-10-16",
+        "duoarea": "NUS",
+        "area-name": "U.S.",
+        "product": "EPM0",
+        "product-name": "Total Gasoline",
+        "process": "SAE",
+        "process-name": "Ending Stocks",
+        "series": "WGTSTUS1",
+        "series-description": "U.S. Ending Stocks of Total Gasoline (Thousand Barrels)",
+        "value": "205310",
         "units": "MBBL"
       }
-    ],
-    "description": "Weekly stocks of crude oil and petroleum products.  Source: Energy Information Administration"
+    ]
   },
   "request": {
     "command": "/v2/petroleum/stoc/wstk/data/",
     "params": {
       "frequency": "weekly",
-      "data": ["value"],
-      "facets": { "series": ["WCESTUS1", "WGTSTUS1", "WDISTUS1"] }
+      "data": [
+        "value"
+      ],
+      "facets": {
+        "series": [
+          "WCESTUS1",
+          "WGTSTUS1",
+          "WDISTUS1"
+        ]
+      },
+      "start": "2026-10-02",
+      "sort": [
+        {
+          "column": "period",
+          "direction": "asc"
+        }
+      ],
+      "length": "20"
     }
   },
-  "apiVersion": "2.1.8"
+  "apiVersion": "2.1.14",
+  "ExcelAddInVersion": "2.1.0"
 }

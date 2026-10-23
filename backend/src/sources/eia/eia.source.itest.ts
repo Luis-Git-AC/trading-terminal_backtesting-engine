@@ -65,12 +65,13 @@ describe('fuente EIA contra la base de datos', () => {
     });
   }
 
-  it('persiste los inventarios con su published_at y descarta el valor ausente', async () => {
+  it('persiste los inventarios de las tres series con su published_at', async () => {
     const report = await run(STOCKS, PRIMERA);
 
     expect(report.sourceId).toBe(EIA_SOURCE_ID);
-    expect(report.discarded).toBe(1);
-    expect(report.written).toBe(8);
+    // El fixture es la respuesta real del 2026-10-23: nueve filas, ninguna ausente.
+    expect(report.discarded).toBe(0);
+    expect(report.written).toBe(12);
 
     const puntos = await createMacroRepository(db.pool).getPoints({
       source: EIA_SOURCE_ID,
@@ -79,55 +80,78 @@ describe('fuente EIA contra la base de datos', () => {
       to: Date.UTC(2026, 9, 31),
     });
 
+    // Los valores llegan entre comillas de la API y tienen que quedar como numeros en la tabla.
     expect(puntos).toEqual([
       {
         t: Date.UTC(2026, 9, 2),
-        value: 421_500,
+        value: 424_134,
         publishedAt: Date.UTC(2026, 9, 7, 14, 30),
         fetchedAt: PRIMERA,
         revision: 0,
       },
       {
         t: Date.UTC(2026, 9, 9),
-        value: 419_800,
+        value: 415_577,
         publishedAt: Date.UTC(2026, 9, 14, 14, 30),
         fetchedAt: PRIMERA,
         revision: 0,
       },
       {
         t: Date.UTC(2026, 9, 16),
-        value: 423_275.5,
+        value: 412_517,
         publishedAt: Date.UTC(2026, 9, 21, 14, 30),
         fetchedAt: PRIMERA,
         revision: 0,
       },
     ]);
 
-    // Los destilados del 2026-10-16 traian null y no estan: ni como fila, ni como 0.
     const { rows } = await db.pool.query<{ count: string }>(
       "SELECT count(*)::text AS count FROM macro_series WHERE series_id = 'WDISTUS1'",
     );
-    expect(rows[0]?.count).toBe('0');
+    expect(rows[0]?.count).toBe('3');
+  });
+
+  it('un valor no numerico se descarta con motivo y no tumba la pasada', async () => {
+    // Raw a mano: la EIA real no devolvio ninguna fila asi, pero el esquema la acepta y el valor
+    // tiene que irse por el descarte en vez de reventar la recogida entera.
+    const report = await run(
+      {
+        response: {
+          data: [
+            { period: '2026-10-16', series: 'WCESTUS1', value: 'n/a' },
+            { period: '2026-10-16', series: 'WGTSTUS1', value: '205310' },
+          ],
+        },
+      },
+      PRIMERA,
+    );
+
+    expect(report).toMatchObject({ discarded: 1, written: 2 });
+
+    const { rows } = await db.pool.query<{ series_id: string }>(
+      'SELECT series_id FROM macro_series ORDER BY series_id',
+    );
+    expect(rows.map((row) => row.series_id)).toEqual(['WGTSTUS1']);
   });
 
   it('una segunda pasada sobre el mismo rango no duplica filas', async () => {
     await run(STOCKS, PRIMERA);
     const segunda = await run(STOCKS, SEGUNDA);
 
-    expect(segunda).toMatchObject({ items: 8, written: 0, skipped: 8 });
+    expect(segunda).toMatchObject({ items: 12, written: 0, skipped: 12 });
 
     const { rows } = await db.pool.query<{ macro: string; eventos: string }>(
       `SELECT (SELECT count(*)::text FROM macro_series) AS macro,
               (SELECT count(*)::text FROM market_events) AS eventos`,
     );
-    expect(rows[0]).toEqual({ macro: '5', eventos: '3' });
+    expect(rows[0]).toEqual({ macro: '9', eventos: '3' });
   });
 
   it('un inventario corregido convive con el original y el point-in-time devuelve el de su fecha', async () => {
     await run(STOCKS, PRIMERA);
     const segunda = await run(REVISADA, SEGUNDA);
 
-    expect(segunda).toMatchObject({ written: 1, skipped: 7 });
+    expect(segunda).toMatchObject({ written: 1, skipped: 11 });
 
     const { rows } = await db.pool.query<{ count: string }>(
       `SELECT count(*)::text AS count FROM macro_series
@@ -144,11 +168,11 @@ describe('fuente EIA contra la base de datos', () => {
     };
 
     expect(await repo.getPoints(rango)).toEqual([
-      expect.objectContaining({ value: 418_425, revision: 1 }),
+      expect.objectContaining({ value: 413_727, revision: 1 }),
     ]);
     // Antes de la segunda recogida, lo que se sabia era el valor original.
     expect(await repo.getPoints({ ...rango, asOf: PRIMERA })).toEqual([
-      expect.objectContaining({ value: 419_800, revision: 0 }),
+      expect.objectContaining({ value: 415_577, revision: 0 }),
     ]);
   });
 

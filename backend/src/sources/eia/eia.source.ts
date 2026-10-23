@@ -22,6 +22,7 @@ import {
   EIA_REPORT_EVENT_TYPE,
   EIA_SOURCE_ID,
   eiaStocksSchema,
+  numericValue,
   releaseInstant,
   toTimestamp,
 } from './types.js';
@@ -92,12 +93,16 @@ export function createEiaSource(options: EiaSourceOptions): SourceAdapter<EiaRaw
       let discarded = 0;
 
       for (const row of response.data) {
-        if (row.value === null) {
+        const value = numericValue(row.value);
+        if (value === null) {
           discarded += 1;
           options.onDiscard?.({
             seriesId: row.series,
             period: row.period,
-            reason: 'valor ausente: la EIA lo publica como null',
+            reason:
+              row.value === null
+                ? 'valor ausente: la EIA lo publica como null'
+                : `valor no numerico: ${JSON.stringify(row.value)}`,
           });
           continue;
         }
@@ -108,7 +113,7 @@ export function createEiaSource(options: EiaSourceOptions): SourceAdapter<EiaRaw
           kind: 'stock',
           seriesId: row.series,
           t,
-          value: row.value,
+          value,
           // La EIA no expone cuando publico la fila, asi que se usa el instante anunciado del
           // informe que la trae: antes de ese miercoles el dato no existia.
           publishedAt: releaseInstant(t),

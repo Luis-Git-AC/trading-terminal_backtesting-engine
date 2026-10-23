@@ -8,7 +8,7 @@ import { createRateLimiter } from '../../ingest/rate-limiter.js';
 import type { SourceContext } from '../adapter.js';
 import { createEiaClient } from './client.js';
 import { createEiaSource, type EiaDiscard, type EiaRaw } from './eia.source.js';
-import { EIA_REPORT_EVENT_TYPE, releaseInstant, toTimestamp } from './types.js';
+import { EIA_REPORT_EVENT_TYPE, numericValue, releaseInstant, toTimestamp } from './types.js';
 
 const NOW = Date.UTC(2026, 9, 23, 15, 41, 0);
 const DAY = 24 * 60 * 60 * 1000;
@@ -185,34 +185,60 @@ describe('normalizado de la EIA', () => {
     return { built, batch: built.adapter.normalize(raw) };
   }
 
-  it('cada fila es un punto de su serie, con el published_at del informe que la trae', async () => {
+  it('el valor entre comillas de la API v2 entra como numero, no como string', async () => {
     const { batch } = await normalized();
     const puntos = batch.items.filter((item) => item.kind === 'stock');
 
-    expect(puntos).toHaveLength(5);
+    // Nueve filas reales: tres semanas por tres series, ninguna ausente.
+    expect(puntos).toHaveLength(9);
     expect(puntos[0]).toMatchObject({
       seriesId: 'WCESTUS1',
       t: Date.UTC(2026, 9, 2),
-      value: 421_500,
+      value: 424_134,
       publishedAt: Date.UTC(2026, 9, 7, 14, 30),
       fetchedAt: NOW,
     });
-    expect(puntos[1]).toMatchObject({ seriesId: 'WGTSTUS1', value: 223_100 });
+    expect(puntos.every((item) => typeof item.value === 'number')).toBe(true);
+    expect(batch.discarded).toBe(0);
   });
 
-  it('un valor null se descarta con motivo y no entra como 0', async () => {
-    const discards: EiaDiscard[] = [];
-    const { batch } = await normalized({ discards });
+  it('un valor numerico sin comillas tambien vale: la EIA no es consistente entre endpoints', () => {
+    expect(numericValue(412_517)).toBe(412_517);
+    expect(numericValue('412517')).toBe(412_517);
+    expect(numericValue('423275.5')).toBe(423_275.5);
+  });
 
-    expect(batch.discarded).toBe(1);
+  it('un valor null o no numerico se descarta con motivo y no entra como 0', async () => {
+    const discards: EiaDiscard[] = [];
+    const { built } = await normalized({ discards });
+
+    // Raw armado a mano: la EIA real no devolvio ninguna fila asi en el sondeo del 2026-10-23.
+    const batch = built.adapter.normalize({
+      fetchedAt: NOW,
+      body: {
+        response: {
+          data: [
+            { period: '2026-10-16', series: 'WDISTUS1', value: null },
+            { period: '2026-10-16', series: 'WGTSTUS1', value: 'n/a' },
+            { period: '2026-10-16', series: 'WCESTUS1', value: '' },
+            { period: '2026-10-16', series: 'WCESTUS1', value: '412517' },
+          ],
+        },
+      },
+    });
+
+    expect(batch.discarded).toBe(3);
     expect(discards).toEqual([
       {
         seriesId: 'WDISTUS1',
         period: '2026-10-16',
         reason: 'valor ausente: la EIA lo publica como null',
       },
+      { seriesId: 'WGTSTUS1', period: '2026-10-16', reason: 'valor no numerico: "n/a"' },
+      { seriesId: 'WCESTUS1', period: '2026-10-16', reason: 'valor no numerico: ""' },
     ]);
-    expect(batch.items.some((item) => item.kind === 'stock' && item.value === 0)).toBe(false);
+    const puntos = batch.items.filter((item) => item.kind === 'stock');
+    expect(puntos).toEqual([expect.objectContaining({ value: 412_517 })]);
   });
 
   it('cada semana deja un solo evento, no uno por serie', async () => {
@@ -251,9 +277,9 @@ describe('persistencia de la EIA', () => {
   it('reparte los inventarios por serie y los informes a eventos', async () => {
     const { spy, result } = await persisted();
 
-    expect(spy.points).toHaveLength(5);
+    expect(spy.points).toHaveLength(9);
     expect(spy.events).toHaveLength(3);
-    expect(result).toEqual({ written: 8, skipped: 0 });
+    expect(result).toEqual({ written: 12, skipped: 0 });
   });
 
   it('el evento semanal lleva el tipo, la etiqueta oil y su period', async () => {
@@ -272,7 +298,7 @@ describe('persistencia de la EIA', () => {
         WCESTUS1: [
           {
             t: Date.UTC(2026, 9, 2),
-            value: 421_500,
+            value: 424_134,
             publishedAt: Date.UTC(2026, 9, 7, 14, 30),
             fetchedAt: NOW - DAY,
             revision: 0,
@@ -281,10 +307,11 @@ describe('persistencia de la EIA', () => {
       },
     });
 
-    expect(spy.points.filter((point) => point.t === Date.UTC(2026, 9, 2))).toEqual([
-      expect.objectContaining({ value: 223_100, revision: 0 }),
-    ]);
-    expect(result).toEqual({ written: 7, skipped: 1 });
+    // De la semana del 2 solo se reescriben las otras dos series; la de crudo ya estaba igual.
+    expect(
+      spy.points.filter((point) => point.t === Date.UTC(2026, 9, 2)).map((point) => point.value),
+    ).toEqual([204_744, 105_138]);
+    expect(result).toEqual({ written: 11, skipped: 1 });
   });
 
   it('un valor corregido entra como la revision siguiente, sin borrar el original', async () => {
@@ -294,7 +321,7 @@ describe('persistencia de la EIA', () => {
         WCESTUS1: [
           {
             t: Date.UTC(2026, 9, 9),
-            value: 419_800,
+            value: 415_577,
             publishedAt: Date.UTC(2026, 9, 14, 14, 30),
             fetchedAt: NOW - DAY,
             revision: 0,
@@ -305,7 +332,7 @@ describe('persistencia de la EIA', () => {
 
     expect(spy.points).toContainEqual({
       t: Date.UTC(2026, 9, 9),
-      value: 418_425,
+      value: 413_727,
       publishedAt: Date.UTC(2026, 9, 14, 14, 30),
       fetchedAt: NOW,
       revision: 1,
