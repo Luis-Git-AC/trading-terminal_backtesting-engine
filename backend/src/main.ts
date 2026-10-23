@@ -17,6 +17,9 @@ import {
   createDerivativesSource,
   type DerivativesMarket,
 } from './sources/derivatives.source.js';
+import { createCftcClient } from './sources/cftc/client.js';
+import { createCftcSource } from './sources/cftc/cftc.source.js';
+import { CFTC_SOURCE_ID } from './sources/cftc/types.js';
 import { createEiaClient } from './sources/eia/client.js';
 import { createEiaSource } from './sources/eia/eia.source.js';
 import { EIA_SOURCE_ID } from './sources/eia/types.js';
@@ -27,7 +30,12 @@ import { buildSourceRegistry } from './sources/registry.js';
 import { createSourceStateStore } from './sources/state.js';
 
 /** Las fuentes cuyo estado refleja /api/health. Crece con cada fuente nueva de la fase 9. */
-const COLLECTOR_SOURCE_IDS = [DERIVATIVES_SOURCE_ID, FRED_SOURCE_ID, EIA_SOURCE_ID] as const;
+const COLLECTOR_SOURCE_IDS = [
+  DERIVATIVES_SOURCE_ID,
+  FRED_SOURCE_ID,
+  EIA_SOURCE_ID,
+  CFTC_SOURCE_ID,
+] as const;
 
 function seriesOf(symbols: readonly string[]): {
   symbol: string;
@@ -203,6 +211,22 @@ async function runCollector(logger: AppLogger): Promise<void> {
         onDiscard: (discard) => {
           logger.warn({ ...discard }, 'inventario de la EIA descartado');
         },
+      }),
+    ),
+  );
+
+  candidates.push(
+    toRunnable(
+      createCftcSource({
+        pool,
+        client: createCftcClient({
+          url: env.CFTC_URL,
+          fetch: async (url) => {
+            const response = await globalThis.fetch(url);
+            return { status: response.status, body: response.body };
+          },
+        }),
+        schedule: env.CFTC_CRON,
       }),
     ),
   );

@@ -174,6 +174,10 @@ export const envSchema = z.object({
   // corrige semanas ya publicadas y una pasada semanal se dejaria la correccion fuera.
   EIA_CRON: cronSchema('41 15 * * *'),
   EIA_START: z.iso.date().prefault('2015-01-01'),
+  // La CFTC es gratis y sin clave, asi que la fuente no tiene `requiredEnv`.
+  CFTC_URL: z.url().prefault('https://www.cftc.gov/dea/newcot/deafut.txt'),
+  // El informe sale el viernes a las 15:30 de Nueva York; diario para no depender de la hora.
+  CFTC_CRON: cronSchema('13 20 * * *'),
   // openInterestHist solo guarda 30 dias; pedir mas atras es un 400.
   DERIVATIVES_LOOKBACK_DAYS: intIn(1, 30).prefault('7'),
 
