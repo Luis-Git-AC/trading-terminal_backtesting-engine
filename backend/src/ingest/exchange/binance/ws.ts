@@ -18,6 +18,7 @@ import { normalizeCandles } from './normalize.js';
 import {
   BINANCE_WS_DEFAULT_URL,
   BINANCE_WS_MAX_LIFETIME_MS,
+  BINANCE_WS_MAX_MESSAGES_PER_SECOND,
   buildSubscribeMessage,
   buildUnsubscribeMessage,
   fromInterval,
@@ -48,6 +49,7 @@ export function createBinanceCandleStream(
     // aunque el entorno traiga WS_HEARTBEAT_INTERVAL_MS para otros exchanges.
     heartbeatIntervalMs: 0,
     maxLifetimeMs: options.maxLifetimeMs ?? BINANCE_WS_MAX_LIFETIME_MS,
+    maxMessagesPerSecond: BINANCE_WS_MAX_MESSAGES_PER_SECOND,
     reconnectBaseMs: options.reconnectBaseMs ?? DEFAULT_RECONNECT_BASE_MS,
     reconnectMaxMs: options.reconnectMaxMs ?? DEFAULT_RECONNECT_MAX_MS,
     staleTimeoutMs: options.staleTimeoutMs ?? DEFAULT_STALE_TIMEOUT_MS,

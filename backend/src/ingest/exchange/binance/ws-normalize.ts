@@ -2,7 +2,9 @@ import { z } from 'zod';
 import type { Timeframe } from '@tt/shared';
 import { toInterval } from './types.js';
 
-export const BINANCE_WS_DEFAULT_URL = 'wss://fstream.binance.com/stream';
+export const BINANCE_WS_DEFAULT_URL = 'wss://fstream.binance.com/market/stream';
+
+export const BINANCE_WS_MAX_MESSAGES_PER_SECOND = 5;
 
 /**
  * Binance corta la conexion a las 24 h. Se recicla antes para que el corte no llegue nunca

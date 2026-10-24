@@ -129,7 +129,7 @@ export const envSchema = z.object({
   EXCHANGES: exchangesSchema,
 
   BINANCE_REST_URL: z.url().prefault('https://fapi.binance.com'),
-  BINANCE_WS_URL: z.url().prefault('wss://fstream.binance.com/stream'),
+  BINANCE_WS_URL: z.url().prefault('wss://fstream.binance.com/market/stream'),
   BINANCE_SYMBOLS: symbolsSchema('BTCUSDT'),
 
   HYPERLIQUID_REST_URL: z.url().prefault('https://api.hyperliquid.xyz'),

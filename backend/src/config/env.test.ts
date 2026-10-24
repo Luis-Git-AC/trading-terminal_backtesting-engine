@@ -101,7 +101,7 @@ describe('parseEnv: defaults', () => {
     expect(env.WEB_ORIGIN).toBe('http://localhost:5173');
     expect(env.EXCHANGES).toEqual(['binance']);
     expect(env.BINANCE_REST_URL).toBe('https://fapi.binance.com');
-    expect(env.BINANCE_WS_URL).toBe('wss://fstream.binance.com/stream');
+    expect(env.BINANCE_WS_URL).toBe('wss://fstream.binance.com/market/stream');
     expect(env.BINANCE_SYMBOLS).toEqual(['BTCUSDT']);
     expect(env.TIMEFRAMES).toEqual(['1m', '15m', '1h']);
     expect(env.BACKFILL_FROM).toBe('2026-01-01T00:00:00Z');
@@ -162,7 +162,7 @@ describe('parseEnv: multi-exchange', () => {
       {
         exchange: 'binance',
         restUrl: 'https://fapi.binance.com',
-        wsUrl: 'wss://fstream.binance.com/stream',
+        wsUrl: 'wss://fstream.binance.com/market/stream',
         symbols: ['BTCUSDT', 'ETHUSDT'],
       },
       {

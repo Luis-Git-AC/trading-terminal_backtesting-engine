@@ -53,6 +53,7 @@ export interface ResilientSocketOptions {
   closeGraceMs?: number;
   maxConsecutiveFailures?: number;
   maxLifetimeMs?: number;
+  maxMessagesPerSecond?: number;
   heartbeatMessage?: string;
   heartbeatResponse?: string;
   createSocket?: SocketFactory;
@@ -166,6 +167,11 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
     options.maxConsecutiveFailures ?? DEFAULT_MAX_CONSECUTIVE_FAILURES,
   );
   const maxLifetimeMs = nonNegativeMs('maxLifetimeMs', options.maxLifetimeMs ?? DEFAULT_MAX_LIFETIME_MS);
+  const maxMessagesPerSecond = nonNegativeMs(
+    'maxMessagesPerSecond',
+    options.maxMessagesPerSecond ?? 0,
+  );
+  const sendGapMs = maxMessagesPerSecond > 0 ? 1000 / maxMessagesPerSecond : 0;
   const heartbeatMessage = options.heartbeatMessage ?? DEFAULT_HEARTBEAT_MESSAGE;
   const heartbeatResponse = options.heartbeatResponse ?? DEFAULT_HEARTBEAT_RESPONSE;
   const createSocket = options.createSocket ?? createWebSocketFactory();
@@ -180,6 +186,7 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
   const listeners = new Set<ResilientSocketListener>();
   const subscriptions = new Map<string, string>();
   const closeWaiters: (() => void)[] = [];
+  const outbox: string[] = [];
 
   let state: SocketState = 'idle';
   let socket: SocketLike | undefined;
@@ -193,6 +200,7 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   let heartbeatTimer: ReturnType<typeof setInterval> | undefined;
   let lifetimeTimer: ReturnType<typeof setTimeout> | undefined;
+  let outboxTimer: ReturnType<typeof setTimeout> | undefined;
 
   function emit(event: ResilientSocketEvent): void {
     for (const listener of [...listeners]) listener(event);
@@ -216,6 +224,9 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
     clearTimeout(stableTimer);
     clearTimeout(lifetimeTimer);
     clearInterval(heartbeatTimer);
+    clearTimeout(outboxTimer);
+    outboxTimer = undefined;
+    outbox.length = 0;
     staleTimer = undefined;
     stableTimer = undefined;
     lifetimeTimer = undefined;
@@ -347,8 +358,8 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
     }
   }
 
-  function send(message: string): boolean {
-    if (state !== 'open' || socket === undefined) return false;
+  function write(message: string): boolean {
+    if (socket === undefined) return false;
     try {
       socket.send(message);
       return true;
@@ -356,6 +367,22 @@ export function createResilientSocket(options: ResilientSocketOptions): Resilien
       emit({ kind: 'error', error: toError(error) });
       return false;
     }
+  }
+
+  function drainOutbox(): void {
+    outboxTimer = undefined;
+    const message = outbox.shift();
+    if (message === undefined) return;
+    write(message);
+    outboxTimer = setTimeout(drainOutbox, sendGapMs);
+  }
+
+  function send(message: string): boolean {
+    if (state !== 'open' || socket === undefined) return false;
+    if (sendGapMs === 0) return write(message);
+    outbox.push(message);
+    if (outboxTimer === undefined) drainOutbox();
+    return true;
   }
 
   return {

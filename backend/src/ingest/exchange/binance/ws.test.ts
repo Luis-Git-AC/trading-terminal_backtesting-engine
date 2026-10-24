@@ -5,6 +5,7 @@ import { createFakeSocketFactory, type FakeSocketFactory } from '../../../testin
 import type { ExchangeStreamEvent } from '../adapter.js';
 import { createBinanceCandleStream } from './ws.js';
 import {
+  BINANCE_WS_DEFAULT_URL,
   BINANCE_WS_MAX_LIFETIME_MS,
   buildSubscribeMessage,
   buildUnsubscribeMessage,
@@ -181,6 +182,40 @@ describe('createBinanceCandleStream', () => {
 
     const rejected = h.events.find((event) => event.kind === 'rejected');
     expect(rejected?.kind === 'rejected' ? rejected.code : null).toBe('2');
+  });
+});
+
+describe('limites del WS de Binance', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('las klines van por el endpoint /market: sin ruta Binance no las entrega', () => {
+    expect(BINANCE_WS_DEFAULT_URL).toBe('wss://fstream.binance.com/market/stream');
+  });
+
+  it('con 18 series no supera 5 mensajes en el primer segundo (Binance corta a 10/s)', async () => {
+    vi.useFakeTimers();
+    const fakes = createFakeSocketFactory();
+    const stream = createBinanceCandleStream({
+      url: 'ws://local.test',
+      createSocket: fakes.factory,
+      staleTimeoutMs: 0,
+    });
+    const symbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XAUUSDT', 'XAGUSDT', 'CLUSDT'];
+    for (const symbol of symbols) {
+      for (const timeframe of ['1m', '15m', '1h'] as const) stream.subscribe(symbol, timeframe);
+    }
+
+    stream.connect();
+    fakes.last().emitOpen();
+    await vi.advanceTimersByTimeAsync(999);
+    expect(fakes.last().sent.length).toBeLessThanOrEqual(5);
+
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(fakes.last().sent).toHaveLength(18);
+
+    await stream.close();
   });
 });
 

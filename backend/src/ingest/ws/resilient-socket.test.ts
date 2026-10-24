@@ -325,6 +325,68 @@ describe('createResilientSocket', () => {
       await socket.close();
     });
 
+    it('con maxMessagesPerSecond, la rafaga del arranque sale espaciada, entera y en orden', async () => {
+      const fakes = createFakeFactory();
+      const socket = createResilientSocket({
+        url: 'ws://local.test',
+        staleTimeoutMs: 0,
+        heartbeatIntervalMs: 0,
+        maxMessagesPerSecond: 5,
+        createSocket: fakes.factory,
+      });
+      const messages = Array.from({ length: 18 }, (_, i) => `sub-${i}`);
+      for (const message of messages) socket.subscribe(message, message);
+
+      socket.connect();
+      fakes.last().emitOpen();
+
+      const sentAt: number[] = [];
+      const sent = fakes.last().sent;
+      for (let ms = 0; ms <= 5000; ms += 10) {
+        while (sentAt.length < sent.length) sentAt.push(ms);
+        await vi.advanceTimersByTimeAsync(10);
+      }
+
+      expect(sent).toEqual(messages);
+      for (const start of sentAt) {
+        expect(sentAt.filter((t) => t >= start && t < start + 1000).length).toBeLessThanOrEqual(5);
+      }
+
+      await socket.close();
+    });
+
+    it('si el socket cae con la cola a medias, no envia mas a la conexion muerta', async () => {
+      const fakes = createFakeFactory();
+      const socket = createResilientSocket({
+        url: 'ws://local.test',
+        reconnectBaseMs: 1000,
+        staleTimeoutMs: 0,
+        heartbeatIntervalMs: 0,
+        maxMessagesPerSecond: 5,
+        random: () => 1,
+        createSocket: fakes.factory,
+      });
+      const messages = Array.from({ length: 18 }, (_, i) => `sub-${i}`);
+      for (const message of messages) socket.subscribe(message, message);
+
+      socket.connect();
+      fakes.last().emitOpen();
+      await vi.advanceTimersByTimeAsync(500);
+      const first = fakes.created[0];
+      const sentBeforeDrop = first?.sent.length ?? 0;
+      expect(sentBeforeDrop).toBeLessThan(18);
+
+      first?.emitClose();
+      await vi.advanceTimersByTimeAsync(1000);
+      fakes.last().emitOpen();
+      await vi.advanceTimersByTimeAsync(5000);
+
+      expect(first?.sent).toHaveLength(sentBeforeDrop);
+      expect(fakes.created[1]?.sent).toEqual(messages);
+
+      await socket.close();
+    });
+
     it('tras N fallos seguidos avisa de degradacion y se queda en el backoff maximo', async () => {
       const fakes = createFakeFactory();
       const events: ResilientSocketEvent[] = [];
