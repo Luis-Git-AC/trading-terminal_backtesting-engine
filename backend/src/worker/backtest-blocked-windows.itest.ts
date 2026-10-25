@@ -1,4 +1,4 @@
-import type { Candle, Timeframe } from '@tt/shared';
+import { isEmptyBlackout, type Candle, type Timeframe } from '@tt/shared';
 import { Redis } from 'ioredis';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { runMigrations } from '../db/migrate.js';
@@ -42,12 +42,13 @@ const EXEC: ExecConfig = {
 const PARAMS = { fastPeriod: 5, slowPeriod: 13, atrPeriod: 14, atrStopMult: 2, takeProfitR: 2 };
 
 const BEFORE = START - 86_400_000;
+const BACKFILLED = START + BARS * MIN + 30 * 86_400_000;
 
 /** Datos SINTETICOS: calendario de eventos inventado para este test. */
 const EVENTS = [
   { type: 'fred-release', at: 2_000, fetchedAt: BEFORE },
   { type: 'eia-wpsr', at: 5_000, fetchedAt: BEFORE },
-  { type: 'fred-release', at: 7_000, fetchedAt: START + 60 * MIN },
+  { type: 'fred-release', at: 7_000, fetchedAt: BACKFILLED },
   { type: 'fred-release', at: 7_100, fetchedAt: BEFORE },
   { type: 'fred-release', at: 7_150, fetchedAt: BEFORE },
 ] as const;
@@ -55,7 +56,7 @@ const EVENTS = [
 const EXPECTED = [
   EXPLICIT,
   { from: START + 2_000 * MIN - MARGIN, to: START + 2_000 * MIN + MARGIN },
-  { from: START + 7_100 * MIN - MARGIN, to: START + 7_150 * MIN + MARGIN },
+  { from: START + 7_000 * MIN - MARGIN, to: START + 7_150 * MIN + MARGIN },
 ];
 
 function makeCandle(index: number): Candle {
@@ -162,7 +163,7 @@ describe('backtest con ventanas bloqueadas por eventos', () => {
     await db.pool.query('TRUNCATE backtest_runs CASCADE');
   });
 
-  it('traduce la peticion a ventanas con fetched_at <= range_from, por tipo y fusionadas', async () => {
+  it('traduce la peticion a ventanas por tipo y fusionadas, aunque el calendario se descargara despues del rango', async () => {
     const exec = await resolveBlockedWindows(events, {
       exec: EXEC,
       rangeFrom: START,
@@ -204,6 +205,21 @@ describe('backtest con ventanas bloqueadas por eventos', () => {
     expect(again.stored?.metrics).toEqual(first.stored?.metrics);
     expect(again.stored?.exec.blockedWindows).toEqual(EXPECTED);
     expect(sinEventos.stored?.status).toBe('failed');
+  });
+
+  it('un tipo sin eventos en el rango completa el run sin ventanas y queda marcado', async () => {
+    const exec: ExecConfig = {
+      ...EXEC,
+      blockedWindows: undefined,
+      eventBlackout: { types: ['cftc-cot'], beforeMs: MARGIN, afterMs: MARGIN },
+    };
+    const libre = await runToEnd({ ...EXEC, blockedWindows: undefined, eventBlackout: undefined });
+    const { stored } = await runToEnd(exec);
+
+    expect(stored?.status).toBe('completed');
+    expect(stored?.exec.blockedWindows).toEqual([]);
+    expect(isEmptyBlackout(stored?.exec ?? {})).toBe(true);
+    expect(stored?.metrics).toEqual(libre.stored?.metrics);
   });
 
   it('sin acceso a market_events el run falla con un mensaje claro, no ignora el filtro', async () => {

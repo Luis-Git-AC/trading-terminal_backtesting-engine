@@ -179,7 +179,7 @@ export function buildMcpServer(deps: McpToolDeps): McpServer {
     'get_run_metrics',
     {
       title: 'Estado y metricas de un backtest',
-      description: `Estado del run (queued, running con su progreso, completed, failed con su error, cancelled) y, si termino, sus metricas, una muestra de ${String(MCP_SAMPLE_TRADES)} trades y la curva de equity reducida a ${String(MCP_SAMPLE_POINTS)} puntos, con el total real de cada una. Todo lo calculo el worker; aqui no se recalcula nada.`,
+      description: `Estado del run (queued, running con su progreso, completed, failed con su error, cancelled) y, si termino, sus metricas, una muestra de ${String(MCP_SAMPLE_TRADES)} trades y la curva de equity reducida a ${String(MCP_SAMPLE_POINTS)} puntos, con el total real de cada una. Avisos: event-blackout-empty si se pidio eventBlackout y el rango no tenia ningun evento de esos tipos, asi que no se bloqueo ninguna entrada. Todo lo calculo el worker; aqui no se recalcula nada.`,
       inputSchema: getRunMetricsShape,
       annotations: { readOnlyHint: true },
     },

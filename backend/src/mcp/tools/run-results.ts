@@ -3,6 +3,7 @@ import {
   MCP_SAMPLE_TRADES,
   compareRunsInputSchema,
   getRunMetricsInputSchema,
+  isEmptyBlackout,
   type BacktestWarning,
   type CompareResponse,
   type RunDetail,
@@ -22,8 +23,11 @@ export interface Sampled<T> {
   readonly sample: readonly T[];
 }
 
+export type McpRunWarning = 'event-blackout-empty';
+
 export interface RunMetricsResult {
   readonly run: RunDetail;
+  readonly warnings: readonly McpRunWarning[];
   readonly trades: Sampled<TradesResponse['trades'][number]> | null;
   readonly equity: Sampled<{ t: number; equity: string; dd: number }> | null;
 }
@@ -54,7 +58,7 @@ export async function getRunMetricsTool(
   const { service } = requireBacktests(deps);
   const run = await getBacktest(service, runId);
 
-  if (run.status !== 'completed') return { run, trades: null, equity: null };
+  if (run.status !== 'completed') return { run, warnings: [], trades: null, equity: null };
 
   const [trades, equity] = await Promise.all([
     getBacktestTrades(service, runId, { limit: MCP_SAMPLE_TRADES }),
@@ -63,6 +67,7 @@ export async function getRunMetricsTool(
 
   return {
     run,
+    warnings: isEmptyBlackout(run.exec) ? ['event-blackout-empty'] : [],
     trades: { total: run.metrics?.trades ?? trades.trades.length, sample: trades.trades },
     equity: {
       total: equity.length,

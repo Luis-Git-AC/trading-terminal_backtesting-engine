@@ -52,6 +52,7 @@ export {
   execConfigSchema,
   exitReasonSchema,
   fillModelSchema,
+  isEmptyBlackout,
   sideSchema,
   type BlockedWindow,
   type EventBlackout,

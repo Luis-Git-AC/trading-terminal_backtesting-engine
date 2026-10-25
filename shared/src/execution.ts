@@ -60,3 +60,10 @@ export const execConfigSchema = z.object({
 });
 
 export type ExecConfigInput = z.infer<typeof execConfigSchema>;
+
+export function isEmptyBlackout(exec: {
+  readonly eventBlackout?: EventBlackout | undefined;
+  readonly blockedWindows?: readonly BlockedWindow[] | undefined;
+}): boolean {
+  return exec.eventBlackout !== undefined && (exec.blockedWindows?.length ?? 0) === 0;
+}

@@ -133,7 +133,6 @@ export async function resolveBlockedWindows(
     from: run.rangeFrom - request.afterMs,
     to: run.rangeTo + request.beforeMs,
     types: request.types,
-    asOf: run.rangeFrom,
     limit: MAX_EVENTS_LIMIT,
   });
   if (found.length >= MAX_EVENTS_LIMIT) {

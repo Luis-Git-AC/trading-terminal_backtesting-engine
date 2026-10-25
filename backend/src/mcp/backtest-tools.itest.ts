@@ -369,6 +369,7 @@ describe('MCP server: tools de backtesting', () => {
 
       expect(error).toBe(false);
       expect(field(data, 'run')).toEqual(api.body);
+      expect(field(data, 'warnings')).toEqual([]);
       const trades = field(data, 'trades');
       const equity = field(data, 'equity');
       expect(field(trades, 'total')).toBe(TRADES);
@@ -377,6 +378,27 @@ describe('MCP server: tools de backtesting', () => {
       const sample = field(equity, 'sample');
       expect(Array.isArray(sample) && sample.length).toBeLessThanOrEqual(MCP_SAMPLE_POINTS);
       expect(Array.isArray(sample) && sample.length).toBeGreaterThan(MCP_SAMPLE_POINTS / 2);
+    });
+
+    it('un eventBlackout que no dejo ninguna ventana se avisa, no pasa en silencio', async () => {
+      const base = runInput().exec;
+      const vacio = await completedRun({
+        exec: {
+          ...base,
+          eventBlackout: { types: ['cftc-cot'], beforeMs: STEP, afterMs: STEP },
+          blockedWindows: [],
+        },
+      });
+      const conVentanas = await completedRun({
+        exec: {
+          ...base,
+          eventBlackout: { types: ['cftc-cot'], beforeMs: STEP, afterMs: STEP },
+          blockedWindows: [{ from: START, to: START + STEP }],
+        },
+      });
+
+      expect(field((await metricsOf(vacio)).data, 'warnings')).toEqual(['event-blackout-empty']);
+      expect(field((await metricsOf(conVentanas)).data, 'warnings')).toEqual([]);
     });
 
     it('un runId inexistente da un error limpio NOT_FOUND', async () => {

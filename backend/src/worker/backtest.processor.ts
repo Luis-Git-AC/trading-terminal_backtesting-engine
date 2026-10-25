@@ -1,4 +1,4 @@
-import { expectedCandleCount, type BacktestJob, type RunStatus } from '@tt/shared';
+import { expectedCandleCount, isEmptyBlackout, type BacktestJob, type RunStatus } from '@tt/shared';
 import type { CandlesRepository } from '../db/repositories/candles.repo.js';
 import type { EventsRepository } from '../db/repositories/events.repo.js';
 import type { RunRecord, RunsRepository } from '../db/repositories/runs.repo.js';
@@ -255,6 +255,12 @@ async function execute(
 
   const exec = await resolveBlockedWindows(deps.events, run);
   if (exec !== run.exec) await deps.runs.updateExec(runId, exec);
+  if (isEmptyBlackout(exec)) {
+    deps.logger.warn(
+      { runId, eventBlackout: exec.eventBlackout },
+      'eventBlackout sin eventos en el rango: no se bloquea ninguna entrada',
+    );
+  }
 
   const candles = await loadCandles({
     candles: deps.candles,

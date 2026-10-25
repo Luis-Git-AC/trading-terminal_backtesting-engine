@@ -320,6 +320,12 @@
   color: var(--color-text-secondary);
 }
 
+.blockedEmpty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-warning);
+}
+
 .blocked summary {
   cursor: pointer;
 }

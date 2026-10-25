@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import type { BacktestTrade } from '@tt/shared';
+import { isEmptyBlackout, type BacktestTrade } from '@tt/shared';
 import { EmptyState } from '@/components/Feedback/EmptyState';
 import { ErrorState } from '@/components/Feedback/ErrorState';
 import { Skeleton } from '@/components/Feedback/Skeleton';
@@ -99,6 +99,13 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
 
   return (
     <div className={styles.results}>
+      {blackout !== undefined &&
+        isEmptyBlackout({ eventBlackout: blackout, blockedWindows: windows }) && (
+          <p className={styles.blockedEmpty} role="status">
+            El filtro de eventos ({blackout.types.join(', ')}) no encontró ningún evento en el
+            rango: no se ha bloqueado ninguna entrada.
+          </p>
+        )}
       {windows.length > 0 && (
         <details className={styles.blocked}>
           <summary>
