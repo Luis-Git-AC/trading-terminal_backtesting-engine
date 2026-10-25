@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { createBacktestBodySchema } from './backtest-schemas.js';
+import {
+  COMPARE_MAX_IDS,
+  createBacktestBodySchema,
+  runIdParamsSchema,
+} from './backtest-schemas.js';
 
 /**
  * Esquemas de las tools del MCP server. Separados de `api-schemas.ts` a proposito: por HTTP todo
@@ -112,6 +116,25 @@ export const listStrategiesShape = {};
 
 export const runBacktestShape = createBacktestBodySchema.shape;
 
+export const MCP_SAMPLE_TRADES = 20;
+
+export const MCP_SAMPLE_POINTS = 100;
+
+export const getRunMetricsShape = {
+  runId: runIdParamsSchema.shape.id,
+};
+
+export const getRunMetricsInputSchema = z.object(getRunMetricsShape);
+
+export const compareRunsShape = {
+  runIds: z
+    .array(z.uuid({ error: 'Cada id debe ser un uuid' }))
+    .min(2, { error: 'Hacen falta al menos dos runs' })
+    .max(COMPARE_MAX_IDS, { error: `Como maximo ${COMPARE_MAX_IDS} runs a la vez` }),
+};
+
+export const compareRunsInputSchema = z.object(compareRunsShape);
+
 export const MCP_TOOL_NAMES = [
   'search_documents',
   'get_document',
@@ -121,6 +144,8 @@ export const MCP_TOOL_NAMES = [
   'write_note',
   'list_strategies',
   'run_backtest',
+  'get_run_metrics',
+  'compare_runs',
 ] as const;
 
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];

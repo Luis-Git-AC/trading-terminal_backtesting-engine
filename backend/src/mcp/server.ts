@@ -3,12 +3,16 @@ import {
   getMacroSeriesShape,
   getMarketContextShape,
   listEventsShape,
+  compareRunsShape,
+  getRunMetricsShape,
   listStrategiesShape,
   runBacktestShape,
   searchDocumentsShape,
   writeNoteShape,
   MCP_BODY_CHARS,
   MCP_MAX_RESULTS,
+  MCP_SAMPLE_POINTS,
+  MCP_SAMPLE_TRADES,
 } from '@tt/shared';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
@@ -18,6 +22,7 @@ import { getDocumentTool, searchDocumentsTool, writeNoteTool } from './tools/doc
 import { getMacroSeriesTool, getMarketContextTool, listEventsTool } from './tools/market.tools.js';
 import { listStrategiesTool } from './tools/list-strategies.js';
 import { runBacktestTool } from './tools/run-backtest.js';
+import { compareRunsTool, getRunMetricsTool } from './tools/run-results.js';
 import type { McpToolDeps } from './tools/deps.js';
 
 export const MCP_SERVER_NAME = 'trading-terminal';
@@ -168,6 +173,28 @@ export function buildMcpServer(deps: McpToolDeps): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
     (input) => run(deps, 'run_backtest', () => runBacktestTool(deps, input)),
+  );
+
+  server.registerTool(
+    'get_run_metrics',
+    {
+      title: 'Estado y metricas de un backtest',
+      description: `Estado del run (queued, running con su progreso, completed, failed con su error, cancelled) y, si termino, sus metricas, una muestra de ${String(MCP_SAMPLE_TRADES)} trades y la curva de equity reducida a ${String(MCP_SAMPLE_POINTS)} puntos, con el total real de cada una. Todo lo calculo el worker; aqui no se recalcula nada.`,
+      inputSchema: getRunMetricsShape,
+      annotations: { readOnlyHint: true },
+    },
+    (input) => run(deps, 'get_run_metrics', () => getRunMetricsTool(deps, input)),
+  );
+
+  server.registerTool(
+    'compare_runs',
+    {
+      title: 'Comparar backtests',
+      description: `Compara de 2 a 4 runs con el mismo servicio que la vista de comparacion: resumen y metricas de cada uno, curvas normalizadas a base 100 (muestra de ${String(MCP_SAMPLE_POINTS)} puntos con el total) y avisos: engine-version-mismatch si el motor no es el mismo y exchange-mismatch si cada run vio la serie de un exchange distinto.`,
+      inputSchema: compareRunsShape,
+      annotations: { readOnlyHint: true },
+    },
+    (input) => run(deps, 'compare_runs', () => compareRunsTool(deps, input)),
   );
 
   return server;

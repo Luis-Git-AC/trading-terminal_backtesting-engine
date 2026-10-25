@@ -7,7 +7,7 @@ import {
   type RateLimitOptions,
 } from '../../api/middleware/rate-limit.js';
 import { createBacktest } from '../../api/services/backtests.service.js';
-import type { McpToolDeps } from './deps.js';
+import { requireBacktests, type McpToolDeps } from './deps.js';
 
 export function createRunRateLimiter(options: RateLimitOptions, now: () => number): () => void {
   const windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
@@ -30,11 +30,7 @@ export async function runBacktestTool(
   deps: McpToolDeps,
   input: unknown,
 ): Promise<CreateBacktestResponse> {
-  if (deps.backtests === undefined) {
-    throw new Error(
-      'El backtesting no esta configurado en este proceso: falta la conexion a Redis',
-    );
-  }
-  deps.backtests.takeSlot();
-  return createBacktest(deps.backtests.service, createBacktestBodySchema.parse(input));
+  const backtests = requireBacktests(deps);
+  backtests.takeSlot();
+  return createBacktest(backtests.service, createBacktestBodySchema.parse(input));
 }

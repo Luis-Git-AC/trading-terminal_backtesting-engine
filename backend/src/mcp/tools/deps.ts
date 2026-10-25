@@ -46,3 +46,12 @@ export interface McpToolDeps {
   readonly exportVault: () => Promise<ExportReport>;
   readonly backtests?: McpBacktestDeps;
 }
+
+export function requireBacktests(deps: McpToolDeps): McpBacktestDeps {
+  if (deps.backtests === undefined) {
+    throw new Error(
+      'El backtesting no esta configurado en este proceso: falta la conexion a Redis',
+    );
+  }
+  return deps.backtests;
+}
