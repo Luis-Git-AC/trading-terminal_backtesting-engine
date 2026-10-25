@@ -62,8 +62,10 @@ services:
     healthcheck:
       test:
         [
-          'CMD-SHELL',
-          'wget -qO- http://127.0.0.1:4000/api/health | grep -q ''"db":"ok"'' || exit 1',
+          'CMD',
+          'node',
+          '-e',
+          'fetch(''http://127.0.0.1:4000/api/health'').then((r) => r.text()).then((t) => process.exit(t.includes(''"db":"ok"'') ? 0 : 1), () => process.exit(1))',
         ]
       interval: 2s
       timeout: 5s
