@@ -136,8 +136,11 @@ export function MacroPanel({ symbol, to, events, eventsPending = false }: MacroP
           />
         ) : (
           <ul className={styles.eventList}>
-            {events.map((event) => (
-              <li key={`${event.type}-${String(event.scheduledAt)}`} className={styles.event}>
+            {events.map((event, index) => (
+              <li
+                key={`${event.type}-${String(event.scheduledAt)}-${String(index)}`}
+                className={styles.event}
+              >
                 <span className={styles.eventDate}>{formatEventDate(event.scheduledAt)}</span>
                 <span className={styles.eventLabel}>{eventLabel(event)}</span>
               </li>
