@@ -1,5 +1,14 @@
+import { randomInt } from 'node:crypto';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { SEED_MAX, type Timeframe } from '@tt/shared';
+import type { Redis } from 'ioredis';
 import type { Pool } from 'pg';
+import type { RateLimitOptions } from '../api/middleware/rate-limit.js';
+import type { MarketExchangeDeps } from '../api/services/market.service.js';
+import { createRunsRepository } from '../db/repositories/runs.repo.js';
+import { createRunRateLimiter } from '../mcp/tools/run-backtest.js';
+import { createBacktestQueue } from '../queue/backtest.queue.js';
+import { createRedisCancelFlags } from '../queue/cancel-flags.js';
 import { exportVault } from '../brain/export/obsidian-export.js';
 import { createCandlesRepository } from '../db/repositories/candles.repo.js';
 import { createDerivativesRepository } from '../db/repositories/derivatives.repo.js';
@@ -14,6 +23,15 @@ import type { McpToolDeps } from '../mcp/tools/deps.js';
 import type { AppLogger } from '../observability/logger.js';
 import { DEFAULT_SIGNALS } from './collector.js';
 
+export interface McpBacktestOptions {
+  readonly queueConnection: Redis;
+  readonly exchanges: readonly MarketExchangeDeps[];
+  readonly timeframes: readonly Timeframe[];
+  readonly maxBars: number;
+  readonly maxActiveRuns?: number;
+  readonly rateLimit?: RateLimitOptions;
+}
+
 export interface StartMcpOptions {
   readonly pool: Pool;
   readonly logger: AppLogger;
@@ -21,6 +39,7 @@ export interface StartMcpOptions {
   readonly vaultPath?: string | undefined;
   readonly closePool?: boolean;
   readonly signals?: readonly NodeJS.Signals[];
+  readonly backtests?: McpBacktestOptions;
 }
 
 export interface McpHandle {
@@ -37,6 +56,8 @@ export function buildMcpDeps(options: StartMcpOptions): McpToolDeps {
   const documents = createDocumentsRepository(pool);
   const events = createEventsRepository(pool);
   const notes = createNotesRepository(pool);
+  const candles = createCandlesRepository(pool);
+  const bt = options.backtests;
 
   return {
     documents,
@@ -45,7 +66,7 @@ export function buildMcpDeps(options: StartMcpOptions): McpToolDeps {
     embeddings: createEmbeddingsRepository(pool),
     search: createSearchRepository(pool),
     macro: createMacroRepository(pool),
-    candles: createCandlesRepository(pool),
+    candles,
     derivatives: createDerivativesRepository(pool),
     logger,
     now: () => Date.now(),
@@ -59,6 +80,25 @@ export function buildMcpDeps(options: StartMcpOptions): McpToolDeps {
         now: () => Date.now(),
         ...(options.vaultPath === undefined ? {} : { vaultPath: options.vaultPath }),
       }),
+    ...(bt === undefined
+      ? {}
+      : {
+          backtests: {
+            service: {
+              runs: createRunsRepository(pool),
+              candles,
+              queue: createBacktestQueue(bt.queueConnection),
+              cancelFlags: createRedisCancelFlags(bt.queueConnection),
+              logger,
+              markets: { exchanges: bt.exchanges },
+              timeframes: bt.timeframes,
+              maxBars: bt.maxBars,
+              ...(bt.maxActiveRuns === undefined ? {} : { maxActiveRuns: bt.maxActiveRuns }),
+              generateSeed: () => randomInt(0, SEED_MAX + 1),
+            },
+            takeSlot: createRunRateLimiter(bt.rateLimit ?? {}, () => Date.now()),
+          },
+        }),
   };
 }
 
@@ -86,6 +126,7 @@ export async function startMcp(options: StartMcpOptions): Promise<McpHandle> {
       handlers.clear();
 
       await server.close();
+      if (options.backtests !== undefined) await options.backtests.queueConnection.quit();
       if (options.closePool !== false) await options.pool.end();
     })();
 

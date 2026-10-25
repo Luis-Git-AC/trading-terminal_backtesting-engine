@@ -11,6 +11,10 @@ export interface RateLimitOptions {
   readonly max?: number;
 }
 
+export function backtestRateLimitMessage(max: number, windowMs: number): string {
+  return `Demasiados backtests encolados: el maximo es ${max} cada ${Math.round(windowMs / 1000)} s`;
+}
+
 export function createBacktestRateLimit(options: RateLimitOptions = {}): RequestHandler {
   const windowMs = options.windowMs ?? DEFAULT_WINDOW_MS;
   const max = options.max ?? DEFAULT_MAX_CREATE;
@@ -22,11 +26,7 @@ export function createBacktestRateLimit(options: RateLimitOptions = {}): Request
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKeyGenerator(req.ip ?? 'unknown'),
     handler: (_req, _res, next) => {
-      next(
-        AppError.rateLimited(
-          `Demasiados backtests encolados: el maximo es ${max} cada ${Math.round(windowMs / 1000)} s`,
-        ),
-      );
+      next(AppError.rateLimited(backtestRateLimitMessage(max, windowMs)));
     },
   });
 }

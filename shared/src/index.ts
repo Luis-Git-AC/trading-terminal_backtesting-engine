@@ -246,6 +246,8 @@ export {
   isoDateSchema,
   listEventsInputSchema,
   listEventsShape,
+  listStrategiesShape,
+  runBacktestShape,
   searchDocumentsInputSchema,
   searchDocumentsShape,
   writeNoteInputSchema,

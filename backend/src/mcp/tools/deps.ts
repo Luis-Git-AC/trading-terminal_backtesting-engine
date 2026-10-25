@@ -10,6 +10,7 @@ import type { NotesRepository } from '../../db/repositories/notes.repo.js';
 import type { SearchRepository } from '../../db/repositories/search.repo.js';
 import type { AppLogger } from '../../observability/logger.js';
 import type { SearchServiceDeps } from '../../api/services/search.service.js';
+import type { BacktestsServiceDeps } from '../../api/services/backtests.service.js';
 
 /**
  * Correspondencia activo -> mercado, versionada en el codigo. Solo hay perpetuos de cripto en el
@@ -23,6 +24,11 @@ export const ASSET_MARKETS: Readonly<Record<string, { exchange: string; symbol: 
   });
 
 export const DEFAULT_CONTEXT_TIMEFRAME: Timeframe = '1h';
+
+export interface McpBacktestDeps {
+  readonly service: BacktestsServiceDeps;
+  readonly takeSlot: () => void;
+}
 
 export interface McpToolDeps {
   readonly documents: DocumentsRepository;
@@ -38,4 +44,5 @@ export interface McpToolDeps {
   readonly embedder?: SearchServiceDeps['embedder'];
   /** El export del vault tras `write_note`. Sin ruta de vault devuelve un informe vacio. */
   readonly exportVault: () => Promise<ExportReport>;
+  readonly backtests?: McpBacktestDeps;
 }

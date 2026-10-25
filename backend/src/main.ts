@@ -267,7 +267,10 @@ async function runCollector(logger: AppLogger): Promise<void> {
           baseUrl: env.COINGECKO_BASE_URL,
           fetch: (url) => globalThis.fetch(url),
           onRateLimited: (detail) => {
-            logger.warn({ source: COINGECKO_SOURCE_ID, detail }, 'CoinGecko al limite de peticiones');
+            logger.warn(
+              { source: COINGECKO_SOURCE_ID, detail },
+              'CoinGecko al limite de peticiones',
+            );
           },
         }),
         schedule: env.COINGECKO_CRON,
@@ -427,6 +430,21 @@ async function runMcp(): Promise<void> {
     logger,
     embedder: createTransformersEmbedder({ model: env.BRAIN_MODEL }),
     ...(env.OBSIDIAN_VAULT_PATH === undefined ? {} : { vaultPath: env.OBSIDIAN_VAULT_PATH }),
+    backtests: {
+      queueConnection: createQueueConnection(env.REDIS_URL, {
+        onError: (error) => {
+          logger.warn({ err: error }, 'conexion de la cola no disponible');
+        },
+      }),
+      exchanges: exchangeConfigs(env).map((config) => ({
+        exchange: config.exchange,
+        symbols: config.symbols,
+      })),
+      timeframes: env.TIMEFRAMES,
+      maxBars: env.BACKTEST_MAX_BARS,
+      maxActiveRuns: env.BACKTEST_MAX_ACTIVE_RUNS,
+      rateLimit: { windowMs: env.RATE_LIMIT_WINDOW_MS, max: env.RATE_LIMIT_MAX_BACKTESTS },
+    },
   });
 }
 

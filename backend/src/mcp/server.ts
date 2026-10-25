@@ -3,6 +3,8 @@ import {
   getMacroSeriesShape,
   getMarketContextShape,
   listEventsShape,
+  listStrategiesShape,
+  runBacktestShape,
   searchDocumentsShape,
   writeNoteShape,
   MCP_BODY_CHARS,
@@ -11,16 +13,11 @@ import {
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { ZodError } from 'zod';
-import {
-  getDocumentTool,
-  searchDocumentsTool,
-  writeNoteTool,
-} from './tools/documents.tools.js';
-import {
-  getMacroSeriesTool,
-  getMarketContextTool,
-  listEventsTool,
-} from './tools/market.tools.js';
+import { AppError } from '../api/errors.js';
+import { getDocumentTool, searchDocumentsTool, writeNoteTool } from './tools/documents.tools.js';
+import { getMacroSeriesTool, getMarketContextTool, listEventsTool } from './tools/market.tools.js';
+import { listStrategiesTool } from './tools/list-strategies.js';
+import { runBacktestTool } from './tools/run-backtest.js';
 import type { McpToolDeps } from './tools/deps.js';
 
 export const MCP_SERVER_NAME = 'trading-terminal';
@@ -38,13 +35,15 @@ function ok(payload: unknown): CallToolResult {
  */
 function fail(error: unknown): CallToolResult {
   const message =
-    error instanceof ZodError
-      ? `Input invalido: ${error.issues
-          .map((issue) => `${issue.path.join('.') || '(raiz)'}: ${issue.message}`)
-          .join('; ')}`
-      : error instanceof Error
-        ? error.message
-        : String(error);
+    error instanceof AppError
+      ? JSON.stringify(error.toEnvelope())
+      : error instanceof ZodError
+        ? `Input invalido: ${error.issues
+            .map((issue) => `${issue.path.join('.') || '(raiz)'}: ${issue.message}`)
+            .join('; ')}`
+        : error instanceof Error
+          ? error.message
+          : String(error);
 
   return { isError: true, content: [{ type: 'text', text: message }] };
 }
@@ -63,10 +62,8 @@ async function run(
 }
 
 /**
- * Las tools de lectura de la fase 10. Las de backtesting son F11.
- *
- * `write_note` es la unica que escribe, y solo en `notes`: ninguna manda ordenes y ninguna toca
- * `raw_documents`, `candles`, `macro_series` ni `backtest_runs`.
+ * Ninguna tool manda ordenes. `write_note` escribe solo en `notes` y `run_backtest` solo crea un run
+ * en `backtest_runs` por el mismo servicio que `POST /api/backtests`.
  */
 export function buildMcpServer(deps: McpToolDeps): McpServer {
   const server = new McpServer(
@@ -147,6 +144,30 @@ export function buildMcpServer(deps: McpToolDeps): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     },
     (input) => run(deps, 'write_note', () => writeNoteTool(deps, input)),
+  );
+
+  server.registerTool(
+    'list_strategies',
+    {
+      title: 'Catalogo de estrategias',
+      description:
+        'Estrategias disponibles con sus parametros: tipo, rango (min/max), opciones y valor por defecto. Usalo antes de `run_backtest` para construir `params` validos.',
+      inputSchema: listStrategiesShape,
+      annotations: { readOnlyHint: true },
+    },
+    () => run(deps, 'list_strategies', () => Promise.resolve(listStrategiesTool())),
+  );
+
+  server.registerTool(
+    'run_backtest',
+    {
+      title: 'Lanzar un backtest',
+      description:
+        'Encola un backtest con la misma validacion y los mismos limites que `POST /api/backtests` y devuelve `runId`, `seed` y `paramsHash` sin esperar a que termine. Sin `seed` se genera uno y se devuelve: guardalo para reproducir el run. `from`/`to` en epoch ms o ISO 8601. Solo paper trading: nunca envia ordenes.',
+      inputSchema: runBacktestShape,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    },
+    (input) => run(deps, 'run_backtest', () => runBacktestTool(deps, input)),
   );
 
   return server;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { createBacktestBodySchema } from './backtest-schemas.js';
 
 /**
  * Esquemas de las tools del MCP server. Separados de `api-schemas.ts` a proposito: por HTTP todo
@@ -64,9 +65,7 @@ export const getDocumentShape = {
 export const getDocumentInputSchema = z.object(getDocumentShape);
 
 export const getMacroSeriesShape = {
-  seriesId: z
-    .string()
-    .regex(/^[A-Za-z0-9_-]{1,64}$/u, { error: 'El id de serie es alfanumerico' }),
+  seriesId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/u, { error: 'El id de serie es alfanumerico' }),
   from: epochMsSchema.optional(),
   to: epochMsSchema.optional(),
   asOf: asOfSchema,
@@ -109,6 +108,10 @@ export const writeNoteShape = {
 
 export const writeNoteInputSchema = z.object(writeNoteShape);
 
+export const listStrategiesShape = {};
+
+export const runBacktestShape = createBacktestBodySchema.shape;
+
 export const MCP_TOOL_NAMES = [
   'search_documents',
   'get_document',
@@ -116,6 +119,8 @@ export const MCP_TOOL_NAMES = [
   'list_events',
   'get_market_context',
   'write_note',
+  'list_strategies',
+  'run_backtest',
 ] as const;
 
 export type McpToolName = (typeof MCP_TOOL_NAMES)[number];
