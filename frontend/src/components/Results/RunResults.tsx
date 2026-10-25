@@ -40,6 +40,12 @@ export function adjacentTab(current: ResultTab, key: string): ResultTab | null {
   return next === null ? null : (RESULT_TABS[next]?.id ?? null);
 }
 
+export const MAX_LISTED_WINDOWS = 50;
+
+function minute(ts: number): string {
+  return new Date(ts).toISOString().slice(0, 16).replace('T', ' ');
+}
+
 export interface RunResultsProps {
   readonly runId: string | undefined;
   readonly selectedSeq?: number | undefined;
@@ -78,6 +84,8 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
   }
 
   const metrics = run.data?.metrics ?? null;
+  const windows = run.data?.exec.blockedWindows ?? [];
+  const blackout = run.data?.exec.eventBlackout;
 
   const onTabKey = (event: KeyboardEvent<HTMLDivElement>): void => {
     const next = adjacentTab(tab, event.key);
@@ -91,6 +99,25 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
 
   return (
     <div className={styles.results}>
+      {windows.length > 0 && (
+        <details className={styles.blocked}>
+          <summary>
+            {formatCount(windows.length)} ventanas sin entradas
+            {blackout !== undefined &&
+              ` · ${blackout.types.join(', ')} −${String(blackout.beforeMs / 3_600_000)} h / +${String(blackout.afterMs / 3_600_000)} h`}
+          </summary>
+          <ul className={styles.blockedList}>
+            {windows.slice(0, MAX_LISTED_WINDOWS).map((window) => (
+              <li key={`${String(window.from)}-${String(window.to)}`}>
+                {minute(window.from)} → {minute(window.to)}
+              </li>
+            ))}
+            {windows.length > MAX_LISTED_WINDOWS && (
+              <li>y {formatCount(windows.length - MAX_LISTED_WINDOWS)} mas</li>
+            )}
+          </ul>
+        </details>
+      )}
       <div
         className={styles.tabs}
         role="tablist"
@@ -133,10 +160,7 @@ export function RunResults({ runId, selectedSeq, onSelectTrade }: RunResultsProp
       >
         {tab === 'metrics' &&
           (metrics === null ? (
-            <EmptyState
-              title="Sin metricas"
-              hint="El run termino sin metricas persistidas."
-            />
+            <EmptyState title="Sin metricas" hint="El run termino sin metricas persistidas." />
           ) : (
             <MetricsGrid metrics={metrics} />
           ))}

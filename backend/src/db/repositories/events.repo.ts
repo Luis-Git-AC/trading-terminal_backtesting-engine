@@ -26,6 +26,7 @@ export interface EventsRangeQuery {
   to: number;
   /** Solo eventos con alguna de estas etiquetas. Sin ellas, todos. */
   tags?: readonly string[] | undefined;
+  types?: readonly string[] | undefined;
   /** Corte point-in-time (ADR-006): solo lo que ya estaba descargado en ese instante. */
   asOf?: number | undefined;
   limit?: number | undefined;
@@ -88,6 +89,7 @@ const SELECT_SQL = `
     AND scheduled_at <= $2
     AND ($3::text[] IS NULL OR asset_tags && $3::text[])
     AND ($4::timestamptz IS NULL OR fetched_at <= $4)
+    AND ($6::text[] IS NULL OR type = ANY($6::text[]))
   ORDER BY scheduled_at DESC
   LIMIT $5
 `;
@@ -147,6 +149,7 @@ export function createEventsRepository(db: Queryable): EventsRepository {
         query.tags === undefined || query.tags.length === 0 ? null : [...query.tags],
         query.asOf === undefined ? null : new Date(query.asOf),
         clampLimit(query.limit),
+        query.types === undefined || query.types.length === 0 ? null : [...query.types],
       ]);
 
       return rows.map((row) => ({

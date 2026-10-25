@@ -2,7 +2,9 @@ import {
   EXIT_REASONS,
   FILL_MODELS,
   SIDES,
+  type BlockedWindow,
   type Candle,
+  type EventBlackout,
   type ExitReason,
   type FillModel,
   type Side,
@@ -24,6 +26,8 @@ export interface ExecConfig {
   readonly allowShort?: boolean;
   readonly markToMarket?: boolean;
   readonly excludeOutOfSession?: boolean | undefined;
+  readonly blockedWindows?: BlockedWindow[] | undefined;
+  readonly eventBlackout?: EventBlackout | undefined;
 }
 
 export type Signal =

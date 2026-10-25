@@ -1,14 +1,15 @@
 import {
+  type BlockedWindow,
   isAligned,
   isSymbolInSession,
   timeframeToMs,
   type Candle,
   type Timeframe,
 } from '@tt/shared';
-import {
-  MAX_CANDLES_LIMIT,
-  type CandlesRepository,
-} from '../db/repositories/candles.repo.js';
+import { MAX_CANDLES_LIMIT, type CandlesRepository } from '../db/repositories/candles.repo.js';
+import { MAX_EVENTS_LIMIT, type EventsRepository } from '../db/repositories/events.repo.js';
+import type { RunRecord } from '../db/repositories/runs.repo.js';
+import type { ExecConfig } from '../engine/types.js';
 
 export const DEFAULT_CHUNK_BARS = 50_000;
 
@@ -83,9 +84,7 @@ export async function loadCandles(options: LoadCandlesOptions): Promise<Candle[]
       }
       previousTs = candle.t;
       // La vela no se quita de la serie: solo se marca si el subyacente estaba cerrado.
-      loaded.push(
-        isSymbolInSession(candle.t, options.symbol) ? candle : { ...candle, x: true },
-      );
+      loaded.push(isSymbolInSession(candle.t, options.symbol) ? candle : { ...candle, x: true });
     }
 
     await options.onChunk?.(loaded.length);
@@ -98,4 +97,58 @@ export async function loadCandles(options: LoadCandlesOptions): Promise<Candle[]
   }
 
   return loaded;
+}
+
+export class EventBlackoutError extends Error {
+  override readonly name = 'EventBlackoutError';
+}
+
+export function mergeWindows(windows: readonly BlockedWindow[]): BlockedWindow[] {
+  const sorted = [...windows].sort((a, b) => a.from - b.from || a.to - b.to);
+  const merged: BlockedWindow[] = [];
+  for (const window of sorted) {
+    const last = merged.at(-1);
+    if (last !== undefined && window.from <= last.to) {
+      merged[merged.length - 1] = { from: last.from, to: Math.max(last.to, window.to) };
+    } else {
+      merged.push({ from: window.from, to: window.to });
+    }
+  }
+  return merged;
+}
+
+export async function resolveBlockedWindows(
+  events: EventsRepository | undefined,
+  run: Pick<RunRecord, 'exec' | 'rangeFrom' | 'rangeTo'>,
+): Promise<ExecConfig> {
+  const request = run.exec.eventBlackout;
+  if (request === undefined) return run.exec;
+  if (events === undefined) {
+    throw new EventBlackoutError(
+      'El worker no tiene acceso a market_events para resolver eventBlackout',
+    );
+  }
+
+  const found = await events.getEvents({
+    from: run.rangeFrom - request.afterMs,
+    to: run.rangeTo + request.beforeMs,
+    types: request.types,
+    asOf: run.rangeFrom,
+    limit: MAX_EVENTS_LIMIT,
+  });
+  if (found.length >= MAX_EVENTS_LIMIT) {
+    throw new EventBlackoutError(
+      `El rango tiene ${MAX_EVENTS_LIMIT} eventos o mas de ${request.types.join(', ')}: acorta el rango o los tipos`,
+    );
+  }
+
+  const derived = found.map((event) => ({
+    from: Math.max(0, event.scheduledAt - request.beforeMs),
+    to: event.scheduledAt + request.afterMs,
+  }));
+
+  return {
+    ...run.exec,
+    blockedWindows: mergeWindows([...(run.exec.blockedWindows ?? []), ...derived]),
+  };
 }

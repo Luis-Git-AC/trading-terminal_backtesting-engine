@@ -62,6 +62,7 @@ export interface RunsRepository {
   markRunning(runId: string, barsTotal: number): Promise<boolean>;
   requeueRun(runId: string): Promise<boolean>;
   updateProgress(runId: string, barsDone: number): Promise<void>;
+  updateExec(runId: string, exec: ExecConfig): Promise<void>;
   completeRun(input: CompleteRunInput): Promise<void>;
   failRun(runId: string, error: string): Promise<void>;
   cancelRun(runId: string): Promise<boolean>;
@@ -279,6 +280,13 @@ export function createRunsRepository(db: Queryable): RunsRepository {
          WHERE id = $1 AND status = 'running'`,
         [runId, barsDone],
       );
+    },
+
+    async updateExec(runId: string, exec: ExecConfig): Promise<void> {
+      await db.query('UPDATE backtest_runs SET exec_config = $2 WHERE id = $1', [
+        runId,
+        JSON.stringify(exec),
+      ]);
     },
 
     async completeRun(input: CompleteRunInput): Promise<void> {

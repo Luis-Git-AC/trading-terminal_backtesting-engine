@@ -1,9 +1,6 @@
-import {
-  expectedCandleCount,
-  type BacktestJob,
-  type RunStatus,
-} from '@tt/shared';
+import { expectedCandleCount, type BacktestJob, type RunStatus } from '@tt/shared';
 import type { CandlesRepository } from '../db/repositories/candles.repo.js';
+import type { EventsRepository } from '../db/repositories/events.repo.js';
 import type { RunRecord, RunsRepository } from '../db/repositories/runs.repo.js';
 import { downsampleEquity, EQUITY_MAX_POINTS } from '../engine/metrics.js';
 import { round10 } from '../engine/num.js';
@@ -13,7 +10,7 @@ import type { AppLogger } from '../observability/logger.js';
 import type { CancelFlagStore } from '../queue/cancel-flags.js';
 import type { RunEventPublisher } from '../queue/pubsub.js';
 import { getStrategy } from '../strategies/registry.js';
-import { DEFAULT_CHUNK_BARS, loadCandles } from './candle-loader.js';
+import { DEFAULT_CHUNK_BARS, loadCandles, resolveBlockedWindows } from './candle-loader.js';
 
 export const PROGRESS_MIN_INTERVAL_MS = 200;
 
@@ -83,6 +80,7 @@ export function createAbortWatch(options: CancelWatchOptions): AbortWatch {
 export interface BacktestProcessorDeps {
   readonly runs: RunsRepository;
   readonly candles: CandlesRepository;
+  readonly events?: EventsRepository | undefined;
   readonly publisher: RunEventPublisher;
   readonly logger: AppLogger;
   readonly createWatch: (runId: string) => AbortWatch;
@@ -255,6 +253,9 @@ async function execute(
 
   throwIfAborted();
 
+  const exec = await resolveBlockedWindows(deps.events, run);
+  if (exec !== run.exec) await deps.runs.updateExec(runId, exec);
+
   const candles = await loadCandles({
     candles: deps.candles,
     exchange: run.exchange,
@@ -326,7 +327,7 @@ async function execute(
     candles,
     strategy,
     params: run.params,
-    exec: run.exec,
+    exec,
     seed: run.seed,
     onProgress,
     progressEveryBars: deps.progressEveryBars ?? PROGRESS_EVERY_BARS,

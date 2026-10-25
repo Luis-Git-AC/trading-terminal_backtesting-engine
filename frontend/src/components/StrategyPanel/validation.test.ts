@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SEED_MAX, type CoverageResponse, type StrategyMeta } from '@tt/shared';
 import {
+  BLACKOUT_DEFAULTS,
   EXEC_DEFAULTS,
   dayEndMs,
   dayStartMs,
@@ -47,6 +48,7 @@ function form(overrides: Partial<FormState> = {}): FormState {
     from: '2026-02-01',
     to: '2026-03-01',
     label: '',
+    blackout: BLACKOUT_DEFAULTS,
     ...overrides,
   };
 }
@@ -208,6 +210,27 @@ describe('validateForm', () => {
 
   it('sin estrategia no hay cuerpo', () => {
     expect(validateForm(form(), undefined, COVERAGE, 'binance', 'BTCUSDT', '15m').body).toBeNull();
+  });
+});
+
+describe('eventBlackout', () => {
+  it('sin tipos marcados no manda el filtro', () => {
+    expect(validate().body?.exec.eventBlackout).toBeUndefined();
+  });
+
+  it('con tipos marcados manda el margen en ms a los dos lados', () => {
+    const body = validate({ blackout: { types: ['fred-release'], hours: '2' } }).body;
+    expect(body?.exec.eventBlackout).toEqual({
+      types: ['fred-release'],
+      beforeMs: 7_200_000,
+      afterMs: 7_200_000,
+    });
+  });
+
+  it('un margen fuera de rango bloquea el envio', () => {
+    const result = validate({ blackout: { types: ['eia-wpsr'], hours: '500' } });
+    expect(result.body).toBeNull();
+    expect(result.errors['exec.eventBlackout']).toBeDefined();
   });
 });
 

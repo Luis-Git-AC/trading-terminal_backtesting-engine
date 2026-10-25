@@ -7,6 +7,7 @@ import {
   createCandlesRepository,
   type CandlesRepository,
 } from '../db/repositories/candles.repo.js';
+import { createEventsRepository } from '../db/repositories/events.repo.js';
 import { createRunsRepository, type RunsRepository } from '../db/repositories/runs.repo.js';
 import type { AppLogger } from '../observability/logger.js';
 import { createRedisCancelFlags } from '../queue/cancel-flags.js';
@@ -94,13 +95,12 @@ export async function startWorker(options: StartWorkerOptions): Promise<WorkerHa
   const deps: BacktestProcessorDeps = {
     runs: options.runs ?? createRunsRepository(pool),
     candles: options.candles ?? createCandlesRepository(pool),
+    events: createEventsRepository(pool),
     publisher,
     logger,
     ...(options.getStrategy === undefined ? {} : { getStrategy: options.getStrategy }),
     ...(options.chunkBars === undefined ? {} : { chunkBars: options.chunkBars }),
-    ...(options.equityMaxPoints === undefined
-      ? {}
-      : { equityMaxPoints: options.equityMaxPoints }),
+    ...(options.equityMaxPoints === undefined ? {} : { equityMaxPoints: options.equityMaxPoints }),
     ...(options.progressEveryBars === undefined
       ? {}
       : { progressEveryBars: options.progressEveryBars }),
@@ -138,7 +138,10 @@ export async function startWorker(options: StartWorkerOptions): Promise<WorkerHa
 
   worker.on('failed', (job, error) => {
     const runId = job?.data.runId;
-    logger.error({ runId, attemptsMade: job?.attemptsMade }, `el job de backtest fallo: ${error.message}`);
+    logger.error(
+      { runId, attemptsMade: job?.attemptsMade },
+      `el job de backtest fallo: ${error.message}`,
+    );
 
     if (job === undefined || runId === undefined) {
       return;

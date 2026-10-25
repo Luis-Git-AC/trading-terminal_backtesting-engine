@@ -119,6 +119,10 @@ export function runBacktest<P, S>(input: BacktestInput<P, S>): BacktestResult {
       rejectedSignals += 1;
       return;
     }
+    if (exec.blockedWindows?.some((window) => window.from <= bar.t && bar.t <= window.to)) {
+      rejectedSignals += 1;
+      return;
+    }
     const result = openPosition({
       side: signal.side,
       index,
@@ -181,10 +185,7 @@ export function runBacktest<P, S>(input: BacktestInput<P, S>): BacktestResult {
         prng,
       });
       if (signal !== null) {
-        const actionable =
-          signal.type === 'enter'
-            ? position === null
-            : position !== null;
+        const actionable = signal.type === 'enter' ? position === null : position !== null;
         if (actionable) {
           pending = { signal };
         }

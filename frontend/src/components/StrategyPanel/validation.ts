@@ -1,9 +1,11 @@
 import {
+  MAX_EVENT_MARGIN_MS,
   SEED_MAX,
   expectedCandleCount,
   type CoverageResponse,
   type CreateBacktestBody,
   type Exchange,
+  type MarketEventType,
   type StrategyMeta,
   type StrategyParam,
   type Timeframe,
@@ -58,6 +60,17 @@ export const EXEC_DEFAULTS: Record<ExecField, string> = {
   slippageBps: '2',
 };
 
+export const HOUR_MS = 3_600_000;
+
+export const MAX_BLACKOUT_HOURS = MAX_EVENT_MARGIN_MS / HOUR_MS;
+
+export interface BlackoutForm {
+  readonly types: readonly MarketEventType[];
+  readonly hours: string;
+}
+
+export const BLACKOUT_DEFAULTS: BlackoutForm = { types: [], hours: '2' };
+
 export interface FormState {
   readonly strategyId: string;
   readonly params: Readonly<Record<string, ParamValue>>;
@@ -66,6 +79,7 @@ export interface FormState {
   readonly from: string;
   readonly to: string;
   readonly label: string;
+  readonly blackout: BlackoutForm;
 }
 
 export interface ValidationResult {
@@ -275,6 +289,13 @@ export function validateForm(
   }
 
   const exec = validateExec(state, errors);
+  const blackoutHours = numberFrom(state.blackout.hours);
+  if (
+    state.blackout.types.length > 0 &&
+    (blackoutHours === null || blackoutHours < 0 || blackoutHours > MAX_BLACKOUT_HOURS)
+  ) {
+    errors['exec.eventBlackout'] = `Margen entre 0 y ${String(MAX_BLACKOUT_HOURS)} horas`;
+  }
   const seed = validateSeed(state, errors);
   const range = validateRange(state, coverage, errors, warnings);
 
@@ -314,6 +335,15 @@ export function validateForm(
         feeBps: exec.feeBps ?? 0,
         slippageBps: exec.slippageBps ?? 0,
         fillModel: 'next-open',
+        ...(state.blackout.types.length === 0 || blackoutHours === null
+          ? {}
+          : {
+              eventBlackout: {
+                types: [...state.blackout.types],
+                beforeMs: Math.round(blackoutHours * HOUR_MS),
+                afterMs: Math.round(blackoutHours * HOUR_MS),
+              },
+            }),
       },
       ...(seed === undefined ? {} : { seed }),
       ...(label === '' ? {} : { label }),

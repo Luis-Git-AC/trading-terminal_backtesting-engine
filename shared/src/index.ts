@@ -43,14 +43,22 @@ export {
 export {
   EXIT_REASONS,
   FILL_MODELS,
+  MARKET_EVENT_TYPES,
+  MAX_BLOCKED_WINDOWS,
+  MAX_EVENT_MARGIN_MS,
   SIDES,
+  blockedWindowSchema,
+  eventBlackoutSchema,
   execConfigSchema,
   exitReasonSchema,
   fillModelSchema,
   sideSchema,
+  type BlockedWindow,
+  type EventBlackout,
   type ExecConfigInput,
   type ExitReason,
   type FillModel,
+  type MarketEventType,
   type Side,
 } from './execution.js';
 

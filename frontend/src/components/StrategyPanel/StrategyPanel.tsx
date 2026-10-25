@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import type { CreateBacktestBody, Exchange, RunDetail, StrategyMeta, Timeframe } from '@tt/shared';
+import {
+  MARKET_EVENT_TYPES,
+  type CreateBacktestBody,
+  type Exchange,
+  type MarketEventType,
+  type RunDetail,
+  type StrategyMeta,
+  type Timeframe,
+} from '@tt/shared';
 import type { ApiError } from '@/api/errors';
 import { EmptyState } from '@/components/Feedback/EmptyState';
 import { ErrorState } from '@/components/Feedback/ErrorState';
@@ -7,7 +15,10 @@ import { Skeleton } from '@/components/Feedback/Skeleton';
 import { NumberStepper } from '@/components/StrategyPanel/NumberStepper';
 import { ParamField } from '@/components/StrategyPanel/ParamField';
 import {
+  BLACKOUT_DEFAULTS,
   EXEC_DEFAULTS,
+  HOUR_MS,
+  MAX_BLACKOUT_HOURS,
   EXEC_FIELDS,
   EXEC_LIMITS,
   dayStartMs,
@@ -43,6 +54,13 @@ const EMPTY_FORM: FormState = {
   from: '',
   to: '',
   label: '',
+  blackout: BLACKOUT_DEFAULTS,
+};
+
+export const EVENT_TYPE_LABELS: Record<MarketEventType, string> = {
+  'fred-release': 'Publicaciones FRED (FOMC, CPI, empleo)',
+  'eia-wpsr': 'Inventarios de crudo (EIA)',
+  'cftc-cot': 'Informe COT (CFTC)',
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -111,6 +129,13 @@ export function presetForm(
       from: isoDay(preset.range.from),
       to: isoDay(preset.range.to),
       label: preset.label ?? '',
+      blackout:
+        preset.exec.eventBlackout === undefined
+          ? BLACKOUT_DEFAULTS
+          : {
+              types: preset.exec.eventBlackout.types,
+              hours: String(preset.exec.eventBlackout.beforeMs / HOUR_MS),
+            },
     };
   }
 
@@ -207,6 +232,22 @@ export function StrategyPanel({
   const setParam = (key: string, value: ParamValue): void => {
     setForm((current) => ({ ...current, params: { ...current.params, [key]: value } }));
   };
+
+  const toggleEventType = (type: MarketEventType, on: boolean): void => {
+    setForm((current) => ({
+      ...current,
+      blackout: {
+        ...current.blackout,
+        types: on
+          ? MARKET_EVENT_TYPES.filter(
+              (item) => item === type || current.blackout.types.includes(item),
+            )
+          : current.blackout.types.filter((item) => item !== type),
+      },
+    }));
+  };
+
+  const blackoutError = errors['exec.eventBlackout'];
 
   const setExec = (field: ExecField, value: string): void => {
     setForm((current) => ({ ...current, exec: { ...current.exec, [field]: value } }));
@@ -410,6 +451,58 @@ export function StrategyPanel({
             )}
           </div>
         </div>
+      </section>
+
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Excluir entradas cerca de eventos</h3>
+        <div className={styles.grid}>
+          {MARKET_EVENT_TYPES.map((type) => (
+            <label key={type} className={styles.toggleRow} htmlFor={`blackout-${type}`}>
+              <input
+                id={`blackout-${type}`}
+                type="checkbox"
+                role="switch"
+                className={styles.toggle}
+                checked={form.blackout.types.includes(type)}
+                onChange={(event) => {
+                  toggleEventType(type, event.target.checked);
+                }}
+              />
+              <span className={styles.label}>{EVENT_TYPE_LABELS[type]}</span>
+            </label>
+          ))}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="blackout-hours">
+              Margen (± horas)
+            </label>
+            <NumberStepper
+              id="blackout-hours"
+              name="Margen (± horas)"
+              value={form.blackout.hours}
+              step={1}
+              min={0}
+              max={MAX_BLACKOUT_HOURS}
+              unit="h"
+              invalid={blackoutError !== undefined}
+              describedBy={blackoutError === undefined ? undefined : 'blackout-hours-error'}
+              onChange={(value) => {
+                setForm((current) => ({
+                  ...current,
+                  blackout: { ...current.blackout, hours: value },
+                }));
+              }}
+            />
+            {blackoutError !== undefined && (
+              <p className={styles.error} id="blackout-hours-error">
+                {blackoutError}
+              </p>
+            )}
+          </div>
+        </div>
+        <p className={styles.note}>
+          Solo cuentan los eventos ya descargados al inicio del rango. Las velas no se quitan: los
+          indicadores ven la serie entera y lo que se bloquea son las entradas.
+        </p>
       </section>
 
       <section className={styles.section}>

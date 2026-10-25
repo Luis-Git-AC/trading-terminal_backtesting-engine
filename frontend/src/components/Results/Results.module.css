@@ -314,3 +314,18 @@
   font-size: var(--font-size-xs);
   color: var(--color-warning);
 }
+
+.blocked {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.blocked summary {
+  cursor: pointer;
+}
+
+.blockedList {
+  margin: var(--space-4) 0 0;
+  padding-left: var(--space-16);
+  font-variant-numeric: tabular-nums;
+}
